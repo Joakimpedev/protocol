@@ -15,6 +15,18 @@
    - Copy the API keys for each platform (you'll get separate keys for iOS and Android)
    - **For React Native:** Your code will automatically use the correct API key based on the platform it's running on
 
+## Current Configuration
+
+### iOS Setup ✅
+- **RevenueCat Project ID:** entl3f0dd99297
+- **iOS SDK API Key:** appl_QUwdYYPCxhQMMSdqeenQUjeUSLZ
+- **Bundle Identifier:** com.protocol.galdr
+- **Status:** Configured in `src/services/subscriptionService.ts`
+
+### Android Setup ⏳
+- **Android SDK API Key:** Pending configuration
+- **Package Name:** com.protocol.galdr
+
 3. **Configure products in App Store Connect / Google Play Console:**
    - Set up subscription products:
      - Monthly subscription: $4.99/month
@@ -28,10 +40,11 @@
    - Create an entitlement called `premium`
 
 5. **Add API keys to your app:**
-   - Open `src/services/subscriptionService.ts`
-   - Replace `YOUR_IOS_API_KEY_HERE` with your iOS API key
-   - Replace `YOUR_ANDROID_API_KEY_HERE` with your Android API key
-   - Update `PRODUCT_IDS` with your actual product IDs from step 3
+   - ✅ iOS API key has been configured: `appl_QUwdYYPCxhQMMSdqeenQUjeUSLZ`
+   - ⏳ Android API key: Replace `YOUR_ANDROID_API_KEY_HERE` in `src/services/subscriptionService.ts` when available
+   - ✅ Product IDs configured:
+     - Monthly: `com.protocol.galdr.monthly`
+     - Annual: `com.protocol.galdr.yearly`
 
 6. **Test in sandbox:**
    - Use RevenueCat's test mode to verify purchases work

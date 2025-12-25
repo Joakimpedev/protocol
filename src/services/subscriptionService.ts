@@ -14,18 +14,17 @@ import { Platform } from 'react-native';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
-// RevenueCat API Keys - These need to be configured in RevenueCat dashboard
-// For now, using placeholder values that should be replaced with actual keys
+// RevenueCat API Keys - Configured in RevenueCat dashboard
 const REVENUECAT_API_KEY = Platform.select({
-  ios: 'YOUR_IOS_API_KEY_HERE', // Replace with your iOS API key
-  android: 'YOUR_ANDROID_API_KEY_HERE', // Replace with your Android API key
+  ios: 'appl_QUwdYYPCxhQMMSdqeenQUjeUSLZ', // iOS SDK API key
+  android: 'YOUR_ANDROID_API_KEY_HERE', // Replace with your Android API key when available
   default: '',
 });
 
 // Product identifiers - These must match your RevenueCat product IDs
 export const PRODUCT_IDS = {
-  MONTHLY: 'monthly_subscription', // Replace with your actual product ID
-  ANNUAL: 'annual_subscription', // Replace with your actual product ID
+  MONTHLY: 'com.protocol.galdr.monthly',
+  ANNUAL: 'com.protocol.galdr.yearly',
 };
 
 export interface SubscriptionStatus {
