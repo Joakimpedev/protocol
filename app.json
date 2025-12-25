@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Protocol",
+    "slug": "protocol",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.protocol.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0a0a"
+      },
+      "package": "com.protocol.app"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Protocol to access your camera to take progress photos."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#e5e5e5"
+        }
+      ]
+    ]
+  }
+}
+

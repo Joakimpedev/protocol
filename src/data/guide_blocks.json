@@ -1,0 +1,436 @@
+{
+  "problems": [
+    {
+      "problem_id": "jawline",
+      "display_name": "Jawline / Face Structure",
+      "what_it_is": "A defined jawline is the result of developed facial muscles, proper bone alignment, and low body fat.",
+      "what_causes_it": "Jaw definition is influenced by genetics, but poor posture and underdeveloped masseter muscles often hide structural potential.",
+      "how_to_fix": "Improve definition through consistent tongue posture and resistance training for the jaw muscles.",
+      "recommended_ingredients": ["snail_mucin"],
+      "recommended_exercises": ["mewing", "jaw_exercises", "chewing", "neck_posture"]
+    },
+    {
+      "problem_id": "acne",
+      "display_name": "Acne / Breakouts",
+      "what_it_is": "Acne is a skin condition characterized by inflamed lesions, including pimples, whiteheads, and cysts.",
+      "what_causes_it": "Hair follicles become plugged with oil and dead skin cells, allowing bacteria to thrive and cause inflammation.",
+      "how_to_fix": "Consistent cleansing and the application of targeted antimicrobial and exfoliating agents will reduce breakouts.",
+      "recommended_ingredients": ["hyaluronic_acid", "salicylic_acid", "benzoyl_peroxide", "niacinamide", "snail_mucin"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "oily_skin",
+      "display_name": "Oily Skin",
+      "what_it_is": "Oily skin is characterized by a persistent shine and a greasy texture across the face.",
+      "what_causes_it": "Overactive sebaceous glands produce an excess of sebum, often influenced by hormones and genetics.",
+      "how_to_fix": "Regulate sebum production using specific chemical actives and non-comedogenic hydration.",
+      "recommended_ingredients": ["hyaluronic_acid", "salicylic_acid", "niacinamide", "snail_mucin"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "dry_skin",
+      "display_name": "Dry Skin",
+      "what_it_is": "Dry skin lacks the necessary oils and moisture to maintain a healthy, supple barrier.",
+      "what_causes_it": "A compromised skin barrier fails to retain water, leading to flaking, tightness, and irritation.",
+      "how_to_fix": "Replenish moisture levels and seal the barrier with reparative, hydrating agents.",
+      "recommended_ingredients": ["hyaluronic_acid", "snail_mucin"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "blackheads",
+      "display_name": "Blackheads",
+      "what_it_is": "Blackheads are open comedones that appear as dark spots, typically on the nose, chin, and forehead.",
+      "what_causes_it": "Pores become clogged with sebum and skin cells. The surface oxidizes when exposed to air, turning dark.",
+      "how_to_fix": "Regular use of oil-soluble exfoliants is required to dissolve the debris within the pore.",
+      "recommended_ingredients": ["salicylic_acid", "niacinamide", "snail_mucin"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "dark_circles",
+      "display_name": "Dark Circles",
+      "what_it_is": "Dark circles are the visible darkening or hollowing of the skin beneath the eyes.",
+      "what_causes_it": "Thin skin, visible blood vessels, hyperpigmentation, and poor local circulation contribute to this appearance.",
+      "how_to_fix": "Thicken the delicate skin area and improve circulation through targeted topicals and lifestyle consistency.",
+      "recommended_ingredients": ["caffeine_solution", "vitamin_c", "retinol", "snail_mucin"],
+      "recommended_exercises": ["facial_massage"]
+    },
+    {
+      "problem_id": "skin_texture",
+      "display_name": "Skin Texture",
+      "what_it_is": "Uneven skin texture refers to a rough, bumpy, or dull appearance of the skin surface.",
+      "what_causes_it": "A buildup of dead skin cells and environmental damage prevents the skin from appearing smooth.",
+      "how_to_fix": "Accelerate cell turnover through chemical exfoliation and consistent use of Vitamin A derivatives.",
+      "recommended_ingredients": ["aha", "retinol", "hyaluronic_acid", "snail_mucin"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "hyperpigmentation",
+      "display_name": "Hyperpigmentation",
+      "what_it_is": "Hyperpigmentation is the darkening of specific skin areas caused by an overproduction of melanin.",
+      "what_causes_it": "Inflammation, acne scarring, and ultraviolet exposure trigger the skin to produce excess pigment.",
+      "how_to_fix": "Inhibit melanin production and protect the skin from further damage with daily sun protection.",
+      "recommended_ingredients": ["vitamin_c", "niacinamide", "retinol", "snail_mucin", "aha"],
+      "recommended_exercises": []
+    },
+    {
+      "problem_id": "facial_hair",
+      "display_name": "Facial Hair",
+      "what_it_is": "Patchy or slow-growing facial hair prevents the development of a full beard.",
+      "what_causes_it": "Dormant follicles or insufficient blood flow to the face can limit natural hair growth patterns.",
+      "how_to_fix": "Stimulate the follicles through increased blood circulation and topical growth-promoting agents.",
+      "recommended_ingredients": ["minoxidil", "snail_mucin"],
+      "recommended_exercises": ["facial_massage"]
+    }
+  ],
+  "ingredients": [
+    {
+      "ingredient_id": "salicylic_acid",
+      "display_name": "Salicylic Acid (BHA)",
+      "routine_order": 2,
+      "short_description": "Oil-soluble and works as a exfoliator which penetrates deep into the pores. Dissolves debris and prevent blockages.",
+      "example_brands": ["COSRX BHA Blackhead Power Liquid", "Paula's Choice 2% BHA Liquid Exfoliant", "The Ordinary Salicylic Acid 2% Solution"],
+      "timing": "evening",
+      "used_for": ["oily_skin", "blackheads", "acne"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "treatment",
+      "session": {
+        "action": "Apply a thin layer to dry skin. Wait 5 mins after showeing. Avoid eye area.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 150,
+        "tip": "If irritation occurs, reduce to every other day."
+      }
+    },
+    {
+      "ingredient_id": "hyaluronic_acid",
+      "display_name": "Hyaluronic Acid",
+      "routine_order": 2,
+      "short_description": "Attracts and binds water to the skin, improving hydration and elasticity.",
+      "example_brands": ["COSRX The 6 Peptide Skin Booster Serum", "COSRX Hyaluronic Acid Hydra Power Essence", "The Ordinary Hyaluronic Acid 2% + B5"],
+      "timing": "morning/evening",
+      "used_for": ["acne", "dry_skin", "skin_texture", "hyperpigmentation"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "serum",
+      "session": {
+        "action": "Apply as much as needed. Spread evenly.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 30,
+        "tip": "Works best on slightly wet skin."
+      }
+    },
+    {
+      "ingredient_id": "snail_mucin",
+      "display_name": "Snail Mucin",
+      "routine_order": 5,
+      "short_description": "A versatile hydration agent that repairs the skin barrier, reduces redness, and provides non-greasy moisture.",
+      "example_brands": ["COSRX Advanced Snail 92 All In One Cream", "COSRX Advanced Snail 96 Mucin Power Essence", "Mizon All In One Snail Repair Cream"],
+      "timing": "morning/evening",
+      "used_for": ["acne", "oily_skin", "dry_skin", "blackheads", "skin_texture", "dark_circles", "hyperpigmentation", "facial_hair", "jawline"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "moisturizer",
+      "session": {
+        "action": "Apply a generous amount, but not dripping. Let it absorb.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 0,
+        "tip": null
+      }
+    },
+    {
+      "ingredient_id": "benzoyl_peroxide",
+      "display_name": "Benzoyl Peroxide",
+      "routine_order": 2,
+      "short_description": "A powerful antimicrobial agent that kills acne-causing bacteria and reduces inflammation.",
+      "example_brands": ["PanOxyl Acne Foaming Wash", "La Roche-Posay Effaclar Duo", "Neutrogena On-the-Spot Acne Treatment"],
+      "timing": "evening",
+      "used_for": ["acne"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "treatment",
+      "session": {
+        "action": "Apply a thin layer to affected areas only. Less is more.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 60,
+        "tip": "Can bleach fabrics. Use white pillowcase.",
+        "premium": true
+      }
+    },
+    {
+      "ingredient_id": "aha",
+      "display_name": "AHA (Glycolic/Lactic Acid)",
+      "routine_order": 2,
+      "short_description": "Water-soluble acids that exfoliate the surface of the skin to improve texture and tone.",
+      "example_brands": ["The Ordinary Glycolic Acid 7% Toning Solution", "Paula's Choice Skin Perfecting 8% AHA", "The Ordinary Lactic Acid 10% + HA"],
+      "timing": "evening",
+      "used_for": ["skin_texture", "hyperpigmentation"],
+      "timing_flexible": false,
+      "timing_options": ["evening"],
+      "step_category": "treatment",
+      "session": {
+        "action": "Apply to dry skin with cotton pad or fingertips.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 60,
+        "tip": "Causes sun sensitivity. Evening only.",
+        "premium": true
+      }
+    },
+    {
+      "ingredient_id": "retinol",
+      "display_name": "Retinol",
+      "routine_order": 2,
+      "short_description": "A vitamin-A derivative that increases cell turnover and stimulates collagen production.",
+      "example_brands": ["CeraVe Resurfacing Retinol Serum", "The Ordinary Retinol 0.5% in Squalane", "Paula's Choice 1% Retinol Treatment"],
+      "timing": "evening",
+      "used_for": ["skin_texture", "hyperpigmentation", "dark_circles"],
+      "timing_flexible": false,
+      "timing_options": ["evening"],
+      "step_category": "treatment",
+      "session": {
+        "action": "Apply pea-sized amount to dry skin. Avoid eye area.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 60,
+        "tip": "Start 2x per week. Increase gradually. Causes sun sensitivity.",
+        "premium": true
+      }
+    },
+    {
+      "ingredient_id": "vitamin_c",
+      "display_name": "Vitamin C (L-Ascorbic Acid)",
+      "routine_order": 3,
+      "short_description": "An antioxidant that brightens the skin and protects against environmental oxidative stress.",
+      "example_brands": ["SkinCeuticals C E Ferulic", "L'Oreal Paris Revitalift 10% Pure Vitamin C", "The Ordinary Vitamin C Suspension 23%"],
+      "timing": "morning",
+      "used_for": ["hyperpigmentation", "dark_circles"],
+      "timing_flexible": false,
+      "timing_options": ["morning"],
+      "step_category": "serum",
+      "session": {
+        "action": "Apply 3-4 drops to face and neck.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 60,
+        "tip": "Best used in morning for antioxidant protection.",
+        "premium": true
+      }
+    },
+    {
+      "ingredient_id": "niacinamide",
+      "display_name": "Niacinamide (Vitamin B3)",
+      "routine_order": 3,
+      "short_description": "Regulates oil production, minimizes pore appearance, and strengthens the skin barrier.",
+      "example_brands": ["The Ordinary Niacinamide 10% + Zinc 1%", "The Inkey List Niacinamide Serum", "La Roche-Posay Pure Niacinamide 10 Serum"],
+      "timing": "morning/evening",
+      "used_for": ["oily_skin", "acne", "hyperpigmentation", "blackheads"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "serum",
+      "session": {
+        "action": "Apply 2-3 drops. Spread evenly across face.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 30,
+        "tip": null
+      }
+    },
+    {
+      "ingredient_id": "caffeine_solution",
+      "display_name": "Caffeine Solution",
+      "routine_order": 3,
+      "short_description": "A topical stimulant that constricts blood vessels to reduce the appearance of puffiness and dark circles.",
+      "example_brands": ["The Ordinary Caffeine Solution 5% + EGCG", "The Inkey List Caffeine Serum", "Kiehl's Eye Fuel"],
+      "timing": "morning/evening",
+      "used_for": ["dark_circles"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "serum",
+      "session": {
+        "action": "Pat gently under eyes using ring finger.",
+        "duration_seconds": 30,
+        "wait_after_seconds": 30,
+        "tip": "Ring finger applies least pressure. Be gentle."
+      }
+    },
+    {
+      "ingredient_id": "minoxidil",
+      "display_name": "Minoxidil (5%)",
+      "routine_order": 7,
+      "short_description": "A topical treatment that increases blood flow to hair follicles to stimulate facial hair growth.",
+      "example_brands": ["Kirkland Signature 5% Minoxidil", "Rogaine 5% Minoxidil Foam", "Hims Minoxidil 5% Solution"],
+      "timing": "morning/evening",
+      "used_for": ["facial_hair"],
+      "timing_flexible": true,
+      "timing_options": ["morning", "evening"],
+      "step_category": "specialty",
+      "session": {
+        "action": "Apply 1ml to facial hair area. Rub it in. Do not wash face for 4 hours after application.",
+        "duration_seconds": 240,
+        "wait_after_seconds": 0,
+        "tip": "Get a derma roller for maximum effect"
+      }
+    }
+  ],
+  "exercises": [
+    {
+      "exercise_id": "mewing",
+      "display_name": "Mewing",
+      "type": "continuous",
+      "what_it_improves": "Jawline definition, facial structure, breathing",
+      "instructions": "Rest your entire tongue flat against the roof of your mouth. The back third of the tongue matters most. Teeth lightly together or slightly apart, lips sealed. Breathe through your nose. Maintain throughout the day.",
+      "tip": "This is a habit, not an exercise. Set reminders to build awareness.",
+      "has_completion": false,
+      "used_for": ["jawline"]
+    },
+    {
+      "exercise_id": "chewing",
+      "display_name": "Chewing (Mastic Gum)",
+      "type": "timed",
+      "what_it_improves": "Masseter muscle development, jawline definition",
+      "instructions": "Chew mastic gum with consistent, firm pressure. You can also buy rubber jaw exerciser. These mimic gum and you use your molars, not your front teeth. Alternate sides every few minutes to develop both sides evenly.",
+      "tip": "Start with 10 minutes if you are new to this. Build up gradually to avoid jaw fatigue.",
+      "duration_options": [600, 900, 1200, 1800],
+      "default_duration": 600,
+      "has_completion": true,
+      "variations": null,
+      "used_for": ["jawline"]
+    },
+    {
+      "exercise_id": "jaw_exercises",
+      "display_name": "Jaw Exercises",
+      "type": "cycling",
+      "has_completion": true,
+      "set_options": [20, 40, 60],
+      "default_sets": 20,
+      "variations": [
+        {
+          "variation_id": "jaw_clench",
+          "name": "Jaw Clench",
+          "what_it_improves": "Masseter strength, jaw definition",
+          "instructions": "Clench your jaw firmly, hold for 5 seconds, then release. Repeat continuously for the duration.",
+          "tip": "Focus on squeezing evenly on both sides.",
+          "hold_seconds": 5,
+          "release_seconds": 3
+        },
+        {
+          "variation_id": "jaw_resistance_up",
+          "name": "Jaw Resistance (Upward)",
+          "what_it_improves": "Under-jaw muscle tone, neck-jaw connection",
+          "instructions": "Make a fist and place it under your chin. Push your jaw down against your fist while resisting with your hand. Hold for 10 seconds, release. Repeat.",
+          "tip": "Keep pressure steady and controlled.",
+          "hold_seconds": 10,
+          "release_seconds": 3
+        },
+        {
+          "variation_id": "jaw_resistance_forward",
+          "name": "Jaw Resistance (Forward)",
+          "what_it_improves": "Jaw projection, chin definition",
+          "instructions": "Place your palm against your chin. Push your jaw forward against your palm while resisting. Hold for 10 seconds, release. Repeat.",
+          "tip": "Do not push so hard that you strain your neck.",
+          "hold_seconds": 10,
+          "release_seconds": 3
+        },
+        {
+          "variation_id": "jaw_stretch",
+          "name": "Jaw Stretch",
+          "what_it_improves": "Jaw mobility, TMJ health, muscle recovery",
+          "instructions": "Open your mouth as wide as you can. Hold for 10 seconds. Close slowly. Then move jaw left, hold 5 seconds. Move jaw right, hold 5 seconds. Repeat cycle.",
+          "tip": "This is a recovery exercise. Do not force the stretch.",
+          "hold_seconds": 10,
+          "release_seconds": 3,
+          "additional_holds": [
+            {"position": "left", "hold_seconds": 5},
+            {"position": "right", "hold_seconds": 5}
+          ]
+        }
+      ],
+      "used_for": ["jawline"]
+    },
+    {
+      "exercise_id": "neck_posture",
+      "display_name": "Neck Posture",
+      "type": "cycling",
+      "has_completion": true,
+      "set_options": [20, 40, 60],
+      "default_sets": 20,
+      "variations": [
+        {
+          "variation_id": "chin_tucks",
+          "name": "Chin Tucks",
+          "what_it_improves": "Forward head posture correction, neck alignment, jaw appearance",
+          "instructions": "Stand or sit straight. Pull your chin straight back, creating a double chin. Hold for 5 seconds. Release. Repeat continuously.",
+          "tip": "Imagine a string pulling the back of your head up and back.",
+          "hold_seconds": 5,
+          "release_seconds": 3
+        },
+        {
+          "variation_id": "neck_stretch_lateral",
+          "name": "Neck Stretch (Lateral)",
+          "what_it_improves": "Neck flexibility, tension relief, side neck muscles",
+          "instructions": "Tilt your head toward your right shoulder. Use your right hand to gently pull your head further. Hold 30 seconds. Switch to left side. Repeat.",
+          "tip": "Keep shoulders down and relaxed.",
+          "hold_seconds": 30,
+          "release_seconds": 3,
+          "alternating": true
+        },
+        {
+          "variation_id": "neck_rotation",
+          "name": "Neck Rotation",
+          "what_it_improves": "Neck mobility, muscle balance, tension relief",
+          "instructions": "Slowly rotate your head to look over your right shoulder. Hold 10 seconds. Return to center. Rotate to left shoulder. Hold 10 seconds. Repeat cycle.",
+          "tip": "Move slowly and smoothly. Never jerk your neck.",
+          "hold_seconds": 10,
+          "release_seconds": 3,
+          "alternating": true
+        },
+        {
+          "variation_id": "wall_slide",
+          "name": "Wall Slide",
+          "what_it_improves": "Upper back posture, shoulder alignment, forward head correction",
+          "instructions": "Stand with your back flat against a wall, heels 6 inches from wall. Press your lower back, upper back, and head against the wall. Raise arms to goal-post position against wall. Slide arms up and down while maintaining contact with wall.",
+          "tip": "If your head cannot touch the wall, do not force it. Work toward it over time.",
+          "hold_seconds": 0,
+          "release_seconds": 0,
+          "continuous": true
+        }
+      ],
+      "used_for": ["jawline"]
+    },
+    {
+      "exercise_id": "facial_massage",
+      "display_name": "Facial Massage",
+      "short_description": "Techniques to encourage lymphatic drainage and reduce fluid retention in the face.",
+      "duration": "5 minutes",
+      "used_for": ["dark_circles", "facial_hair"],
+      "session": {
+        "action": "Use fingertips to massage in upward strokes. Start from neck, move to jaw, cheeks, forehead.",
+        "duration_seconds": 300,
+        "is_continuous": false,
+        "tip": "Light pressure only. Can use oil or moisturizer."
+      }
+    }
+  ],
+  "base_steps": [
+    {
+      "step_id": "wash_face",
+      "display_name": "Wash Face",
+      "short_description": "Removes old cells, fat and other debris. Prepping the face.",
+      "step_category": "cleanse",
+      "timing_options": ["morning", "evening"],
+      "session": {
+        "action": "Lukewarm water. Gentle soap if needed. Pat dry with clean towel.",
+        "duration_seconds": null,
+        "wait_after_seconds": 0,
+        "tip": "Do not rub. Patting prevents irritation."
+      }
+    }
+  ],
+  "step_category_order": [
+    "cleanse",
+    "treatment",
+    "serum",
+    "moisturizer",
+    "specialty"
+  ],
+  "static_text": {
+    "shopping_intro": "Availability varies by region, but the active ingredients remain the same. Use the examples as a guide, then search your local markets.\n\nRemember, you can lead a horse to water, but you cannot make it drink. The responsibility of acquiring these tools is yours. We provide the blueprints; you must secure the materials.\n\nIt is a simple task. Do not let minor logistics stall your progress. When you have all products, we will give you a simple guide on how to them all properly.",
+    "exercises_intro": "These exercises should be done daily. Consistency matters more than intensity. Results come from repetition."
+  }
+}

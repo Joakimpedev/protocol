@@ -1,0 +1,130 @@
+Pre-Coding Checklist
+
+  ✅ Decided (Solid)
+
+  - Target audience (young males 16-24, face-focused)
+  - Core flow structure
+  - Problem categories (9 types)
+  - Photo system (5 free, Week 5 paywall)
+  - Friends system (codes, unlimited, free)
+  - Consistency score (weekly reset)
+  - Free vs Premium feature split
+  - No affiliates, no AI analysis for MVP
+  - Tech stack
+  - Notification tone
+  - Visual design aesthetic (terminal-like, black/white, minimal)
+  - Daily Routine UX (collapsible sections, checkboxes, product names)
+  - Shopping Phase flow (ingredient-first, product states)
+  - Tab structure (Today, Guide, Progress)
+  - Pricing ($4.99/month, $29.99/year, 1 week free trial)
+  - Week 5 paywall flow and copy
+  - Cancellation policy (6 month photo storage)
+  - Notification timing (default times, Day 3 + Day 7 re-engagement)
+  - Weekly summary delivery (push teaser)
+  - Subtle premium prompts (where and how)
+
+  ---
+  🟡 Needs Detail (Concept exists, needs specifics)
+
+  1. Onboarding Flow ✅ DONE
+  - 5 screens: Welcome → Categories → Questions → Sign Up → Plan
+  - AI pre-checks categories, always show manual confirmation
+  - Shopping integrated into Plan screen
+  - See: ONBOARDING_FLOW.md for full spec
+
+  2. Routine Blocks
+  - What are the actual 30-50 blocks?
+  - How do blocks combine when user picks multiple concerns?
+  - Conflict resolution (e.g., oily skin routine + dry skin routine?)
+  - Which specific products to recommend per block?
+
+  3. "What to Expect" Content
+  - 9 categories × 5 weeks = 45 content pieces needed
+  - How to combine when user has 2-3 concerns?
+  - Who writes this content? (You? Dermatologist review?)
+
+  4. Daily Routine UX ✅ DONE
+  - How is the routine displayed? → Collapsible sections
+  - Can users mark individual steps complete? → Yes, tap checkbox
+  - Do they mark whole routine done, or step-by-step? → Step-by-step
+  - Timer for exercises? → TBD
+
+  5. Photo Capture Flow ✅ DONE
+  - Face outline overlay PNG (TO CREATE asset)
+  - Tip text: "Use the same spot and lighting each week"
+  - Storage: Local-first (expo-file-system, private app directory)
+  - See: PHOTO_CAPTURE_FLOW.md for full spec
+
+  6. Paywall Moments ✅ DONE
+  - Week 5 is the photo gate - what's the copy? → Done
+  - What OTHER moments show premium prompts before Week 5? → Weekly summary, friend comparison, plan regen
+  - How aggressive vs subtle? → Subtle
+
+  ---
+  🔴 Not Decided Yet (Needs discussion)
+
+  7. Pricing Strategy ✅ DONE
+  - Exact monthly price → $4.99
+  - Annual plan price and discount % → $29.99 (50% off)
+  - Free trial period? → 1 week free
+  - Introductory offer for early users? → Skipped for MVP
+
+  8. Notification Logic ✅ DONE
+  - When exactly do reminders fire? → Default times, user can change in settings
+  - User sets their own times, or app suggests? → App sets defaults
+  - How many days of inactivity before re-engagement notification? → Day 3, then Day 7
+  - Weekly summary - push notification or just in-app? → Push teaser
+
+  9. Edge Cases
+  - User skips multiple days - affect on consistency score? → TBD
+  - User wants to change their concerns mid-routine? → TBD
+  - User cancels premium - do they lose access to photos 6+? → Access limited to Week 0-4, photos stored 6 months
+  - What if user's friend deletes account? → TBD
+
+  10. Content Production
+  - Exercise demonstrations - video, GIF, or illustrations?
+  - Create original content or license existing?
+  - Product research - who compiles the recommendations?
+
+  11. Legal/Compliance
+  - Health disclaimer needed? ("Not medical advice")
+  - Age verification? (Target includes 16-17 = minors)
+  - Photo privacy policy specifics
+  - GDPR considerations for EU users?
+
+  12. App Identity
+  - App name (still open)
+  - Visual brand (colors, logo, typography) → Terminal aesthetic decided, specifics TBD
+  - App Store category
+  - App Store screenshots/preview strategy
+
+  13. Analytics & Success Metrics
+  - What events to track?
+  - What does "success" look like at Week 4, Month 3, Month 6?
+  - Conversion rate targets?
+
+  14. Launch Plan
+  - Beta test first or straight to App Store?
+  - Initial user acquisition strategy?
+  - Soft launch in specific region?
+
+  ---
+  Suggested Priority Order
+
+  Must decide before coding:
+  1. Pricing strategy ✅ DONE
+  2. Daily routine UX ✅ DONE
+  3. Photo capture flow ✅ DONE
+  4. Onboarding exact flow ✅ DONE
+  5. App name/branding ✅ DONE → Protocol (subtitle: Face Routine for Men)
+
+  Can decide during coding:
+  6. Notification timing details ✅ DONE
+  7. Edge case handling (partially done)
+  8. "What to Expect" full content
+  9. Routine blocks full list
+
+  Can decide after MVP:
+  10. Analytics details
+  11. Launch strategy
+  12. Legal polish

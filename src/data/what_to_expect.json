@@ -1,0 +1,352 @@
+{
+  "what_to_expect": {
+    "jawline": {
+      "problem_id": "jawline",
+      "protocol": ["mewing", "chewing", "low_body_fat", "posture_correction"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 2,
+          "description": "You will likely feel muscle soreness in the tongue, jaw, and neck as you engage underused muscles. You may produce excess saliva. No visible external changes yet.",
+          "short_summary": "Muscle soreness in jaw and neck as you engage underused muscles."
+        },
+        {
+          "week_start": 3,
+          "week_end": 4,
+          "description": "The \"double chin\" area may feel slightly tighter or lifted due to the active elevation of the hyoid bone (tongue posture), but this is muscular, not skeletal. Jaw muscles (masseters) may feel firmer to the touch.",
+          "short_summary": "Jaw may feel tired as muscles adapt and double chin area tightens slightly."
+        },
+        {
+          "week_start": 5,
+          "week_end": 8,
+          "description": "Muscle adaptation continues. The soreness from early weeks subsides as your muscles become accustomed to the new demands. Posture corrections feel more natural. Still no major visible changes, but the foundation is being built.",
+          "short_summary": "Soreness subsides as muscles adapt and posture corrections feel more natural."
+        },
+        {
+          "week_start": 9,
+          "week_end": 12,
+          "description": "Soft tissue adaptation begins. Friends might ask if you have lost weight as the facial muscles tone up and water retention decreases. The jawline appears slightly more defined.",
+          "short_summary": "Facial muscles tone up and jawline appears slightly more defined."
+        },
+        {
+          "week_start": 13,
+          "week_end": 24,
+          "description": "Steady progress continues. The visual improvements from Month 3 become more pronounced. Muscle tone continues to develop, and posture corrections become second nature. Changes are gradual but consistent.",
+          "short_summary": "Visual improvements become more pronounced as muscle tone develops steadily."
+        },
+        {
+          "week_start": 25,
+          "week_end": null,
+          "description": "For adults, posture becomes habitual. Visual changes are steady but subtle. While skeletal restructuring is minimal in adults, the maximized muscle tone and corrected posture create the visual effect of a sharper, stronger jaw.",
+          "short_summary": "Posture becomes habitual and maximized muscle tone creates a sharper jaw appearance."
+        }
+      ]
+    },
+    "acne": {
+      "problem_id": "acne",
+      "protocol": ["salicylic_acid", "benzoyl_peroxide", "niacinamide", "snail_mucin"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 2,
+          "description": "The \"Purge\" begins. You may see more breakouts than usual as deep congestion is brought to the surface. Skin may feel dry or tight as it adjusts to the active ingredients.",
+          "short_summary": "The purge begins with more breakouts as deep congestion surfaces."
+        },
+        {
+          "week_start": 3,
+          "week_end": 4,
+          "description": "Peak purging phase. Breakouts may be inflamed, but this is a sign the protocol is working. Do not stop; consistency is critical here.",
+          "short_summary": "Peak purging phase with inflamed breakouts as the protocol works."
+        },
+        {
+          "week_start": 5,
+          "week_end": 5,
+          "description": "Purging continues but may begin to slow. Your skin is still adjusting to the actives. Keep consistent with your routine. The worst is almost over.",
+          "short_summary": "Purging begins to slow as skin adjusts to active ingredients."
+        },
+        {
+          "week_start": 6,
+          "week_end": 6,
+          "description": "The turning point. Active breakouts begin to reduce significantly in frequency. You will notice fewer new pimples forming, though redness from old ones remains.",
+          "short_summary": "The turning point as active breakouts reduce significantly in frequency."
+        },
+        {
+          "week_start": 7,
+          "week_end": 11,
+          "description": "Steady improvement. New breakouts become rare. Existing inflammation and redness from previous breakouts begin to fade. Your skin is healing and stabilizing.",
+          "short_summary": "New breakouts become rare and existing inflammation begins to fade."
+        },
+        {
+          "week_start": 12,
+          "week_end": null,
+          "description": "Clearance phase. Active acne is largely controlled. Skin texture is smoother, and the focus shifts entirely to healing the leftover red marks (PIE) and scars.",
+          "short_summary": "Active acne is largely controlled and focus shifts to healing red marks."
+        }
+      ]
+    },
+    "oily_skin": {
+      "problem_id": "oily_skin",
+      "protocol": ["niacinamide", "salicylic_acid", "hyaluronic_acid"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 1,
+          "description": "Skin may feel confused—oily in some zones, dry in others—as it adjusts to the new hydration balance. Niacinamide begins to soothe inflammation immediately.",
+          "short_summary": "Skin adjusts to new hydration balance as niacinamide soothes inflammation."
+        },
+        {
+          "week_start": 2,
+          "week_end": 3,
+          "description": "Sebum regulation kicks in. You will notice you need to blot your face less often, and the \"midday shine\" appears later in the day.",
+          "short_summary": "Sebum regulation kicks in and midday shine appears later in the day."
+        },
+        {
+          "week_start": 4,
+          "week_end": 8,
+          "description": "Stabilization. Oil production is controlled at the source. Pores appear tighter because they are no longer overflowing with sebum. The skin feels hydrated and soft, rather than greasy.",
+          "short_summary": "Oil production is controlled and pores appear tighter as skin stabilizes."
+        }
+      ]
+    },
+    "dry_skin": {
+      "problem_id": "dry_skin",
+      "protocol": ["hyaluronic_acid", "snail_mucin"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 1,
+          "description": "Immediate relief. Skin feels instantly plumper and less \"tight\" after application. Note: If you are in a dry climate, ensure you seal these products with a moisturizer, or they may temporarily feel drying.",
+          "short_summary": "Immediate relief as skin feels instantly plumper and less tight."
+        },
+        {
+          "week_start": 2,
+          "week_end": 2,
+          "description": "Barrier repair becomes visible. Flakiness and rough dry patches begin to smooth out. Makeup and sunscreen apply more evenly without clinging to dry spots.",
+          "short_summary": "Barrier repair becomes visible as flakiness and rough patches smooth out."
+        },
+        {
+          "week_start": 3,
+          "week_end": 3,
+          "description": "Continued barrier strengthening. The improvements from Week 2 become more consistent. Your skin retains moisture better throughout the day.",
+          "short_summary": "Barrier strengthening continues and skin retains moisture better throughout the day."
+        },
+        {
+          "week_start": 4,
+          "week_end": null,
+          "description": "Sustained hydration. The skin barrier is resilient. You no longer feel that painful tightness immediately after washing your face. Fine dehydration lines vanish.",
+          "short_summary": "Sustained hydration as skin barrier becomes resilient and tightness disappears."
+        }
+      ]
+    },
+    "blackheads": {
+      "problem_id": "blackheads",
+      "protocol": ["salicylic_acid", "niacinamide"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 2,
+          "description": "The \"Loosening\" phase. No major visible change yet. The BHA is working deep in the pore to dissolve the \"glue\" holding the blackhead plugs. Some may purge as small whiteheads.",
+          "short_summary": "The loosening phase begins as BHA works deep in pores to dissolve plugs."
+        },
+        {
+          "week_start": 3,
+          "week_end": 3,
+          "description": "The loosening process continues. You may notice some blackheads becoming easier to extract, but most are still in the process of being dissolved from within.",
+          "short_summary": "Loosening continues as some blackheads become easier to extract."
+        },
+        {
+          "week_start": 4,
+          "week_end": 4,
+          "description": "The \"Clean Up.\" Blackheads appear looser and may wash away effortlessly during cleansing. The \"strawberry nose\" appearance begins to fade.",
+          "short_summary": "Blackheads appear looser and may wash away effortlessly during cleansing."
+        },
+        {
+          "week_start": 5,
+          "week_end": 7,
+          "description": "Continued improvement. More blackheads clear out with each cleansing session. Pores begin to appear less congested and smaller.",
+          "short_summary": "More blackheads clear out with each cleansing and pores appear smaller."
+        },
+        {
+          "week_start": 8,
+          "week_end": null,
+          "description": "Maintenance. Pores look significantly cleaner and smaller because they are empty. Sebaceous filaments refill much slower than before.",
+          "short_summary": "Pores look significantly cleaner and smaller as maintenance phase continues."
+        }
+      ]
+    },
+    "dark_circles": {
+      "problem_id": "dark_circles",
+      "protocol": ["caffeine_solution", "vitamin_c", "retinol", "facial_massage"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 1,
+          "description": "Fluid reduction. You will see an immediate but temporary reduction in puffiness and fluid retention due to the caffeine and massage.",
+          "short_summary": "Immediate but temporary reduction in puffiness and fluid retention."
+        },
+        {
+          "week_start": 2,
+          "week_end": 3,
+          "description": "The immediate effects from Week 1 may fluctuate as your skin adjusts. Continue consistent application. Circulation improvements are building.",
+          "short_summary": "Effects may fluctuate as skin adjusts and circulation improvements build."
+        },
+        {
+          "week_start": 4,
+          "week_end": 11,
+          "description": "Brightening begins. The skin under the eyes feels slightly stronger and more resilient. The \"tired\" look improves slightly due to better circulation.",
+          "short_summary": "Brightening begins as skin under eyes feels stronger and tired look improves."
+        },
+        {
+          "week_start": 12,
+          "week_end": 26,
+          "description": "Pigment correction. If your dark circles are caused by pigmentation (brown), you will see lightening. Note: If circles are caused by bone structure (hollows), creams will not remove them, but skin quality will improve.",
+          "short_summary": "Pigment correction begins with lightening for pigmentation-based dark circles."
+        },
+        {
+          "week_start": 27,
+          "week_end": null,
+          "description": "Continued improvement. For pigmentation-based circles, lightening continues gradually. Skin quality and texture under the eyes remain improved.",
+          "short_summary": "Lightening continues gradually and skin quality under eyes remains improved."
+        }
+      ]
+    },
+    "skin_texture": {
+      "problem_id": "skin_texture",
+      "protocol": ["aha", "retinol", "snail_mucin"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 3,
+          "description": "\"Retinization.\" Skin will feel rough, sensitive, and may peel or flake. It often looks duller before it looks brighter. This is the exfoliation process removing dead layers.",
+          "short_summary": "Retinization begins as skin feels rough and may peel or flake."
+        },
+        {
+          "week_start": 4,
+          "week_end": 6,
+          "description": "Acclimatization. Peeling stops. Fresh, new skin cells reach the surface. The skin begins to feel softer to the touch.",
+          "short_summary": "Peeling stops as fresh skin cells reach the surface and skin softens."
+        },
+        {
+          "week_start": 7,
+          "week_end": 11,
+          "description": "Texture refinement continues. The improvements from acclimatization become more pronounced. Your skin feels increasingly smooth and even.",
+          "short_summary": "Texture refinement continues as skin feels increasingly smooth and even."
+        },
+        {
+          "week_start": 12,
+          "week_end": null,
+          "description": "The \"Glow.\" The outer layer of skin is compact and smooth, allowing light to reflect evenly (the \"glass skin\" effect). Micro-bumps and roughness are gone.",
+          "short_summary": "The glow phase as skin becomes compact and smooth with even light reflection."
+        }
+      ]
+    },
+    "hyperpigmentation": {
+      "problem_id": "hyperpigmentation",
+      "protocol": ["vitamin_c", "retinol", "aha"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 4,
+          "description": "The Paradox. Dark spots may appear slightly darker or more defined initially. This is normal as the skin above the pigment is exfoliated away, bringing the spot to the surface.",
+          "short_summary": "Dark spots may appear darker initially as pigment comes to the surface."
+        },
+        {
+          "week_start": 5,
+          "week_end": 7,
+          "description": "The darkening phase continues as more pigment comes to the surface. This is still part of the process. Do not stop treatment.",
+          "short_summary": "Darkening phase continues as more pigment comes to the surface."
+        },
+        {
+          "week_start": 8,
+          "week_end": 8,
+          "description": "Fading begins. The edges of dark spots begin to blur. Overall skin tone looks more radiant and even.",
+          "short_summary": "Fading begins as edges of dark spots blur and skin tone evens."
+        },
+        {
+          "week_start": 9,
+          "week_end": 11,
+          "description": "Fading continues. The improvements from Week 8 become more noticeable. Spots begin to lighten more consistently.",
+          "short_summary": "Fading continues as spots begin to lighten more consistently."
+        },
+        {
+          "week_start": 12,
+          "week_end": 26,
+          "description": "Significant clearance. Sun spots and post-acne marks fade significantly. Stubborn pigmentation (like melasma) continues to lighten slowly.",
+          "short_summary": "Significant clearance as sun spots and post-acne marks fade noticeably."
+        },
+        {
+          "week_start": 27,
+          "week_end": null,
+          "description": "Continued lightening. Most pigmentation continues to fade gradually. Very stubborn spots may take longer, but overall tone remains improved.",
+          "short_summary": "Most pigmentation continues to fade gradually as overall tone improves."
+        }
+      ]
+    },
+    "facial_hair": {
+      "problem_id": "facial_hair",
+      "protocol": ["minoxidil", "microneedling"],
+      "expectations": [
+        {
+          "week_start": 0,
+          "week_end": 1,
+          "description": "Initial application phase. No visible changes yet. Your follicles are beginning to respond to the treatment. Consistency is critical from day one.",
+          "short_summary": "Initial application phase with no visible changes yet as follicles respond."
+        },
+        {
+          "week_start": 2,
+          "week_end": 4,
+          "description": "The Shedding. You may lose some existing facial hair. This is alarming but a positive sign that follicles are resetting for stronger growth.",
+          "short_summary": "The shedding phase as you may lose some existing facial hair."
+        },
+        {
+          "week_start": 5,
+          "week_end": 7,
+          "description": "Shedding may continue or slow. New growth is beginning but may not be visible yet. Keep applying consistently.",
+          "short_summary": "Shedding may continue or slow as new growth begins invisibly."
+        },
+        {
+          "week_start": 8,
+          "week_end": 12,
+          "description": "Vellus Phase. \"Peach fuzz\" (thin, clear, invisible hairs) begins to cover the patchy areas.",
+          "short_summary": "Vellus phase begins as peach fuzz starts covering patchy areas."
+        },
+        {
+          "week_start": 13,
+          "week_end": 15,
+          "description": "Vellus hairs continue to multiply and may become slightly more visible. The patchy areas are filling in gradually.",
+          "short_summary": "Vellus hairs multiply and become slightly more visible as areas fill in."
+        },
+        {
+          "week_start": 16,
+          "week_end": 26,
+          "description": "Transitional Phase. Hairs get darker and thicker but may look \"scruffy\" or uneven.",
+          "short_summary": "Transitional phase as hairs get darker and thicker but may look scruffy."
+        },
+        {
+          "week_start": 27,
+          "week_end": 51,
+          "description": "Continued transition. Hairs continue to darken and thicken. The \"scruffy\" phase persists as hairs mature at different rates. Patience is required.",
+          "short_summary": "Hairs continue to darken and thicken as scruffy phase persists."
+        },
+        {
+          "week_start": 52,
+          "week_end": null,
+          "description": "Terminal Phase. Hairs become thick, dark, and permanent. Full density is achieved (limited by your genetics).",
+          "short_summary": "Terminal phase as hairs become thick, dark, and permanent."
+        }
+      ]
+    }
+  },
+  "helper_functions": {
+    "description": "Helper functions to query expectations by week",
+    "get_expectation_for_week": {
+      "description": "Returns the expectation text for a given problem_id and week number",
+      "logic": "Find the first expectation where week_start <= week AND (week_end is null OR week <= week_end)"
+    },
+    "get_all_expectations_up_to_week": {
+      "description": "Returns all expectations up to and including the given week",
+      "logic": "Return all expectations where week_start <= week"
+    }
+  }
+}
+
