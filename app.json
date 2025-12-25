@@ -14,13 +14,13 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.protocol.app"
+      "bundleIdentifier": "com.protocol.galdr"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a"
       },
-      "package": "com.protocol.app"
+      "package": "com.protocol.galdr"
     },
     "plugins": [
       [
