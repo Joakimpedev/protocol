@@ -1,13 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { 
   User, 
   UserCredential,
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   signInAnonymously,
+  signInWithCredential,
+  OAuthProvider,
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { auth } from '../config/firebase';
 
 interface AuthContextType {
@@ -16,6 +20,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<UserCredential>;
   signIn: (email: string, password: string) => Promise<UserCredential>;
   signInAnonymous: () => Promise<UserCredential>;
+  signInWithApple: () => Promise<UserCredential>;
   logout: () => Promise<void>;
 }
 
@@ -46,6 +51,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return await signInAnonymously(auth);
   };
 
+  const signInWithApple = async (): Promise<UserCredential> => {
+    if (Platform.OS !== 'ios') {
+      throw new Error('Sign in with Apple is only available on iOS');
+    }
+
+    try {
+      // Request Apple authentication
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      // Create Firebase credential from Apple credential
+      const { identityToken, nonce } = appleCredential;
+      if (!identityToken) {
+        throw new Error('Apple Sign In failed - no identity token');
+      }
+
+      const provider = new OAuthProvider('apple.com');
+      const credential = provider.credential({
+        idToken: identityToken,
+        rawNonce: nonce || undefined,
+      });
+
+      // Sign in to Firebase with Apple credential
+      return await signInWithCredential(auth, credential);
+    } catch (error: any) {
+      // User cancelled - don't treat as error
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        throw new Error('Sign in cancelled');
+      }
+      throw error;
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
@@ -56,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signInAnonymous,
+    signInWithApple,
     logout,
   };
 

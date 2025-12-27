@@ -309,7 +309,7 @@ export async function scheduleRoutineReminders(userId: string): Promise<void> {
     } catch (error) {
       // Fallback to simple calculation
       const morningIngredients = (data.ingredientSelections || []).filter(
-        (ing: any) => ing.state === 'added'
+        (ing: any) => ing.state === 'added' || ing.state === 'active'
       ).length;
       morningDurationMinutes = Math.max(5, Math.round(morningIngredients * 1.5));
     }

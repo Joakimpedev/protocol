@@ -14,13 +14,21 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.protocol.galdr"
+      "bundleIdentifier": "com.protocol.galdr",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0a0a0a"
       },
-      "package": "com.protocol.galdr"
+      "package": "com.protocol.galdr",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -35,7 +43,11 @@
           "color": "#e5e5e5"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b94eaaee-9b35-43f6-9c98-93375c1f9fc4"
+      }
+    }
   }
 }
-

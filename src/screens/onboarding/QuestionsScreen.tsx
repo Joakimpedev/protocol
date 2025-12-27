@@ -5,50 +5,29 @@ import { useOnboarding } from '../../contexts/OnboardingContext';
 
 export default function QuestionsScreen({ navigation }: any) {
   const { data, updateData } = useOnboarding();
-  const [skinType, setSkinType] = useState<'oily' | 'dry' | 'combination' | 'normal' | undefined>(
-    data.skinType
+  const [timeAvailability, setTimeAvailability] = useState<'10' | '20' | '30' | undefined>(
+    data.timeAvailability
   );
-  const [budget, setBudget] = useState<'low' | 'medium' | 'flexible' | undefined>(data.budget);
-  const [dailyTime, setDailyTime] = useState<10 | 20 | 30 | undefined>(data.dailyTime);
-
-  const selectedCategories = data.selectedCategories || [];
-  const hasOily = selectedCategories.includes('oily_skin');
-  const hasDry = selectedCategories.includes('dry_skin');
-  const hasCombination = hasOily && hasDry;
-  const hasSkincareCategory = selectedCategories.some(
-    (cat) => cat !== 'jawline' && cat !== 'facial_hair'
+  const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'advanced' | undefined>(
+    data.experienceLevel
   );
-  const hasJawline = selectedCategories.includes('jawline');
-  const hasExercises = hasJawline || selectedCategories.includes('facial_hair');
-
-  // Determine which questions to show
-  const showSkinType =
-    hasSkincareCategory && !hasOily && !hasDry && !hasCombination;
-  const showBudget = hasSkincareCategory;
-  const showTime = hasExercises || hasSkincareCategory;
+  const [hasCurrentRoutine, setHasCurrentRoutine] = useState<boolean | undefined>(
+    data.hasCurrentRoutine
+  );
 
   const handleContinue = () => {
     // Validate required questions
-    if (showSkinType && !skinType) {
+    if (!timeAvailability || !experienceLevel || hasCurrentRoutine === undefined) {
       return;
     }
-    if (showBudget && !budget) {
-      return;
-    }
-    if (showTime && !dailyTime) {
-      return;
-    }
-
-    // If combination skin detected, set skin type
-    const finalSkinType = hasCombination ? 'combination' : skinType;
 
     updateData({
-      skinType: finalSkinType,
-      budget,
-      dailyTime,
+      timeAvailability,
+      experienceLevel,
+      hasCurrentRoutine,
     });
 
-    navigation.navigate('OnboardingSignUp');
+    navigation.navigate('ProtocolLoading');
   };
 
   return (
@@ -57,81 +36,70 @@ export default function QuestionsScreen({ navigation }: any) {
         <Text style={styles.heading}>Some quick questions</Text>
 
         <View style={styles.questionsContainer}>
-          {showSkinType && (
-            <View style={styles.questionSection}>
-              <View style={styles.divider} />
-              <Text style={styles.questionLabel}>What is your skin type?</Text>
-              {(['oily', 'dry', 'combination', 'normal'] as const).map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={styles.option}
-                  onPress={() => setSkinType(type)}
-                >
-                  <Text style={styles.radio}>{skinType === type ? '●' : '○'}</Text>
-                  <Text style={[styles.optionText, skinType === type && styles.optionTextSelected]}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Time availability - always shown */}
+          <View style={styles.questionSection}>
+            <View style={styles.divider} />
+            <Text style={styles.questionLabel}>How much time can you dedicate daily?</Text>
+            {(['10', '20', '30'] as const).map((time) => (
+              <TouchableOpacity
+                key={time}
+                style={styles.option}
+                onPress={() => setTimeAvailability(time)}
+              >
+                <Text style={styles.radio}>{timeAvailability === time ? '●' : '○'}</Text>
+                <Text style={[styles.optionText, timeAvailability === time && styles.optionTextSelected]}>
+                  {time} minutes
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          {showBudget && (
-            <View style={styles.questionSection}>
-              <View style={styles.divider} />
-              <Text style={styles.questionLabel}>What is your budget for products?</Text>
-              {(['low', 'medium', 'flexible'] as const).map((budgetOption) => (
-                <TouchableOpacity
-                  key={budgetOption}
-                  style={styles.option}
-                  onPress={() => setBudget(budgetOption)}
-                >
-                  <Text style={styles.radio}>{budget === budgetOption ? '●' : '○'}</Text>
-                  <Text
-                    style={[styles.optionText, budget === budgetOption && styles.optionTextSelected]}
-                  >
-                    {budgetOption === 'low' && 'Low (~$30/month)'}
-                    {budgetOption === 'medium' && 'Medium (~$60/month)'}
-                    {budgetOption === 'flexible' && 'Flexible'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Experience level - always shown */}
+          <View style={styles.questionSection}>
+            <View style={styles.divider} />
+            <Text style={styles.questionLabel}>How familiar are you with skincare?</Text>
+            {(['beginner', 'intermediate', 'advanced'] as const).map((level) => (
+              <TouchableOpacity
+                key={level}
+                style={styles.option}
+                onPress={() => setExperienceLevel(level)}
+              >
+                <Text style={styles.radio}>{experienceLevel === level ? '●' : '○'}</Text>
+                <Text style={[styles.optionText, experienceLevel === level && styles.optionTextSelected]}>
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-          {showTime && (
-            <View style={styles.questionSection}>
-              <View style={styles.divider} />
-              <Text style={styles.questionLabel}>How much time daily can you commit to?</Text>
-              {([10, 20, 30] as const).map((time) => (
-                <TouchableOpacity
-                  key={time}
-                  style={styles.option}
-                  onPress={() => setDailyTime(time)}
-                >
-                  <Text style={styles.radio}>{dailyTime === time ? '●' : '○'}</Text>
-                  <Text style={[styles.optionText, dailyTime === time && styles.optionTextSelected]}>
-                    {time} min
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Current routine - always shown */}
+          <View style={styles.questionSection}>
+            <View style={styles.divider} />
+            <Text style={styles.questionLabel}>Do you currently have a skincare routine?</Text>
+            {([true, false] as const).map((value) => (
+              <TouchableOpacity
+                key={value ? 'yes' : 'no'}
+                style={styles.option}
+                onPress={() => setHasCurrentRoutine(value)}
+              >
+                <Text style={styles.radio}>{hasCurrentRoutine === value ? '●' : '○'}</Text>
+                <Text style={[styles.optionText, hasCurrentRoutine === value && styles.optionTextSelected]}>
+                  {value ? 'Yes' : 'No'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
         </View>
       </View>
 
       <TouchableOpacity
         style={[
           styles.button,
-          ((showSkinType && !skinType) ||
-            (showBudget && !budget) ||
-            (showTime && !dailyTime)) &&
-            styles.buttonDisabled,
+          (!timeAvailability || !experienceLevel || hasCurrentRoutine === undefined) && styles.buttonDisabled,
         ]}
         onPress={handleContinue}
-        disabled={
-          (showSkinType && !skinType) || (showBudget && !budget) || (showTime && !dailyTime)
-        }
+        disabled={!timeAvailability || !experienceLevel || hasCurrentRoutine === undefined}
       >
         <Text style={styles.buttonText}>Continue</Text>
       </TouchableOpacity>

@@ -153,7 +153,7 @@ export async function markStepCompleted(
     // Check if all steps are completed
     const routineData = data;
     const allSteps = [
-      ...(routineData.ingredientSelections || []).filter((ing: any) => ing.state === 'added').map((ing: any) => ing.ingredient_id),
+      ...(routineData.ingredientSelections || []).filter((ing: any) => ing.state === 'added' || ing.state === 'active').map((ing: any) => ing.ingredient_id),
       ...(routineData.exerciseSelections || []).filter((ex: any) => ex.state === 'added').map((ex: any) => ex.exercise_id),
     ];
     
@@ -268,7 +268,7 @@ export async function calculateDailyScore(userId: string, date: string): Promise
     const baseSteps: any[] = guideBlocks.base_steps || [];
     
     const ingredientSelections = (data.ingredientSelections || [])
-      .filter((ing: any) => ing.state === 'added');
+      .filter((ing: any) => ing.state === 'added' || ing.state === 'active');
     
     // Separate ingredients by timing (morning vs evening)
     const morningIngredientIds: string[] = [];

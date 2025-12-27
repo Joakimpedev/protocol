@@ -22,6 +22,8 @@ import {
   deleteAllPhotos
 } from '../services/photoService';
 import PhotoPaywallModal from '../components/PhotoPaywallModal';
+import ReviewPromptModal from '../components/ReviewPromptModal';
+import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
 const whatToExpect = require('../data/what_to_expect.json');
 const guideBlocks = require('../data/guide_blocks.json');
 
@@ -39,6 +41,7 @@ export default function ProgressScreen({ navigation }: any) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallWeek, setPaywallWeek] = useState<number | null>(null);
   const [pendingPhotoWeek, setPendingPhotoWeek] = useState<number | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -201,6 +204,47 @@ export default function ProgressScreen({ navigation }: any) {
       Alert.alert('Error', 'Failed to advance week.');
       console.error(error);
     }
+  };
+
+  const handleTestReviewPrompt = () => {
+    setShowReviewModal(true);
+  };
+
+  const handleLeaveReview = async () => {
+    if (!user) return;
+    
+    try {
+      // Update last review prompt date
+      await updateLastReviewPromptDate(user.uid);
+      
+      // Request native review dialog
+      await requestReview();
+      
+      // Close modal - don't navigate, just show the native review dialog
+      setShowReviewModal(false);
+    } catch (error) {
+      console.error('Error handling review request:', error);
+      // Close modal even if review fails
+      setShowReviewModal(false);
+    }
+  };
+
+  const handleNotNow = async () => {
+    if (!user) {
+      setShowReviewModal(false);
+      navigation.navigate('Feedback');
+      return;
+    }
+    
+    try {
+      // Update last review prompt date (30 day cooldown)
+      await updateLastReviewPromptDate(user.uid);
+    } catch (error) {
+      console.error('Error updating review prompt date:', error);
+    }
+    
+    setShowReviewModal(false);
+    navigation.navigate('Feedback');
   };
 
   const shouldShowPrompt = signupDate && photoDay && shouldPromptForWeeklyPhoto(signupDate, photoDay);
@@ -444,6 +488,9 @@ export default function ProgressScreen({ navigation }: any) {
         <TouchableOpacity style={styles.devToolButton} onPress={handleAdvanceWeek}>
           <Text style={styles.devToolButtonText}>Advance to Next Week</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.devToolButton} onPress={handleTestReviewPrompt}>
+          <Text style={styles.devToolButtonText}>Test Review Prompt</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
     
@@ -452,6 +499,13 @@ export default function ProgressScreen({ navigation }: any) {
       visible={showPaywall}
       onClose={handlePaywallClose}
       onPurchaseComplete={handlePaywallPurchaseComplete}
+    />
+
+    {/* Review Prompt Modal */}
+    <ReviewPromptModal
+      visible={showReviewModal}
+      onLeaveReview={handleLeaveReview}
+      onNotNow={handleNotNow}
     />
     </>
   );

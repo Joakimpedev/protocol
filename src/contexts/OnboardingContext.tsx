@@ -12,6 +12,9 @@ export interface OnboardingData {
   skinType?: 'oily' | 'dry' | 'combination' | 'normal';
   budget?: 'low' | 'medium' | 'flexible';
   dailyTime?: 10 | 20 | 30;
+  timeAvailability?: '10' | '20' | '30';
+  experienceLevel?: 'beginner' | 'intermediate' | 'advanced';
+  hasCurrentRoutine?: boolean;
   
   // Screen 5 (will be populated after routine generation)
   products?: Array<{

@@ -1,13 +1,82 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Alert, Image, Modal } from 'react-native';
+import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData, IngredientSelection, ExerciseSelection, updateIngredientState } from '../services/routineService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import PaywallModal from '../components/PaywallModal';
+import PendingProductModal from '../components/PendingProductModal';
 const guideBlocks = require('../data/guide_blocks.json');
+
+// Active Product Modal Component
+interface ActiveProductModalProps {
+  visible: boolean;
+  onClose: () => void;
+  ingredientId: string;
+  ingredientName: string;
+  productName: string;
+  onProductNameChange: (text: string) => void;
+  onUpdate: () => void;
+  onRemove: () => void;
+}
+
+function ActiveProductModal({
+  visible,
+  onClose,
+  ingredientName,
+  productName,
+  onProductNameChange,
+  onUpdate,
+  onRemove,
+}: ActiveProductModalProps) {
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={activeProductModalStyles.overlay}>
+        <View style={activeProductModalStyles.modal}>
+          <View style={activeProductModalStyles.header}>
+            <Text style={activeProductModalStyles.title}>{ingredientName.toUpperCase()}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={activeProductModalStyles.closeButton}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={activeProductModalStyles.divider} />
+          
+          <Text style={activeProductModalStyles.sectionLabel}>Your product</Text>
+          <TextInput
+            style={activeProductModalStyles.input}
+            placeholder="Product name..."
+            placeholderTextColor={colors.textMuted}
+            value={productName}
+            onChangeText={onProductNameChange}
+            autoFocus={true}
+          />
+          
+          <TouchableOpacity
+            style={[activeProductModalStyles.updateButton, !productName.trim() && activeProductModalStyles.buttonDisabled]}
+            onPress={onUpdate}
+            disabled={!productName.trim()}
+          >
+            <Text style={activeProductModalStyles.updateButtonText}>Update</Text>
+          </TouchableOpacity>
+          
+          <View style={activeProductModalStyles.divider} />
+          
+          <TouchableOpacity onPress={onRemove}>
+            <Text style={activeProductModalStyles.removeText}>Remove from routine</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 interface Problem {
   problem_id: string;
@@ -55,6 +124,8 @@ export default function ProtocolScreen({ navigation }: any) {
   const [newIngredientStates, setNewIngredientStates] = useState<Record<string, ItemState>>({});
   const [showAddIngredient, setShowAddIngredient] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [configureProductId, setConfigureProductId] = useState<string | null>(null);
+  const [editingProductName, setEditingProductName] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -87,6 +158,42 @@ export default function ProtocolScreen({ navigation }: any) {
     return () => unsubscribe();
   }, [user]);
 
+  // Load guide blocks data (always available, safe to call before early returns)
+  const problems: Problem[] = guideBlocks.problems || [];
+  const ingredients: Ingredient[] = guideBlocks.ingredients || [];
+  const exercises: Exercise[] = guideBlocks.exercises || [];
+
+  // Calculate selectedIngredients early for useEffect (safe even if routineData is null)
+  // This must be before any early returns to follow Rules of Hooks
+  const ingredientSelections = routineData?.ingredientSelections || [];
+  const selectedIngredients = ingredientSelections
+    .map((sel: IngredientSelection) => {
+      const ingredient = ingredients.find(ing => ing.ingredient_id === sel.ingredient_id);
+      return ingredient ? { ...ingredient, selection: sel } : null;
+    })
+    .filter(Boolean);
+
+  // Initialize editing product name when configure modal opens
+  // This must be before any early returns to follow Rules of Hooks
+  useEffect(() => {
+    if (configureProductId && selectedIngredients.length > 0) {
+      const product = selectedIngredients.find((item: any) => item.ingredient_id === configureProductId);
+      if (product) {
+        const selection = product.selection as IngredientSelection;
+        const state = selection.state === 'added' ? 'active' : 
+                      selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
+                      selection.state;
+        if (state === 'active' && selection.product_name) {
+          setEditingProductName(selection.product_name);
+        } else {
+          setEditingProductName('');
+        }
+      }
+    } else {
+      setEditingProductName('');
+    }
+  }, [configureProductId, selectedIngredients]);
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -103,18 +210,12 @@ export default function ProtocolScreen({ navigation }: any) {
     );
   }
 
-  // Load guide blocks data
-  const problems: Problem[] = guideBlocks.problems || [];
-  const ingredients: Ingredient[] = guideBlocks.ingredients || [];
-  const exercises: Exercise[] = guideBlocks.exercises || [];
-
   // Get selected problems based on user's concerns
   const selectedProblems = problems.filter((problem: Problem) =>
     routineData.concerns?.includes(problem.problem_id)
   );
 
   // Get current ingredient selections
-  const ingredientSelections = routineData.ingredientSelections || [];
   const currentIngredientIds = new Set(ingredientSelections.map((sel: IngredientSelection) => sel.ingredient_id));
   
   // Helper to check if ingredient is premium (for free users, hide premium ingredients)
@@ -126,14 +227,6 @@ export default function ProtocolScreen({ navigation }: any) {
   const availableIngredients = ingredients.filter(
     (ing: Ingredient) => !currentIngredientIds.has(ing.ingredient_id) && !isPremiumIngredient(ing)
   );
-
-  // Get ingredients from user's selections
-  const selectedIngredients = ingredientSelections
-    .map((sel: IngredientSelection) => {
-      const ingredient = ingredients.find(ing => ing.ingredient_id === sel.ingredient_id);
-      return ingredient ? { ...ingredient, selection: sel } : null;
-    })
-    .filter(Boolean);
 
   // Get exercises from user's selections
   const exerciseSelections = routineData.exerciseSelections || [];
@@ -157,6 +250,56 @@ export default function ProtocolScreen({ navigation }: any) {
   };
 
   const problemNamesText = formatProblemNames(selectedProblems);
+
+  // Helper to format arrival date
+  const formatArrivalDate = (deferUntil?: string): string => {
+    if (!deferUntil) return '';
+    const date = new Date(deferUntil);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `Arriving ${months[date.getMonth()]} ${date.getDate()}`;
+  };
+
+  // Helper to get badge info based on product state
+  const getBadgeInfo = (selection: IngredientSelection) => {
+    // Handle legacy states
+    const state = selection.state === 'added' ? 'active' : 
+                  selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
+                  selection.state;
+
+    switch (state) {
+      case 'active':
+        return { text: 'You have', color: colors.accent };
+      case 'pending':
+        return { text: 'Will get', color: colors.textMuted };
+      case 'deferred':
+        return { text: formatArrivalDate(selection.defer_until), color: colors.warning };
+      case 'skipped':
+        return { text: 'Skipped', color: colors.error };
+      default:
+        return { text: 'Will get', color: colors.textMuted };
+    }
+  };
+
+  // Helper to get ingredient benefit text for warnings
+  const getIngredientBenefit = (ingredient: any): string => {
+    const usedFor = ingredient?.used_for || [];
+    if (usedFor.includes('oily_skin') && usedFor.includes('blackheads')) {
+      return 'oil control and pore clearing';
+    }
+    if (usedFor.includes('oily_skin')) {
+      return 'oil control';
+    }
+    if (usedFor.includes('blackheads')) {
+      return 'pore clearing';
+    }
+    if (usedFor.includes('acne')) {
+      return 'acne treatment';
+    }
+    if (usedFor.includes('skin_texture')) {
+      return 'skin texture improvement';
+    }
+    return 'skin health';
+  };
 
   const handleProductNameChange = (ingredientId: string, text: string) => {
     setNewIngredientStates((prev) => ({
@@ -297,6 +440,49 @@ export default function ProtocolScreen({ navigation }: any) {
       <Text style={styles.problemParagraph}>{problem.how_to_fix}</Text>
     </View>
   );
+
+  const renderProductCard = (item: any) => {
+    const ingredient = item;
+    const selection = item.selection as IngredientSelection;
+    const badgeInfo = getBadgeInfo(selection);
+    const state = selection.state === 'added' ? 'active' : 
+                  selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
+                  selection.state;
+    const productName = state === 'active' && selection.product_name ? selection.product_name : '';
+
+    return (
+      <View key={ingredient.ingredient_id} style={styles.productCard}>
+        <View style={styles.productCardHeader}>
+          <View style={styles.productCardLeft}>
+            <Text style={styles.productIngredientName}>{ingredient.display_name.toUpperCase()}</Text>
+            {productName ? (
+              <Text style={styles.productName}>{productName}</Text>
+            ) : null}
+          </View>
+          <View style={styles.productCardRight}>
+            <View style={[styles.badge, { borderColor: badgeInfo.color }]}>
+              <Text style={[styles.badgeText, { color: badgeInfo.color }]}>
+                {badgeInfo.text}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.configureButton}
+              onPress={() => setConfigureProductId(ingredient.ingredient_id)}
+            >
+              <Text style={styles.configureButtonText}>•••</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={styles.productDescription}>{ingredient.short_description}</Text>
+        <View style={styles.productExamplesContainer}>
+          <Text style={styles.productExamplesLabel}>Example brands:</Text>
+          {ingredient.example_brands.map((brand: string, idx: number) => (
+            <Text key={idx} style={styles.productExampleText}>• {brand}</Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   const renderIngredientCard = (item: any) => {
     const ingredient = item;
@@ -615,10 +801,10 @@ export default function ProtocolScreen({ navigation }: any) {
 
         {/* Products Section */}
         <Text style={styles.sectionTitle}>
-          Products
+          Your products
         </Text>
         <View style={styles.section}>
-          {selectedIngredients.map((item: any) => renderIngredientCard(item))}
+          {selectedIngredients.map((item: any) => renderProductCard(item))}
         </View>
 
         {/* Add Ingredient Section */}
@@ -681,6 +867,80 @@ export default function ProtocolScreen({ navigation }: any) {
           setShowAddIngredient(true);
         }}
       />
+      {/* Configure Modal for Active Products */}
+      {configureProductId && (() => {
+        const product = selectedIngredients.find((item: any) => item.ingredient_id === configureProductId);
+        if (!product) return null;
+        const selection = product.selection as IngredientSelection;
+        const state = selection.state === 'added' ? 'active' : 
+                      selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
+                      selection.state;
+        
+        // Show PendingProductModal for pending/deferred/skipped products
+        if (state === 'pending' || state === 'deferred' || state === 'skipped') {
+          return (
+            <PendingProductModal
+              visible={true}
+              onClose={() => setConfigureProductId(null)}
+              ingredientId={product.ingredient_id}
+              ingredientName={product.display_name}
+              shortDescription={product.short_description}
+              onUpdate={() => {
+                setConfigureProductId(null);
+                // Data will update via subscription
+              }}
+            />
+          );
+        }
+        
+        // Show active product modal
+        if (state === 'active') {
+          const currentName = editingProductName || selection.product_name || '';
+          return (
+            <ActiveProductModal
+              visible={true}
+              onClose={() => {
+                setConfigureProductId(null);
+                setEditingProductName('');
+              }}
+              ingredientId={product.ingredient_id}
+              ingredientName={product.display_name}
+              productName={currentName}
+              onProductNameChange={setEditingProductName}
+              onUpdate={async () => {
+                if (!user) return;
+                if (currentName.trim() && currentName.trim() !== selection.product_name) {
+                  await handleIngredientEdit(product.ingredient_id, {
+                    product_name: currentName.trim(),
+                  });
+                }
+                setConfigureProductId(null);
+                setEditingProductName('');
+              }}
+              onRemove={() => {
+                Alert.alert(
+                  'Remove this ingredient?',
+                  `${product.display_name} helps with ${getIngredientBenefit(product)}. Your routine will be less effective without it.\n\nYou can re-add it anytime here in the Protocol tab.`,
+                  [
+                    { text: 'Keep it', style: 'cancel' },
+                    {
+                      text: 'Remove anyway',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await handleIngredientRemove(product.ingredient_id);
+                        setConfigureProductId(null);
+                        setEditingProductName('');
+                      },
+                    },
+                  ]
+                );
+              }}
+            />
+          );
+        }
+        
+        return null;
+      })()}
     </View>
   );
 }
@@ -983,5 +1243,155 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     tintColor: colors.text,
+  },
+  productCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  productCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  productCardLeft: {
+    flex: 1,
+  },
+  productCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  productIngredientName: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  productName: {
+    ...typography.body,
+    color: colors.text,
+  },
+  productDescription: {
+    ...typography.body,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    lineHeight: 22,
+    color: colors.text,
+  },
+  productExamplesContainer: {
+    marginBottom: spacing.sm,
+  },
+  productExamplesLabel: {
+    ...typography.label,
+    marginBottom: spacing.xs,
+  },
+  productExampleText: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+  },
+  configureButton: {
+    padding: spacing.xs,
+  },
+  configureButtonText: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 16,
+    letterSpacing: 2,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: 'transparent',
+  },
+  badgeText: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+});
+
+const activeProductModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modal: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  title: {
+    ...typography.headingSmall,
+    flex: 1,
+  },
+  closeButton: {
+    ...typography.body,
+    fontSize: 24,
+    color: colors.textMuted,
+    padding: spacing.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.md,
+  },
+  sectionLabel: {
+    ...typography.body,
+    marginBottom: spacing.sm,
+  },
+  input: {
+    ...typography.body,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  updateButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  updateButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  removeText: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
 });

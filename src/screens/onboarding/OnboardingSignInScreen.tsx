@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { colors, typography, spacing } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function OnboardingSignInScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const [appleLoading, setAppleLoading] = useState(false);
+  const { signIn, signInWithApple } = useAuth();
   const { data } = useOnboarding();
 
   const handleSignIn = async () => {
@@ -51,11 +53,20 @@ export default function OnboardingSignInScreen({ navigation }: any) {
           if (data.dailyTime) {
             updateData.dailyTime = data.dailyTime;
           }
+          if (data.timeAvailability) {
+            updateData.timeAvailability = data.timeAvailability;
+          }
+          if (data.experienceLevel) {
+            updateData.experienceLevel = data.experienceLevel;
+          }
+          if (data.hasCurrentRoutine !== undefined) {
+            updateData.hasCurrentRoutine = data.hasCurrentRoutine;
+          }
           
           if (Object.keys(updateData).length > 0) {
             await updateDoc(doc(db, 'users', user.uid), updateData);
           }
-          navigation.navigate('Plan');
+          navigation.navigate('Shopping');
         }
       } else {
         // New user signing in for first time - save onboarding data
@@ -82,15 +93,121 @@ export default function OnboardingSignInScreen({ navigation }: any) {
         if (data.dailyTime) {
           userData.dailyTime = data.dailyTime;
         }
+        if (data.timeAvailability) {
+          userData.timeAvailability = data.timeAvailability;
+        }
+        if (data.experienceLevel) {
+          userData.experienceLevel = data.experienceLevel;
+        }
+        if (data.hasCurrentRoutine !== undefined) {
+          userData.hasCurrentRoutine = data.hasCurrentRoutine;
+        }
 
         await setDoc(doc(db, 'users', user.uid), userData);
 
-        navigation.navigate('Plan');
+        navigation.navigate('Shopping');
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to sign in');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    setAppleLoading(true);
+    try {
+      const userCredential = await signInWithApple();
+      const user = userCredential.user;
+
+      // Check if user already has onboarding data
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // If they already have a routine started, they'll be navigated to main app
+        // Otherwise, navigate to plan screen
+        if (userData.routineStarted) {
+          // Will be handled by RootNavigator
+          return;
+        } else {
+          // Update with current onboarding data if needed
+          const updateData: any = {};
+          if (data.selectedCategories) {
+            updateData.concerns = data.selectedCategories;
+          }
+          if (data.skinType) {
+            updateData.skinType = data.skinType;
+          }
+          if (data.budget) {
+            updateData.budget = data.budget;
+          }
+          if (data.dailyTime) {
+            updateData.dailyTime = data.dailyTime;
+          }
+          if (data.timeAvailability) {
+            updateData.timeAvailability = data.timeAvailability;
+          }
+          if (data.experienceLevel) {
+            updateData.experienceLevel = data.experienceLevel;
+          }
+          if (data.hasCurrentRoutine !== undefined) {
+            updateData.hasCurrentRoutine = data.hasCurrentRoutine;
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await updateDoc(doc(db, 'users', user.uid), updateData);
+          }
+          navigation.navigate('Shopping');
+        }
+      } else {
+        // New user signing in for first time - save onboarding data
+        const signupDate = new Date();
+        const photoDay = signupDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+        const userData: any = {
+          email: user.email,
+          concerns: data.selectedCategories || [],
+          routineStarted: false,
+          signupDate: signupDate.toISOString(),
+          photoDay,
+          createdAt: signupDate.toISOString(),
+        };
+
+        // Only include optional fields if they have values
+        if (data.skinType) {
+          userData.skinType = data.skinType;
+        }
+        if (data.budget) {
+          userData.budget = data.budget;
+        }
+        if (data.dailyTime) {
+          userData.dailyTime = data.dailyTime;
+        }
+        if (data.timeAvailability) {
+          userData.timeAvailability = data.timeAvailability;
+        }
+        if (data.experienceLevel) {
+          userData.experienceLevel = data.experienceLevel;
+        }
+        if (data.hasCurrentRoutine !== undefined) {
+          userData.hasCurrentRoutine = data.hasCurrentRoutine;
+        }
+
+        await setDoc(doc(db, 'users', user.uid), userData);
+
+        navigation.navigate('Shopping');
+      }
+    } catch (error: any) {
+      if (error.message !== 'Sign in cancelled') {
+        Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+      }
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -124,9 +241,9 @@ export default function OnboardingSignInScreen({ navigation }: any) {
         />
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, (loading || appleLoading) && styles.buttonDisabled]}
           onPress={handleSignIn}
-          disabled={loading}
+          disabled={loading || appleLoading}
         >
           {loading ? (
             <ActivityIndicator color={colors.text} />
@@ -135,11 +252,25 @@ export default function OnboardingSignInScreen({ navigation }: any) {
           )}
         </TouchableOpacity>
 
+        {Platform.OS === 'ios' && (
+          <>
+            <View style={styles.divider} />
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={4}
+              style={styles.appleButton}
+              onPress={handleAppleSignIn}
+              disabled={loading || appleLoading}
+            />
+          </>
+        )}
+
         <View style={styles.divider} />
 
         <TouchableOpacity
           onPress={() => navigation.navigate('OnboardingSignUp')}
-          disabled={loading}
+          disabled={loading || appleLoading}
         >
           <Text style={styles.linkText}>Don't have an account? Sign up</Text>
         </TouchableOpacity>
@@ -202,6 +333,10 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  appleButton: {
+    width: '100%',
+    height: 44,
   },
 });
 

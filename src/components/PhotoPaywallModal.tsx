@@ -54,6 +54,7 @@ export default function PhotoPaywallModal({
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+  const [selectedFallback, setSelectedFallback] = useState<'monthly' | 'yearly'>('yearly'); // For Expo Go testing
   const [week0Photo, setWeek0Photo] = useState<ProgressPhoto | null>(null);
   const [latestPhoto, setLatestPhoto] = useState<ProgressPhoto | null>(null);
   const [consistencyScore, setConsistencyScore] = useState<number | null>(null);
@@ -159,9 +160,9 @@ export default function PhotoPaywallModal({
         const availablePackages = offering.availablePackages;
         setPackages(availablePackages);
         
-        // Pre-select annual package (better value)
+        // Pre-select annual package (default/standard)
         const annualPackage = availablePackages.find(pkg => 
-          pkg.packageType === 'ANNUAL' || pkg.identifier.includes('annual')
+          pkg.packageType === 'ANNUAL' || pkg.identifier.includes('annual') || pkg.identifier.includes('yearly')
         );
         if (annualPackage) {
           setSelectedPackage(annualPackage);
@@ -225,19 +226,24 @@ export default function PhotoPaywallModal({
   };
 
   const getPackageLabel = (packageItem: PurchasesPackage): string => {
+    // Use localized price from RevenueCat
+    const priceString = packageItem.product.priceString;
     const identifier = packageItem.identifier.toLowerCase();
+    
     if (identifier.includes('annual') || packageItem.packageType === 'ANNUAL') {
-      return '$29.99/year';
+      return `${priceString}/year`;
     } else if (identifier.includes('monthly') || packageItem.packageType === 'MONTHLY') {
-      return '$4.99/month';
+      return `${priceString}/month`;
     }
-    return packageItem.product.title;
+    
+    // Fallback to product title if we can't determine type
+    return packageItem.product.title || priceString;
   };
 
   const getPackageSubtitle = (packageItem: PurchasesPackage): string => {
     const identifier = packageItem.identifier.toLowerCase();
     if (identifier.includes('annual') || packageItem.packageType === 'ANNUAL') {
-      return '50% off';
+      return '50% off • 1 week free trial';
     } else if (identifier.includes('monthly') || packageItem.packageType === 'MONTHLY') {
       return '1 week free';
     }
@@ -265,7 +271,7 @@ export default function PhotoPaywallModal({
           <View style={styles.container}>
             {/* Title Section */}
             <View style={styles.titleSection}>
-              <Text style={styles.mainTitle}>PHASE 1 COMPLETE.</Text>
+              <Text style={styles.mainTitle}>Phase 1 complete.</Text>
               <Text style={styles.subtitle}>Let's see your progress</Text>
               {consistencyScore !== null && (
                 <Text style={styles.consistencyScore}>
@@ -456,10 +462,14 @@ export default function PhotoPaywallModal({
                       styles.option,
                       isSelected && styles.optionSelected,
                     ]}
-                    onPress={() => setSelectedPackage(pkg)}
+                    onPress={() => {
+                      console.log('Package selected:', pkg.identifier);
+                      setSelectedPackage(pkg);
+                    }}
                     disabled={loading}
+                    activeOpacity={0.7}
                   >
-                    <View style={styles.optionContent}>
+                    <View style={styles.optionContent} pointerEvents="none">
                       <Text style={styles.optionTitle}>
                         {getPackageLabel(pkg)}
                       </Text>
@@ -468,7 +478,7 @@ export default function PhotoPaywallModal({
                       </Text>
                     </View>
                     {isSelected && (
-                      <View style={styles.checkmark}>
+                      <View style={styles.checkmark} pointerEvents="none">
                         <Text style={styles.checkmarkText}>✓</Text>
                       </View>
                     )}
@@ -476,28 +486,49 @@ export default function PhotoPaywallModal({
                 );
               })
             ) : (
-              // Fallback when packages aren't loaded yet
+              // Fallback when packages aren't loaded yet (e.g., Expo Go)
               <>
                 <TouchableOpacity
-                  style={[styles.option, styles.optionSelected]}
-                  disabled={true}
+                  style={[
+                    styles.option,
+                    selectedFallback === 'monthly' && styles.optionSelected
+                  ]}
+                  onPress={() => {
+                    console.log('Fallback monthly selected');
+                    setSelectedFallback('monthly');
+                  }}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.optionContent}>
-                    <Text style={styles.optionTitle}>$4.99/month</Text>
-                    <Text style={styles.optionSubtitle}>Accelerated progress</Text>
+                  <View style={styles.optionContent} pointerEvents="none">
+                    <Text style={styles.optionTitle}>Monthly</Text>
+                    <Text style={styles.optionSubtitle}>1 week free</Text>
                   </View>
-                  <View style={styles.checkmark}>
-                    <Text style={styles.checkmarkText}>✓</Text>
-                  </View>
+                  {selectedFallback === 'monthly' && (
+                    <View style={styles.checkmark} pointerEvents="none">
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.option}
-                  disabled={true}
+                  style={[
+                    styles.option,
+                    selectedFallback === 'yearly' && styles.optionSelected
+                  ]}
+                  onPress={() => {
+                    console.log('Fallback yearly selected');
+                    setSelectedFallback('yearly');
+                  }}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.optionContent}>
-                    <Text style={styles.optionTitle}>$29.99/year</Text>
-                    <Text style={styles.optionSubtitle}>50% off - limited offer</Text>
+                  <View style={styles.optionContent} pointerEvents="none">
+                    <Text style={styles.optionTitle}>Yearly</Text>
+                    <Text style={styles.optionSubtitle}>50% off • 1 week free trial</Text>
                   </View>
+                  {selectedFallback === 'yearly' && (
+                    <View style={styles.checkmark} pointerEvents="none">
+                      <Text style={styles.checkmarkText}>✓</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </>
             )}
@@ -507,12 +538,17 @@ export default function PhotoPaywallModal({
           <TouchableOpacity
             style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
             onPress={handlePurchase}
-            disabled={loading || !selectedPackage}
+            disabled={loading || (!selectedPackage && packages.length > 0)}
           >
             {loading ? (
               <ActivityIndicator color={colors.background} />
             ) : (
-              <Text style={styles.purchaseButtonText}>Try Full Protocol</Text>
+              <Text style={styles.purchaseButtonText}>
+                {(selectedPackage && (selectedPackage.packageType === 'ANNUAL' || selectedPackage.identifier.toLowerCase().includes('annual') || selectedPackage.identifier.toLowerCase().includes('yearly'))) || 
+                  (packages.length === 0 && selectedFallback === 'yearly')
+                  ? 'Try Full Protocol For Free'
+                  : 'Try Full Protocol'}
+              </Text>
             )}
           </TouchableOpacity>
 
@@ -569,6 +605,7 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     marginBottom: spacing.xl,
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   mainTitle: {

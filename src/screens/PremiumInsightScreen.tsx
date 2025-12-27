@@ -13,6 +13,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import PaywallModal from '../components/PaywallModal';
 import { getWeeklySummary, WeeklySummaryData } from '../services/completionService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { getMonthlyInsights, MonthlyInsightsData } from '../services/monthlyInsightsService';
 import { 
   getHardestDayNotificationPreferences, 
@@ -29,6 +31,8 @@ export default function PremiumInsightScreen({ navigation }: any) {
   const [monthlyInsights, setMonthlyInsights] = useState<MonthlyInsightsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+  const [productsInRoutine, setProductsInRoutine] = useState<number | null>(null);
   
   // Hardest day notification state
   const [hardestDayNotificationEnabled, setHardestDayNotificationEnabled] = useState(false);
@@ -43,6 +47,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
       loadSummary();
       loadMonthlyInsights();
       loadHardestDayNotificationPreferences();
+      loadTotalProducts();
     }
   }, [user]);
 
@@ -90,6 +95,32 @@ export default function PremiumInsightScreen({ navigation }: any) {
       setHardestDayTimeDate(date);
     } catch (error) {
       console.error('Error loading hardest day notification preferences:', error);
+    }
+  };
+
+  const loadTotalProducts = async () => {
+    if (!user) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const ingredientSelections = userData.ingredientSelections || [];
+        // Count total products (ingredients) - all ingredients in their plan
+        setTotalProducts(ingredientSelections.length);
+        
+        // Count products actually in the routine (not skipped)
+        // Products with state='added' or 'active' are in the routine
+        const productsInRoutine = ingredientSelections.filter(
+          (ing: any) => ing.state === 'added' || ing.state === 'active'
+        ).length;
+        setProductsInRoutine(productsInRoutine);
+      }
+    } catch (error) {
+      console.error('Error loading total products:', error);
+      // Fallback to estimate if we can't load
+      setTotalProducts(6);
+      setProductsInRoutine(6);
     }
   };
 
@@ -332,6 +363,214 @@ export default function PremiumInsightScreen({ navigation }: any) {
     return percentage;
   };
 
+  // Calculate skip impact analytics
+  const calculateSkipImpact = () => {
+    if (!summary) return null;
+
+    const currentScore = summary.overallConsistency;
+    const totalSkips = (summary.productSkips || 0) + (summary.timerSkips || 0) + (summary.exerciseEarlyEnds || 0);
+    
+    // Estimate impact: each skip type has different weight
+    // Product skips: most impactful (affects routine completeness)
+    // Timer skips: medium impact (waiting time, but routine still done)
+    // Exercise early ends: lower impact (partial credit)
+    const productSkipImpact = (summary.productSkips || 0) * 0.8; // 0.8 points per skip
+    const timerSkipImpact = (summary.timerSkips || 0) * 0.3; // 0.3 points per skip
+    const exerciseEarlyEndImpact = (summary.exerciseEarlyEnds || 0) * 0.2; // 0.2 points per early end
+    
+    const totalImpact = productSkipImpact + timerSkipImpact + exerciseEarlyEndImpact;
+    const potentialScore = Math.min(10.0, currentScore + totalImpact);
+    const improvementPoints = potentialScore - currentScore;
+    const improvementPercentage = currentScore > 0 
+      ? Math.round((improvementPoints / currentScore) * 100)
+      : Math.round((improvementPoints / 10.0) * 100);
+
+    // Find biggest opportunity
+    let biggestOpportunity = null;
+    let biggestImpact = 0;
+    
+    if (productSkipImpact > biggestImpact && (summary.productSkips || 0) > 0) {
+      biggestImpact = productSkipImpact;
+      biggestOpportunity = {
+        type: 'products',
+        count: summary.productSkips,
+        impact: productSkipImpact,
+        message: 'Complete all products',
+      };
+    }
+    
+    if (timerSkipImpact > biggestImpact && (summary.timerSkips || 0) > 0) {
+      biggestImpact = timerSkipImpact;
+      biggestOpportunity = {
+        type: 'timers',
+        count: summary.timerSkips,
+        impact: timerSkipImpact,
+        message: 'Complete waiting periods',
+      };
+    }
+    
+    if (exerciseEarlyEndImpact > biggestImpact && (summary.exerciseEarlyEnds || 0) > 0) {
+      biggestImpact = exerciseEarlyEndImpact;
+      biggestOpportunity = {
+        type: 'exercises',
+        count: summary.exerciseEarlyEnds,
+        impact: exerciseEarlyEndImpact,
+        message: 'Complete full exercise sessions',
+      };
+    }
+
+    // Calculate skip rate (skips per day)
+    const daysWithActivity = summary.daysCompleted || 1;
+    const skipRate = totalSkips / daysWithActivity;
+
+    return {
+      currentScore,
+      potentialScore,
+      improvementPoints,
+      improvementPercentage,
+      totalSkips,
+      skipRate,
+      biggestOpportunity,
+      productSkipImpact,
+      timerSkipImpact,
+      exerciseEarlyEndImpact,
+    };
+  };
+
+  const skipImpact = calculateSkipImpact();
+
+  // Calculate time saved vs effectiveness lost
+  const calculateTimeVsEffectiveness = () => {
+    if (!summary) return null;
+
+    // Constants based on research/realistic estimates
+    const AVERAGE_WAITING_TIME_SECONDS = 30; // 30 seconds wait time per product application
+    const AVERAGE_PRODUCT_TIME_SECONDS = 45; // 45 seconds to apply a product
+
+    const productSkips = summary.productSkips || 0;
+    const timerSkips = summary.timerSkips || 0;
+    const daysWithActivity = summary.daysCompleted || 1;
+    
+    // Use actual total products from user's routine, or fallback to estimate
+    const actualTotalProducts = totalProducts || 6; // Fallback to 6 if not loaded yet
+
+    // Calculate time saved (convert seconds to minutes for display)
+    const waitingTimeSavedSeconds = timerSkips * AVERAGE_WAITING_TIME_SECONDS;
+    const productTimeSavedSeconds = productSkips * AVERAGE_PRODUCT_TIME_SECONDS;
+    const totalTimeSavedSeconds = waitingTimeSavedSeconds + productTimeSavedSeconds;
+    const totalTimeSavedMinutes = totalTimeSavedSeconds / 60;
+
+    // Calculate effectiveness using Linear Accumulation model (from math AI)
+    // Base effectiveness per application = 10 points, Boosted (with wait) = 14 points
+    // Each skipped wait = you get 10 points instead of 14 points (lose 4 points per skip)
+    // Waiting is a slight boost, so the impact should be modest compared to full product skips
+    const BASE_POINTS_PER_APPLICATION = 10;
+    const BOOSTED_POINTS_PER_APPLICATION = 14; // 40% boost from waiting (14 vs 10)
+    
+    // For products: Use products actually in the routine (not skipped entirely)
+    const actualProductsInRoutine = productsInRoutine || actualTotalProducts; // Fallback to total if not loaded
+    
+    // Calculate waiting periods using actual products in routine for consistency
+    // Use products × days with activity (more realistic than estimate of 2 per day)
+    // This ensures waiting shows lower effectiveness loss per minute than full product skips
+    const totalPossibleWaitingOpportunities = actualProductsInRoutine * daysWithActivity;
+    
+    // Cap timerSkips to not exceed possible opportunities
+    const actualTimerSkips = Math.min(timerSkips, totalPossibleWaitingOpportunities);
+    
+    // Calculate points for waiting periods using Linear Accumulation
+    // Applications where you waited = boosted points (14 each)
+    // Applications where you skipped wait = base points (10 each)
+    const applicationsWithWait = Math.max(0, totalPossibleWaitingOpportunities - actualTimerSkips);
+    const applicationsWithoutWait = actualTimerSkips;
+    const waitingPointsEarned = (applicationsWithWait * BOOSTED_POINTS_PER_APPLICATION) + 
+                                 (applicationsWithoutWait * BASE_POINTS_PER_APPLICATION);
+    const waitingPointsIdeal = totalPossibleWaitingOpportunities * BOOSTED_POINTS_PER_APPLICATION;
+    const waitingEffectiveness = totalPossibleWaitingOpportunities > 0
+      ? (waitingPointsEarned / waitingPointsIdeal) * 100
+      : 100;
+    const waitingEffectivenessLost = 100 - waitingEffectiveness;
+
+    // For products: Use products actually in the routine (not skipped entirely)
+    // productSkips from weekly summary = number of times products were skipped during the week
+    
+    // Calculate product applications for the week
+    // Total possible applications = products in routine × 7 days (full week)
+    const totalPossibleApplications = actualProductsInRoutine * 7;
+    
+    // Actual applications = total possible - productSkips (times products were skipped)
+    const actualApplications = Math.max(0, totalPossibleApplications - productSkips);
+    
+    // Products contribute points when used (with proper waiting = 14 points per application)
+    // Products that are skipped entirely (not in routine) = 0 points
+    // Each application = 14 points (with proper waiting)
+    const productPointsEarned = actualApplications * BOOSTED_POINTS_PER_APPLICATION;
+    const productPointsIdeal = actualProductsInRoutine * 7 * BOOSTED_POINTS_PER_APPLICATION;
+    const productEffectiveness = productPointsIdeal > 0
+      ? (productPointsEarned / productPointsIdeal) * 100
+      : 100;
+    const productEffectivenessLost = 100 - productEffectiveness;
+
+    // Overall effectiveness: Total points earned vs total points possible
+    // This combines both waiting periods and product usage
+    const totalPointsEarned = waitingPointsEarned + productPointsEarned;
+    const totalPointsIdeal = waitingPointsIdeal + productPointsIdeal;
+    const overallEffectiveness = totalPointsIdeal > 0
+      ? (totalPointsEarned / totalPointsIdeal) * 100
+      : 100;
+    const totalEffectivenessLost = 100 - overallEffectiveness;
+
+    // Project over a month (4 weeks) - use same weekly rate
+    const monthlyTimeSavedMinutes = totalTimeSavedMinutes * 4;
+    const monthlyEffectivenessLost = totalEffectivenessLost; // Same rate, not multiplied
+
+    // Format time (handles both seconds and minutes)
+    const formatTime = (minutes: number) => {
+      if (minutes < 1) {
+        // If less than 1 minute, show seconds
+        const seconds = Math.round(minutes * 60);
+        return `${seconds}s`;
+      }
+      if (minutes < 60) {
+        return `${Math.round(minutes)}m`;
+      }
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.round(minutes % 60);
+      if (mins === 0) {
+        return `${hours}h`;
+      }
+      return `${hours}h ${mins}m`;
+    };
+
+    // Format time from seconds to minutes and seconds (e.g., "2m 30s")
+    const formatTimeFromSeconds = (totalSeconds: number) => {
+      if (totalSeconds < 60) {
+        return `${totalSeconds}s`;
+      }
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      if (seconds === 0) {
+        return `${minutes}m`;
+      }
+      return `${minutes}m ${seconds}s`;
+    };
+
+    return {
+      formatTimeFromSeconds,
+      waitingTimeSaved: waitingTimeSavedSeconds / 60, // Convert to minutes for display
+      productTimeSaved: productTimeSavedSeconds / 60, // Convert to minutes for display
+      totalTimeSavedMinutes,
+      totalTimeSavedFormatted: formatTime(totalTimeSavedMinutes),
+      waitingEffectivenessLost,
+      productEffectivenessLost,
+      totalEffectivenessLost,
+      monthlyTimeSavedFormatted: formatTime(monthlyTimeSavedMinutes),
+      monthlyEffectivenessLost,
+    };
+  };
+
+  const timeVsEffectiveness = calculateTimeVsEffectiveness();
+
   // Render Weekly Summary
   const renderWeekly = () => (
     <>
@@ -438,10 +677,94 @@ export default function PremiumInsightScreen({ navigation }: any) {
           <MatrixRedactedText value={summary.timerSkips} style={styles.skipValueGreen} />
         </View>
 
+        {/* Timer skip insight */}
+        {skipImpact && summary.timerSkips > 0 && (
+          <Text style={styles.skipInsight}>
+            Waiting periods (like after applying products) help products absorb properly. 
+            According to studies, skipping them reduces effectiveness by approximately 25-30%.
+          </Text>
+        )}
+
         <View style={styles.skipRow}>
           <Text style={styles.skipLabel}>Exercises ended early:</Text>
           <MatrixRedactedText value={summary.exerciseEarlyEnds || 0} style={styles.skipValueGreen} />
         </View>
+
+        {/* Exercise early end insight */}
+        {skipImpact && (summary.exerciseEarlyEnds || 0) > 0 && (
+          <Text style={styles.skipInsight}>
+            Completing full exercise sessions gives better results. 
+            Partial sessions still count, but full sessions maximize progress.
+          </Text>
+        )}
+
+        {/* Time Saved vs Effectiveness Lost */}
+        {timeVsEffectiveness && (timeVsEffectiveness.totalTimeSavedMinutes > 0 || timeVsEffectiveness.totalEffectivenessLost > 0) && (
+          <View style={styles.timeEffectivenessCard}>
+            <Text style={styles.timeEffectivenessTitle}>Time vs Effectiveness</Text>
+            
+            {/* This Week */}
+            <View style={[styles.timeEffectivenessSection, styles.timeEffectivenessSectionLast]}>
+              <Text style={styles.timeEffectivenessSubtitle}>This Week</Text>
+              <View style={styles.timeEffectivenessRow}>
+                <View style={styles.timeEffectivenessItem}>
+                  <Text style={styles.timeEffectivenessLabel}>Time saved</Text>
+                  <MatrixRedactedText 
+                    value={timeVsEffectiveness.totalTimeSavedFormatted}
+                    style={styles.timeEffectivenessValue}
+                  />
+                </View>
+                <View style={styles.timeEffectivenessDivider} />
+                <View style={styles.timeEffectivenessItem}>
+                  <Text style={styles.timeEffectivenessLabel}>Effectiveness lost</Text>
+                  <MatrixRedactedText 
+                    value={`${timeVsEffectiveness.totalEffectivenessLost.toFixed(1)}%`}
+                    style={styles.timeEffectivenessValueLost}
+                  />
+                </View>
+              </View>
+              
+              {/* Breakdown */}
+              {(timeVsEffectiveness.waitingTimeSaved > 0 || timeVsEffectiveness.productTimeSaved > 0) && (
+                <View style={styles.timeEffectivenessBreakdown}>
+                  {timeVsEffectiveness.waitingTimeSaved > 0 && (
+                    <View style={styles.timeEffectivenessBreakdownRow}>
+                      <Text style={styles.timeEffectivenessBreakdownLabel}>Waiting periods skips</Text>
+                      <View style={styles.timeEffectivenessBreakdownValues}>
+                        <MatrixRedactedText 
+                          value={timeVsEffectiveness.formatTimeFromSeconds(Math.round(timeVsEffectiveness.waitingTimeSaved * 60))}
+                          style={styles.timeEffectivenessBreakdownValue}
+                        />
+                        <Text style={styles.timeEffectivenessBreakdownSeparator}>•</Text>
+                        <MatrixRedactedText 
+                          value={`${timeVsEffectiveness.waitingEffectivenessLost.toFixed(1)}%`}
+                          style={styles.timeEffectivenessBreakdownValueLost}
+                        />
+                      </View>
+                    </View>
+                  )}
+                  
+                  {timeVsEffectiveness.productTimeSaved > 0 && (
+                    <View style={styles.timeEffectivenessBreakdownRow}>
+                      <Text style={styles.timeEffectivenessBreakdownLabel}>Full product skips</Text>
+                      <View style={styles.timeEffectivenessBreakdownValues}>
+                        <MatrixRedactedText 
+                          value={timeVsEffectiveness.formatTimeFromSeconds(Math.round(timeVsEffectiveness.productTimeSaved * 60))}
+                          style={styles.timeEffectivenessBreakdownValue}
+                        />
+                        <Text style={styles.timeEffectivenessBreakdownSeparator}>•</Text>
+                        <MatrixRedactedText 
+                          value={`${timeVsEffectiveness.productEffectivenessLost.toFixed(1)}%`}
+                          style={styles.timeEffectivenessBreakdownValueLost}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     </>
   );
@@ -511,7 +834,8 @@ export default function PremiumInsightScreen({ navigation }: any) {
         </View>
 
         {/* Correlation Insights - What's Working and What's Hurting */}
-        {monthlyInsights.correlationInsights.message ? (
+        {/* For premium users: show message if less than 4 weeks */}
+        {isPremium && monthlyInsights.correlationInsights.message ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Monthly Summary</Text>
             <View style={styles.messageCard}>
@@ -520,76 +844,109 @@ export default function PremiumInsightScreen({ navigation }: any) {
           </View>
         ) : (
           <>
-            {/* What's Working Card */}
-            {monthlyInsights.correlationInsights.whatsWorking && (
+            {/* What's Working Card - Always show for free users, show if data exists for premium */}
+            {(isPremium ? monthlyInsights.correlationInsights.whatsWorking : true) && (
               <View style={[styles.section, styles.insightCard]}>
                 <View style={styles.insightHeader}>
                   <Text style={styles.insightTitle}>WHAT'S WORKING</Text>
                 </View>
-                <Text style={styles.insightSentence}>
-                  {monthlyInsights.correlationInsights.whatsWorking.sentenceTemplatePrefix}
-                  <MatrixRedactedText 
-                    value={monthlyInsights.correlationInsights.whatsWorking.sentenceData}
-                    inline={true}
-                    fixedLength={8}
-                    addLinebreak={true}
-                    style={isPremium ? undefined : styles.insightSentenceMatrix}
-                  />
-                  {monthlyInsights.correlationInsights.whatsWorking.sentenceTemplateSuffix}
-                </Text>
-                <Text style={styles.insightWeekCount}>
-                  → {monthlyInsights.correlationInsights.whatsWorking.weekCount}/{monthlyInsights.correlationInsights.whatsWorking.totalWeeks} weeks rated "Better" when taking weekly photo.
-                </Text>
-                <Text style={styles.insightAction}>
-                  {monthlyInsights.correlationInsights.whatsWorking.adviceTemplatePrefix}
-                  <MatrixRedactedText 
-                    value={monthlyInsights.correlationInsights.whatsWorking.adviceData}
-                    inline={true}
-                    fixedLength={8}
-                    addLinebreak={true}
-                    style={isPremium ? undefined : styles.insightActionMatrix}
-                  />
-                  {monthlyInsights.correlationInsights.whatsWorking.adviceTemplateSuffix}
-                </Text>
+                {monthlyInsights.correlationInsights.whatsWorking ? (
+                  <>
+                    <Text style={styles.insightSentence}>
+                      {monthlyInsights.correlationInsights.whatsWorking.sentenceTemplatePrefix}
+                      <MatrixRedactedText 
+                        value={monthlyInsights.correlationInsights.whatsWorking.sentenceData}
+                        inline={true}
+                        fixedLength={8}
+                        addLinebreak={true}
+                        style={isPremium ? undefined : styles.insightSentenceMatrix}
+                      />
+                      {monthlyInsights.correlationInsights.whatsWorking.sentenceTemplateSuffix}
+                    </Text>
+                    <Text style={styles.insightWeekCount}>
+                      → {monthlyInsights.correlationInsights.whatsWorking.weekCount}/{monthlyInsights.correlationInsights.whatsWorking.totalWeeks} weeks rated "Better" when taking weekly photo.
+                    </Text>
+                    <Text style={styles.insightAction}>
+                      {monthlyInsights.correlationInsights.whatsWorking.adviceTemplatePrefix}
+                      <MatrixRedactedText 
+                        value={monthlyInsights.correlationInsights.whatsWorking.adviceData}
+                        inline={true}
+                        fixedLength={8}
+                        addLinebreak={true}
+                        style={isPremium ? undefined : styles.insightActionMatrix}
+                      />
+                      {monthlyInsights.correlationInsights.whatsWorking.adviceTemplateSuffix}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.insightSentence}>
+                      On better weeks, you <MatrixRedactedText value="your consistency score was higher" inline={true} fixedLength={8} addLinebreak={true} style={styles.insightSentenceMatrix} />than on average.
+                    </Text>
+                    <Text style={styles.insightWeekCount}>
+                      → 0/0 weeks rated "Better" when taking weekly photo.
+                    </Text>
+                    <Text style={styles.insightAction}>
+                      When you <MatrixRedactedText value="are more consistent" inline={true} fixedLength={8} addLinebreak={true} style={styles.insightActionMatrix} />you see better results.
+                    </Text>
+                  </>
+                )}
               </View>
             )}
 
-            {/* What's Hurting Card */}
-            {monthlyInsights.correlationInsights.whatsHurting && (
+            {/* What's Hurting Card - Always show for free users, show if data exists for premium */}
+            {(isPremium ? monthlyInsights.correlationInsights.whatsHurting : true) && (
               <View style={[styles.section, styles.insightCard, styles.insightCardHurting]}>
                 <View style={styles.insightHeader}>
                   <Text style={styles.insightTitle}>WHAT'S HURTING</Text>
                 </View>
-                <Text style={styles.insightSentence}>
-                  {monthlyInsights.correlationInsights.whatsHurting.sentenceTemplatePrefix}
-                  <MatrixRedactedText 
-                    value={monthlyInsights.correlationInsights.whatsHurting.sentenceData}
-                    inline={true}
-                    fixedLength={8}
-                    addLinebreak={true}
-                    style={isPremium ? undefined : styles.insightSentenceMatrix}
-                  />
-                  {monthlyInsights.correlationInsights.whatsHurting.sentenceTemplateSuffix}
-                </Text>
-                <Text style={styles.insightWeekCount}>
-                  → {monthlyInsights.correlationInsights.whatsHurting.weekCount}/{monthlyInsights.correlationInsights.whatsHurting.totalWeeks} weeks rated "Worse" when taking a weekly photo.
-                </Text>
-                <Text style={styles.insightAction}>
-                  {monthlyInsights.correlationInsights.whatsHurting.adviceTemplatePrefix}
-                  <MatrixRedactedText 
-                    value={monthlyInsights.correlationInsights.whatsHurting.adviceData}
-                    inline={true}
-                    fixedLength={8}
-                    addLinebreak={true}
-                    style={isPremium ? undefined : styles.insightActionMatrix}
-                  />
-                  {monthlyInsights.correlationInsights.whatsHurting.adviceTemplateSuffix}
-                </Text>
+                {monthlyInsights.correlationInsights.whatsHurting ? (
+                  <>
+                    <Text style={styles.insightSentence}>
+                      {monthlyInsights.correlationInsights.whatsHurting.sentenceTemplatePrefix}
+                      <MatrixRedactedText 
+                        value={monthlyInsights.correlationInsights.whatsHurting.sentenceData}
+                        inline={true}
+                        fixedLength={8}
+                        addLinebreak={true}
+                        style={isPremium ? undefined : styles.insightSentenceMatrix}
+                      />
+                      {monthlyInsights.correlationInsights.whatsHurting.sentenceTemplateSuffix}
+                    </Text>
+                    <Text style={styles.insightWeekCount}>
+                      → {monthlyInsights.correlationInsights.whatsHurting.weekCount}/{monthlyInsights.correlationInsights.whatsHurting.totalWeeks} weeks rated "Worse" when taking a weekly photo.
+                    </Text>
+                    <Text style={styles.insightAction}>
+                      {monthlyInsights.correlationInsights.whatsHurting.adviceTemplatePrefix}
+                      <MatrixRedactedText 
+                        value={monthlyInsights.correlationInsights.whatsHurting.adviceData}
+                        inline={true}
+                        fixedLength={8}
+                        addLinebreak={true}
+                        style={isPremium ? undefined : styles.insightActionMatrix}
+                      />
+                      {monthlyInsights.correlationInsights.whatsHurting.adviceTemplateSuffix}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.insightSentence}>
+                      On worse weeks, you <MatrixRedactedText value="your consistency score was lower" inline={true} fixedLength={8} addLinebreak={true} style={styles.insightSentenceMatrix} />than on average.
+                    </Text>
+                    <Text style={styles.insightWeekCount}>
+                      → 0/0 weeks rated "Worse" when taking a weekly photo.
+                    </Text>
+                    <Text style={styles.insightAction}>
+                      When you <MatrixRedactedText value="are not consistent" inline={true} fixedLength={8} addLinebreak={true} style={styles.insightActionMatrix} />you see worse results.
+                    </Text>
+                  </>
+                )}
               </View>
             )}
 
-            {/* No insights message */}
-            {!monthlyInsights.correlationInsights.whatsWorking && 
+            {/* No insights message - Only for premium users when no data */}
+            {isPremium && 
+             !monthlyInsights.correlationInsights.whatsWorking && 
              !monthlyInsights.correlationInsights.whatsHurting && 
              !monthlyInsights.correlationInsights.message && (
               <View style={styles.section}>
@@ -1027,6 +1384,274 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontStyle: 'italic',
   },
+  opportunityCard: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: '#00cc00',
+    borderRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  opportunityTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  opportunityScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  opportunityScoreItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  opportunityScoreLabel: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  opportunityScoreValue: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  opportunityScoreValuePotential: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#00cc00',
+  },
+  opportunityArrow: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 20,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.md,
+  },
+  opportunityMessage: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  opportunityHighlight: {
+    fontFamily: MONOSPACE_FONT,
+    color: '#00cc00',
+    fontWeight: '600',
+  },
+  biggestOpportunityCard: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  biggestOpportunityTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  biggestOpportunityMessage: {
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  biggestOpportunityImpact: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  biggestOpportunityHighlight: {
+    fontFamily: MONOSPACE_FONT,
+    color: '#00cc00',
+    fontWeight: '600',
+  },
+  skipInsight: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  skipRateCard: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  skipRateLabel: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  skipRateValue: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#00cc00',
+    marginBottom: spacing.xs,
+  },
+  skipRateInsight: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  mostSkippedCard: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  mostSkippedTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  mostSkippedName: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  mostSkippedCount: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  mostSkippedCountValue: {
+    fontFamily: MONOSPACE_FONT,
+    color: '#00cc00',
+    fontWeight: '600',
+  },
+  mostSkippedInsight: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  timeEffectivenessCard: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  timeEffectivenessTitle: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  timeEffectivenessSection: {
+    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  timeEffectivenessSectionLast: {
+    borderBottomWidth: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
+  },
+  timeEffectivenessSubtitle: {
+    ...typography.bodySmall,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  timeEffectivenessRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timeEffectivenessItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timeEffectivenessDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  timeEffectivenessLabel: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  timeEffectivenessValue: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#00cc00',
+  },
+  timeEffectivenessValueLost: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#cc0000',
+  },
+  timeEffectivenessBreakdown: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  timeEffectivenessBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  timeEffectivenessBreakdownLabel: {
+    ...typography.bodySmall,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  timeEffectivenessBreakdownValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  timeEffectivenessBreakdownValue: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 14,
+    color: '#00cc00',
+    fontWeight: '600',
+  },
+  timeEffectivenessBreakdownValueLost: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 14,
+    color: '#cc0000',
+    fontWeight: '600',
+  },
+  timeEffectivenessBreakdownSeparator: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.xs,
+  },
+  timeEffectivenessInsight: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    fontStyle: 'italic',
+  },
   patternRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1282,12 +1907,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.buttonAccent,
     borderRadius: 4,
-    backgroundColor: colors.buttonAccent,
+    backgroundColor: 'transparent',
   },
   getFullProtocolText: {
     ...typography.body,
     fontWeight: '600',
-    color: '#000000',
+    color: colors.buttonAccent,
   },
   contentContainerWithStickyHeader: {
     paddingTop: spacing.md * 2 + spacing.sm * 2 + 24 + 1, // Account for sticky header: padding (top+bottom) + button padding (top+bottom) + text line height + border

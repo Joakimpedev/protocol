@@ -11,6 +11,7 @@ import WeekPickerScreen from '../screens/WeekPickerScreen';
 import WeeklySummaryScreen from '../screens/WeeklySummaryScreen';
 import PremiumInsightScreen from '../screens/PremiumInsightScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -119,6 +120,14 @@ export default function ProgressStackNavigator() {
           headerTintColor: colors.text,
           headerTitle: '',
           headerBackTitle: 'Progress',
+        })}
+      />
+      <Stack.Screen 
+        name="Feedback" 
+        component={FeedbackScreen}
+        options={({ navigation }) => ({
+          headerShown: false,
+          presentation: 'modal',
         })}
       />
     </Stack.Navigator>

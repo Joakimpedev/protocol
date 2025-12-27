@@ -370,12 +370,12 @@ async function calculateCorrelationInsights(
       getAdvice: (stepName?: string) => string;
     }> = {
       consistency_score: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "your consistency score was higher ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "had higher consistency score ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "are more consistent, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -384,12 +384,12 @@ async function calculateCorrelationInsights(
         },
       },
       morning_completion: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "you completed your morning routine more often ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "completed your morning routine more often ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "complete your morning routine, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -398,12 +398,12 @@ async function calculateCorrelationInsights(
         },
       },
       evening_completion: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "you completed your evening routine more often ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "completed your evening routine more often ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "complete your evening routine, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -412,12 +412,12 @@ async function calculateCorrelationInsights(
         },
       },
       exercise_completion: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "you did your exercises more often ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "did your exercises more often ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "do your exercises, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -426,12 +426,12 @@ async function calculateCorrelationInsights(
         },
       },
       timer_skips: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "you skipped fewer timers ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "skipped fewer timers ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "don't rush through timers, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -440,12 +440,12 @@ async function calculateCorrelationInsights(
         },
       },
       steps_skipped: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: () => "you skipped fewer steps ",
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: () => "skipped fewer steps ",
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: () => "complete all steps, ",
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },
@@ -454,12 +454,12 @@ async function calculateCorrelationInsights(
         },
       },
       most_skipped_step: {
-        sentenceTemplatePrefix: "On better weeks, ",
-        getSentenceData: (stepName) => `you skipped ${stepName || 'this step'} less often `,
+        sentenceTemplatePrefix: "On better weeks, you ",
+        getSentenceData: (stepName) => `skipped ${stepName || 'this step'} less often `,
         sentenceTemplateSuffix: "than on average.",
         adviceTemplatePrefix: "When you ",
         getAdviceData: (stepName) => `don't skip ${stepName || 'this step'}, `,
-        adviceTemplateSuffix: "it makes a difference.",
+        adviceTemplateSuffix: "you see better results.",
         getSentence: function(stepName) {
           return this.sentenceTemplatePrefix + this.getSentenceData(stepName) + this.sentenceTemplateSuffix;
         },

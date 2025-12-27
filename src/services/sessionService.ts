@@ -123,7 +123,7 @@ export async function markSessionCompleted(
       // Check if all steps are completed (all sessions done)
       // Exclude mewing from exercise IDs since it's continuous and never "completed"
       const allIngredientIds = (data.ingredientSelections || [])
-        .filter((ing: any) => ing.state === 'added')
+        .filter((ing: any) => ing.state === 'added' || ing.state === 'active')
         .map((ing: any) => ing.ingredient_id);
       const allExerciseIds = (data.exerciseSelections || [])
         .filter((ex: any) => ex.state === 'added' && ex.exercise_id !== 'mewing')

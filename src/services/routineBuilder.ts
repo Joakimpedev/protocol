@@ -3,7 +3,7 @@
  * Builds session-based routines with proper timing balancing and ordering
  */
 
-import { UserRoutineData, IngredientSelection, ExerciseSelection } from './routineService';
+import { UserRoutineData, IngredientSelection, ExerciseSelection, shouldShowDeferredProduct } from './routineService';
 const guideBlocks = require('../data/guide_blocks.json');
 
 export interface RoutineStep {
@@ -13,6 +13,7 @@ export interface RoutineStep {
   productName?: string;
   stepCategory: string;
   routineOrder?: number;
+  isPending?: boolean; // True if product is pending (user needs to get it)
   session: {
     action: string;
     duration_seconds: number | null;
@@ -45,10 +46,21 @@ export function buildRoutineSections(routineData: UserRoutineData): RoutineSecti
     return ing?.session?.premium === true;
   };
 
-  // Get all added and received ingredients
+  // Get all active ingredients (including backward compatibility with 'added')
+  // Also include pending and deferred (if time has passed) products
   // Filter out premium ingredients that aren't already in user's selections
-  const addedIngredients = (routineData.ingredientSelections || [])
-    .filter((sel: IngredientSelection) => sel.state === 'added')
+  const activeIngredients = (routineData.ingredientSelections || [])
+    .filter((sel: IngredientSelection) => {
+      // Include active products (or 'added' for backward compatibility)
+      if (sel.state === 'active' || sel.state === 'added') return true;
+      // Include pending products
+      if (sel.state === 'pending') return true;
+      // Include deferred products if time has passed
+      if (sel.state === 'deferred') {
+        return shouldShowDeferredProduct(sel.defer_until);
+      }
+      return false;
+    })
     .map((sel: IngredientSelection) => {
       const ingredient = ingredients.find(ing => ing.ingredient_id === sel.ingredient_id);
       if (!ingredient) return null;
@@ -65,7 +77,7 @@ export function buildRoutineSections(routineData: UserRoutineData): RoutineSecti
   const eveningFixed: any[] = [];
   const flexible: any[] = [];
 
-  addedIngredients.forEach((ing: any) => {
+  activeIngredients.forEach((ing: any) => {
     const timingOptions = ing.timing_options || [];
     const isFlexible = ing.timing_flexible === true;
 
@@ -149,21 +161,28 @@ function buildRoutineSteps(
       const timingOptions = ing.timing_options || [];
       return timingOptions.includes(timing);
     })
-    .map((ing: any) => ({
-      id: ing.ingredient_id,
-      type: 'ingredient' as const,
-      displayName: ing.display_name,
-      productName: ing.selection?.product_name,
-      stepCategory: ing.step_category || 'treatment',
-      routineOrder: ing.routine_order || 999,
-      session: ing.session || {
-        action: ing.short_description,
-        duration_seconds: null,
-        wait_after_seconds: 0,
-        tip: null,
-      },
-      ingredient: ing,
-    }));
+    .map((ing: any) => {
+      const selection = ing.selection as IngredientSelection;
+      const isPending = selection?.state === 'pending' || 
+                       (selection?.state === 'deferred' && shouldShowDeferredProduct(selection.defer_until));
+      
+      return {
+        id: ing.ingredient_id,
+        type: 'ingredient' as const,
+        displayName: ing.display_name,
+        productName: selection?.product_name,
+        stepCategory: ing.step_category || 'treatment',
+        routineOrder: ing.routine_order || 999,
+        isPending: isPending,
+        session: ing.session || {
+          action: ing.short_description,
+          duration_seconds: null,
+          wait_after_seconds: 0,
+          tip: null,
+        },
+        ingredient: ing,
+      };
+    });
 
   // Sort by category order, then by routine_order
   ingredientSteps.sort((a, b) => {

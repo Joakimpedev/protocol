@@ -9,8 +9,9 @@ import { db } from '../config/firebase';
 export interface IngredientSelection {
   ingredient_id: string;
   product_name: string;
-  state: 'added' | 'skipped' | 'not_received';
-  waiting_for_delivery: boolean;
+  state: 'active' | 'pending' | 'deferred' | 'skipped' | 'added' | 'not_received'; // 'added' and 'not_received' kept for backward compatibility
+  waiting_for_delivery?: boolean; // Deprecated, kept for backward compatibility
+  defer_until?: string; // ISO date string for when to show deferred products again
 }
 
 export interface ExerciseSelection {
@@ -127,16 +128,69 @@ export async function updateIngredientState(
 }
 
 /**
- * Mark a product as received (change from not_received to added)
+ * Mark a product as received (change from not_received to added, or pending/deferred to active)
  */
 export async function markProductAsReceived(
   userId: string,
   ingredientId: string
 ): Promise<void> {
   await updateIngredientState(userId, ingredientId, {
-    state: 'added',
+    state: 'active',
     waiting_for_delivery: false,
   });
+}
+
+/**
+ * Mark a pending product as active (user got it)
+ */
+export async function markPendingProductAsActive(
+  userId: string,
+  ingredientId: string,
+  productName: string
+): Promise<void> {
+  await updateIngredientState(userId, ingredientId, {
+    state: 'active',
+    product_name: productName,
+    waiting_for_delivery: false,
+  });
+}
+
+/**
+ * Defer a pending product (waiting for delivery)
+ */
+export async function deferPendingProduct(
+  userId: string,
+  ingredientId: string,
+  days: 1 | 3 | 7
+): Promise<void> {
+  const deferDate = new Date();
+  deferDate.setDate(deferDate.getDate() + days);
+  
+  await updateIngredientState(userId, ingredientId, {
+    state: 'deferred',
+    defer_until: deferDate.toISOString(),
+  });
+}
+
+/**
+ * Skip a pending product forever
+ */
+export async function skipPendingProduct(
+  userId: string,
+  ingredientId: string
+): Promise<void> {
+  await updateIngredientState(userId, ingredientId, {
+    state: 'skipped',
+  });
+}
+
+/**
+ * Check if a deferred product should be shown again
+ */
+export function shouldShowDeferredProduct(deferUntil?: string): boolean {
+  if (!deferUntil) return true;
+  const deferDate = new Date(deferUntil);
+  return new Date() >= deferDate;
 }
 
 /**
@@ -170,6 +224,44 @@ export async function updateExerciseState(
     });
   } catch (error) {
     console.error('Error updating exercise state:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reset all deferred products back to pending state (dev tool)
+ * This will reset all products to pending state (the "don't have" state after onboarding)
+ * - Resets deferred products (waiting for delivery) back to pending
+ * - Resets active products back to pending (removes product_name)
+ * - Resets skipped products back to pending
+ */
+export async function resetDeferredProducts(userId: string): Promise<void> {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    
+    if (!userDoc.exists()) {
+      throw new Error('User document not found');
+    }
+
+    const data = userDoc.data();
+    const ingredientSelections: IngredientSelection[] = data.ingredientSelections || [];
+
+    // Reset all products to pending state (the "don't have" state after onboarding)
+    const updatedSelections = ingredientSelections.map((selection) => {
+      // Remove defer_until, product_name, and waiting_for_delivery
+      // Set all products to pending state regardless of current state
+      const { defer_until, product_name, waiting_for_delivery, ...rest } = selection;
+      return {
+        ...rest,
+        state: 'pending' as const,
+      };
+    });
+
+    await updateDoc(doc(db, 'users', userId), {
+      ingredientSelections: updatedSelections,
+    });
+  } catch (error) {
+    console.error('Error resetting deferred products:', error);
     throw error;
   }
 }

@@ -9,6 +9,8 @@ import {
   trackTimerSkip, 
   trackRoutineStartTime 
 } from '../services/analyticsService';
+import PendingProductModal from '../components/PendingProductModal';
+import { loadUserRoutine } from '../services/routineService';
 
 interface SessionScreenProps {
   route: {
@@ -27,6 +29,8 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   const [isWaiting, setIsWaiting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasTrackedStartTime, setHasTrackedStartTime] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [routineData, setRoutineData] = useState<any>(null);
   
   const waitTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentTimerDurationRef = useRef<number | null>(null);
@@ -45,6 +49,12 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
     return `${secs}s`;
   };
 
+  // Load routine data to check for pending products
+  useEffect(() => {
+    if (!user) return;
+    loadUserRoutine(user.uid).then(setRoutineData).catch(console.error);
+  }, [user]);
+
   // Track routine start time when first step is shown
   useEffect(() => {
     if (!user || !currentStep || hasTrackedStartTime) return;
@@ -58,6 +68,23 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
       setHasTrackedStartTime(true);
     }
   }, [user, currentStep, currentStepIndex, section.name, hasTrackedStartTime]);
+
+  // Handle pending product tap
+  const handlePendingProductTap = () => {
+    setShowPendingModal(true);
+  };
+
+  // Handle pending product update (refresh routine data and continue to next step)
+  const handlePendingProductUpdate = async () => {
+    if (!user) return;
+    const updated = await loadUserRoutine(user.uid);
+    setRoutineData(updated);
+    // Close the modal
+    setShowPendingModal(false);
+    // Continue to the next step (or complete if last step)
+    // The product is now deferred, so we can proceed through the routine
+    handleNextStep();
+  };
 
   const handleStepComplete = async () => {
     if (!currentStep) return;
@@ -196,6 +223,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
   // Main step screen
   const isContinuous = currentStep.session.is_continuous === true;
+  const isPending = currentStep.isPending === true;
 
   // Get short description from ingredient, exercise, or baseStep
   let shortDescription: string | null = null;
@@ -205,6 +233,40 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
     shortDescription = currentStep.exercise.short_description.trim() || null;
   } else if (currentStep.baseStep?.short_description) {
     shortDescription = currentStep.baseStep.short_description.trim() || null;
+  }
+
+  // If step is pending, show pending UI
+  if (isPending) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.progressText}>{progressText}</Text>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.pendingContainer}>
+            <Text style={styles.pendingIcon}>◌</Text>
+            <Text style={styles.stepName}>{currentStep.displayName}</Text>
+            <Text style={styles.pendingText}>Waiting for you to get this</Text>
+            <TouchableOpacity
+              style={styles.configureButton}
+              onPress={handlePendingProductTap}
+            >
+              <Text style={styles.configureButtonText}>Configure</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <PendingProductModal
+          visible={showPendingModal}
+          onClose={() => setShowPendingModal(false)}
+          ingredientId={currentStep.id}
+          ingredientName={currentStep.displayName}
+          shortDescription={shortDescription || currentStep.ingredient?.short_description || ''}
+          onUpdate={handlePendingProductUpdate}
+        />
+      </View>
+    );
   }
 
   return (
@@ -339,8 +401,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: spacing.xl,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    paddingTop: '25%',
   },
   stepName: {
     ...typography.heading,
@@ -480,6 +543,43 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     textDecorationLine: 'underline',
+  },
+  pendingContainer: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.xl,
+    alignItems: 'center',
+    width: '100%',
+  },
+  pendingIcon: {
+    fontSize: 48,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  pendingText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  configureButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.lg,
+    alignItems: 'center',
+    width: '100%',
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  configureButtonText: {
+    ...typography.headingSmall,
+    fontWeight: '600',
+    color: colors.text,
   },
 });
 

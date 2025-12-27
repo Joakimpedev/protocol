@@ -15,6 +15,9 @@ import {
 import { resetTodayCompletions, resetSkipAnalytics } from '../services/completionService';
 import { getUserPreferences, updateUserPreferences } from '../services/userPreferencesService';
 import { setDevPremiumMode } from '../services/subscriptionService';
+import { resetDeferredProducts } from '../services/routineService';
+import ReviewPromptModal from '../components/ReviewPromptModal';
+import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
 
 export default function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuth();
@@ -31,6 +34,7 @@ export default function SettingsScreen({ navigation }: any) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showGlobalComparison, setShowGlobalComparison] = useState(true);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // Helper to convert time string (HH:MM) to Date
   const timeStringToDate = (timeString: string): Date => {
@@ -233,6 +237,101 @@ export default function SettingsScreen({ navigation }: any) {
         },
       ]
     );
+  };
+
+  const handleResetDeferredProducts = () => {
+    Alert.alert(
+      'Reset Deferred Products',
+      'This will reset all products back to the "don\'t have" state (same as after onboarding). All product names, delivery timers, and states will be cleared. You will be asked about all products again. Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            if (!user) return;
+            try {
+              await resetDeferredProducts(user.uid);
+              Alert.alert('Success', 'All products have been reset to "don\'t have" state. You will be asked about all products again.');
+            } catch (error: any) {
+              console.error('Error resetting deferred products:', error);
+              Alert.alert('Error', error.message || 'Failed to reset products');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleTestReviewPrompt = () => {
+    setShowReviewModal(true);
+  };
+
+  const handleLeaveReview = async () => {
+    if (!user) return;
+    
+    try {
+      // Update last review prompt date
+      await updateLastReviewPromptDate(user.uid);
+      
+      // Request native review dialog
+      await requestReview();
+      
+      // Close modal - don't navigate, just show the native review dialog
+      setShowReviewModal(false);
+    } catch (error) {
+      console.error('Error handling review request:', error);
+      // Close modal even if review fails
+      setShowReviewModal(false);
+    }
+  };
+
+  const handleNotNow = async () => {
+    if (!user) {
+      setShowReviewModal(false);
+      // Navigate to Feedback screen - try direct first, then nested
+      try {
+        navigation.navigate('Feedback');
+      } catch (error) {
+        // If direct navigation fails, use nested navigation to Progress tab
+        try {
+          const rootNavigation = navigation.getParent()?.getParent();
+          if (rootNavigation) {
+            rootNavigation.navigate('Progress', {
+              screen: 'Feedback',
+            });
+          }
+        } catch (e) {
+          console.error('Error navigating to Feedback:', e);
+        }
+      }
+      return;
+    }
+    
+    try {
+      // Update last review prompt date (30 day cooldown)
+      await updateLastReviewPromptDate(user.uid);
+    } catch (error) {
+      console.error('Error updating review prompt date:', error);
+    }
+    
+    setShowReviewModal(false);
+    // Navigate to Feedback screen - try direct first, then nested
+    try {
+      navigation.navigate('Feedback');
+    } catch (error) {
+      // If direct navigation fails, use nested navigation to Progress tab
+      try {
+        const rootNavigation = navigation.getParent()?.getParent();
+        if (rootNavigation) {
+          rootNavigation.navigate('Progress', {
+            screen: 'Feedback',
+          });
+        }
+      } catch (e) {
+        console.error('Error navigating to Feedback:', e);
+      }
+    }
   };
 
   const handleGlobalComparisonToggle = async (value: boolean) => {
@@ -455,6 +554,18 @@ export default function SettingsScreen({ navigation }: any) {
         >
           <Text style={styles.devButtonText}>Reset Skip Analytics</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.devButton}
+          onPress={handleResetDeferredProducts}
+        >
+          <Text style={styles.devButtonText}>Reset Deferred Products</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.devButton}
+          onPress={handleTestReviewPrompt}
+        >
+          <Text style={styles.devButtonText}>Test Review Prompt</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Account Management Section */}
@@ -481,9 +592,16 @@ export default function SettingsScreen({ navigation }: any) {
         onPurchaseComplete={() => {
           setShowPaywall(false);
         }}
-        title="Premium"
+        title="Try Full Protocol"
         subtitle="Unlock all features."
         showFeatures={true}
+      />
+
+      {/* Review Prompt Modal */}
+      <ReviewPromptModal
+        visible={showReviewModal}
+        onLeaveReview={handleLeaveReview}
+        onNotNow={handleNotNow}
       />
     </ScrollView>
   );
@@ -566,7 +684,6 @@ const styles = StyleSheet.create({
   },
   timeDisplay: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
   timeDisplayText: {
@@ -577,7 +694,9 @@ const styles = StyleSheet.create({
   },
   editHint: {
     ...typography.bodySmall,
+    fontSize: 11,
     color: colors.textMuted,
+    marginLeft: spacing.md,
   },
   saveButton: {
     backgroundColor: colors.surface,

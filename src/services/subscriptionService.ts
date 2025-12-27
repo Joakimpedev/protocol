@@ -36,27 +36,49 @@ export interface SubscriptionStatus {
   willRenew: boolean;
 }
 
+// Track initialization state
+let isInitialized = false;
+let initializationPromise: Promise<void> | null = null;
+
 /**
  * Initialize RevenueCat SDK
  * Should be called once at app startup (in App.tsx or RootNavigator)
  */
 export async function initializeRevenueCat(userId: string): Promise<void> {
-  try {
-    if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY.includes('YOUR_')) {
-      console.warn('RevenueCat API key not configured. Subscription features will not work.');
-      return;
-    }
-
-    await Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use INFO or WARN in production
-    await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
-    
-    // Set user ID for RevenueCat (link to Firebase Auth user)
-    await Purchases.logIn(userId);
-    
-    console.log('RevenueCat initialized successfully');
-  } catch (error) {
-    console.error('Error initializing RevenueCat:', error);
+  // If already initialized, return
+  if (isInitialized) {
+    return;
   }
+
+  // If initialization is in progress, wait for it
+  if (initializationPromise) {
+    return initializationPromise;
+  }
+
+  initializationPromise = (async () => {
+    try {
+      if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY.includes('YOUR_')) {
+        console.warn('RevenueCat API key not configured. Subscription features will not work.');
+        return;
+      }
+
+      await Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use INFO or WARN in production
+      await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+      
+      // Set user ID for RevenueCat (link to Firebase Auth user)
+      await Purchases.logIn(userId);
+      
+      isInitialized = true;
+      console.log('RevenueCat initialized successfully');
+    } catch (error) {
+      console.error('Error initializing RevenueCat:', error);
+      isInitialized = false;
+    } finally {
+      initializationPromise = null;
+    }
+  })();
+
+  return initializationPromise;
 }
 
 /**
@@ -67,11 +89,31 @@ export function isRevenueCatConfigured(): boolean {
 }
 
 /**
+ * Check if RevenueCat is initialized and ready to use
+ */
+export function isRevenueCatInitialized(): boolean {
+  return isInitialized;
+}
+
+/**
  * Get current subscription status from RevenueCat
  */
 export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
   // If RevenueCat is not configured, return default status without trying to access it
   if (!isRevenueCatConfigured()) {
+    return {
+      isPremium: false,
+      isActive: false,
+      expirationDate: null,
+      cancellationDate: null,
+      productId: null,
+      willRenew: false,
+    };
+  }
+
+  // If not initialized yet, return default status
+  if (!isInitialized) {
+    console.warn('RevenueCat not initialized yet. Returning default subscription status.');
     return {
       isPremium: false,
       isActive: false,
@@ -139,6 +181,11 @@ function parseCustomerInfo(customerInfo: CustomerInfo): SubscriptionStatus {
  * Get available subscription offerings (packages)
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
+  if (!isInitialized) {
+    console.warn('RevenueCat not initialized yet. Cannot get offerings.');
+    return null;
+  }
+
   try {
     const offerings = await Purchases.getOfferings();
     return offerings.current;
@@ -152,6 +199,10 @@ export async function getOfferings(): Promise<PurchasesOffering | null> {
  * Purchase a subscription package
  */
 export async function purchasePackage(pkg: PurchasesPackage): Promise<{ success: boolean; customerInfo?: CustomerInfo; error?: string }> {
+  if (!isInitialized) {
+    return { success: false, error: 'RevenueCat not initialized yet' };
+  }
+
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     
@@ -175,6 +226,10 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<{ success:
  * Restore previous purchases (for users who reinstalled app)
  */
 export async function restorePurchases(): Promise<{ success: boolean; isPremium: boolean }> {
+  if (!isInitialized) {
+    return { success: false, isPremium: false };
+  }
+
   try {
     const customerInfo = await Purchases.restorePurchases();
     const status = parseCustomerInfo(customerInfo);

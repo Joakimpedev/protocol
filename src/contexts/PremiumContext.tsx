@@ -37,14 +37,22 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     willRenew: false,
   });
 
-  // Initialize RevenueCat when user is available
+  // Check if we're in dev mode (__DEV__ is a React Native global)
+  const isDevMode = typeof __DEV__ !== 'undefined' && __DEV__;
+
+  // Initialize RevenueCat when user is available (skip in dev mode)
   useEffect(() => {
-    if (user) {
+    if (user && !isDevMode) {
       initializeRevenueCat(user.uid).then(() => {
+        // After initialization, refresh subscription status
         refreshSubscriptionStatus();
       });
+    } else if (user && isDevMode) {
+      // In dev mode, check Firestore first to respect dev premium switch
+      // If no explicit setting, default to premium enabled
+      refreshSubscriptionStatus();
     }
-  }, [user]);
+  }, [user, isDevMode]);
 
   // Refresh subscription status from Firestore (fast) and RevenueCat (authoritative)
   const refreshSubscriptionStatus = async () => {
@@ -58,11 +66,24 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     try {
       // First, get from Firestore for fast UI update
       const firestoreStatus = await getSubscriptionStatusFromFirestore(user.uid);
+      
+      // In dev mode, always use Firestore value to respect dev premium switch
+      // The dev premium switch writes to Firestore, so we check it here
+      if (isDevMode) {
+        // Use Firestore value directly (respects dev premium switch on/off)
+        setSubscriptionStatus(firestoreStatus);
+        setIsPremium(firestoreStatus.isPremium);
+        setIsLoading(false);
+        return;
+      }
+
+      // Production mode: use Firestore status
       setSubscriptionStatus(firestoreStatus);
       setIsPremium(firestoreStatus.isPremium);
 
-      // Only sync with RevenueCat if it's configured
+      // Only sync with RevenueCat if it's configured AND initialized
       if (isRevenueCatConfigured()) {
+        // Wait a bit to ensure initialization is complete
         // Then, sync with RevenueCat for authoritative status
         const revenueCatStatus = await getSubscriptionStatus();
         if (revenueCatStatus.isPremium !== firestoreStatus.isPremium) {
@@ -85,17 +106,27 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   };
 
   // Refresh status periodically (every 5 minutes) to catch cancellations
+  // Only start after user is available (initialization happens in separate effect)
+  // In dev mode, still refresh to respect dev premium switch changes
   useEffect(() => {
     if (!user) return;
 
-    refreshSubscriptionStatus();
+    // Wait a moment for initialization to complete, then refresh
+    const timeout = setTimeout(() => {
+      refreshSubscriptionStatus();
+    }, 1000);
 
+    // In dev mode, refresh more frequently to catch dev switch changes
+    // In production, refresh every 5 minutes
     const interval = setInterval(() => {
       refreshSubscriptionStatus();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, isDevMode ? 2 * 60 * 1000 : 5 * 60 * 1000); // 2 minutes in dev, 5 minutes in production
 
-    return () => clearInterval(interval);
-  }, [user]);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [user, isDevMode]);
 
   return (
     <PremiumContext.Provider
