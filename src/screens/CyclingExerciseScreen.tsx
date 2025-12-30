@@ -15,7 +15,6 @@ import {
   getExercisePreferences,
   saveExercisePreferences,
 } from '../services/exerciseService';
-import { trackExerciseEarlyEnd } from '../services/analyticsService';
 import { useAudioPlayer } from 'expo-audio';
 import { countdownSource, completeSource } from '../utils/soundUtils';
 
@@ -262,16 +261,8 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'End',
-          onPress: async () => {
-            // Track that exercise was ended early
-            if (user) {
-              try {
-                await trackExerciseEarlyEnd(user.uid, exercise.exercise_id);
-              } catch (error) {
-                console.error('Error tracking exercise early end:', error);
-              }
-            }
-            await handleAllSetsComplete();
+          onPress: () => {
+            handleAllSetsComplete();
           },
         },
       ]
@@ -385,6 +376,12 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
     return (
       <View style={styles.container}>
         <View style={styles.exerciseContent}>
+          {variation.instructions && (
+            <View style={styles.instructionsContainer}>
+              <Text style={styles.instructionsLabel}>Instructions:</Text>
+              <Text style={styles.instructionsText}>{variation.instructions}</Text>
+            </View>
+          )}
           <Text style={styles.setDisplay}>Set {currentSet} of {selectedSets}</Text>
           <Text style={styles.instructionText}>{variation.instructions}</Text>
           
@@ -420,6 +417,12 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
   return (
     <View style={styles.container}>
       <View style={styles.exerciseContent}>
+        {variation.instructions && (
+          <View style={styles.instructionsContainer}>
+            <Text style={styles.instructionsLabel}>Instructions:</Text>
+            <Text style={styles.instructionsText}>{variation.instructions}</Text>
+          </View>
+        )}
         <Text style={styles.setDisplay}>Set {currentSet} of {selectedSets}</Text>
         
         {timeRemaining > 0 && (
@@ -605,6 +608,35 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.accent,
+  },
+  devButton: {
+    borderColor: colors.accent,
+    backgroundColor: colors.surface,
+  },
+  devButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.accent,
+    fontSize: 12,
+  },
+  instructionsContainer: {
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  instructionsLabel: {
+    ...typography.label,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  instructionsText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    fontSize: 13,
   },
 });
 

@@ -26,19 +26,27 @@ function getAppVersion(): string {
  */
 export async function saveFeedback(
   userId: string,
-  text: string
+  text: string,
+  email?: string
 ): Promise<void> {
   try {
     const appVersion = getAppVersion();
     const platform = Platform.OS;
 
-    await addDoc(collection(db, 'feedback'), {
+    const feedbackData: any = {
       userId,
       text,
       createdAt: serverTimestamp(),
       appVersion,
       platform,
-    });
+    };
+
+    // Only include email if provided
+    if (email && email.trim()) {
+      feedbackData.email = email.trim();
+    }
+
+    await addDoc(collection(db, 'feedback'), feedbackData);
   } catch (error) {
     console.error('Error saving feedback:', error);
     throw error;

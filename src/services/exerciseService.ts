@@ -148,7 +148,7 @@ export async function markExerciseCompleted(
 
     todayCompletion.exercises[exerciseId] = true;
 
-    // Check if all user's selected exercises are now completed (excluding mewing)
+    // Check if all user's selected exercises are now completed (excluding mewing and excluded exercises)
     // Only check exercises that the user has added to their routine
     const userExerciseSelections = (data.exerciseSelections || [])
       .filter((ex: any) => ex.state === 'added' && ex.exercise_id !== 'mewing')

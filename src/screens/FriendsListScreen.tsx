@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image, Modal } from 'react-native';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import PaywallModal from '../components/PaywallModal';
+import NamePromptModal from '../components/NamePromptModal';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import {
   getFriends,
   getPendingFriendRequests,
@@ -12,6 +15,7 @@ import {
   toggleMuteFriend,
   getOrCreateFriendCode,
   subscribeToFriends,
+  subscribeToPendingRequests,
   FriendProfile,
 } from '../services/friendService';
 
@@ -23,12 +27,38 @@ export default function FriendsListScreen({ navigation }: any) {
   const [myFriendCode, setMyFriendCode] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [checkingName, setCheckingName] = useState(true);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState<FriendProfile | null>(null);
 
   useEffect(() => {
     if (!user) {
       setLoading(false);
+      setCheckingName(false);
       return;
     }
+
+    // Check if user has a display name
+    const checkDisplayName = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (!userData.displayName) {
+            setShowNamePrompt(true);
+          }
+        } else {
+          setShowNamePrompt(true);
+        }
+      } catch (error) {
+        console.error('Error checking display name:', error);
+      } finally {
+        setCheckingName(false);
+      }
+    };
+
+    checkDisplayName();
 
     // Load initial data
     const loadData = async () => {
@@ -55,7 +85,15 @@ export default function FriendsListScreen({ navigation }: any) {
       setFriends(updatedFriends);
     });
 
-    return () => unsubscribe();
+    // Subscribe to pending requests changes
+    const pendingRequestsUnsubscribe = subscribeToPendingRequests(user.uid, (updatedRequests) => {
+      setPendingRequests(updatedRequests);
+    });
+
+    return () => {
+      unsubscribe();
+      pendingRequestsUnsubscribe();
+    };
   }, [user]);
 
   const handleAcceptRequest = async (friendId: string) => {
@@ -106,8 +144,34 @@ export default function FriendsListScreen({ navigation }: any) {
       await toggleMuteFriend(user.uid, friendId, !currentlyMuted);
       const friendsList = await getFriends(user.uid);
       setFriends(friendsList);
+      setMenuVisible(false);
+      setSelectedFriend(null);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update mute setting');
+    }
+  };
+
+  const handleOpenMenu = (friend: FriendProfile) => {
+    setSelectedFriend(friend);
+    setMenuVisible(true);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuVisible(false);
+    setSelectedFriend(null);
+  };
+
+  const handleMenuMute = () => {
+    if (selectedFriend && user) {
+      handleToggleMute(selectedFriend.userId, selectedFriend.muted);
+    }
+  };
+
+  const handleMenuRemove = () => {
+    if (selectedFriend && user) {
+      handleRemoveFriend(selectedFriend.userId);
+      setMenuVisible(false);
+      setSelectedFriend(null);
     }
   };
 
@@ -195,7 +259,7 @@ export default function FriendsListScreen({ navigation }: any) {
           {pendingRequests.map((request) => (
             <View key={request.userId} style={styles.friendCard}>
               <View style={styles.friendInfo}>
-                <Text style={styles.friendEmail}>{request.email || 'Unknown'}</Text>
+                <Text style={styles.friendEmail}>{request.displayName || request.email || 'Unknown'}</Text>
                 <Text style={styles.friendCodeText}>Code: {request.friendCode}</Text>
               </View>
               <View style={styles.friendActions}>
@@ -224,10 +288,16 @@ export default function FriendsListScreen({ navigation }: any) {
             <View key={friend.userId} style={styles.friendCard}>
               <View style={styles.friendInfo}>
                 <View style={styles.friendHeader}>
-                  <Text style={styles.friendEmail}>{friend.email || 'Unknown'}</Text>
+                  <Text style={styles.friendEmail}>{friend.displayName || friend.email || 'Unknown'}</Text>
                   {friend.muted && (
                     <Text style={styles.mutedBadge}>Muted</Text>
                   )}
+                  <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={() => handleOpenMenu(friend)}
+                  >
+                    <Text style={styles.menuButtonText}>⋯</Text>
+                  </TouchableOpacity>
                 </View>
                 <Text style={styles.friendCodeText}>Code: {friend.friendCode}</Text>
                 <View style={styles.friendStats}>
@@ -236,26 +306,10 @@ export default function FriendsListScreen({ navigation }: any) {
                   </Text>
                   {friend.weeklyConsistency !== undefined && (
                     <Text style={styles.statText}>
-                      This week: {friend.weeklyConsistency}%
+                      Score this week: {friend.weeklyConsistency.toFixed(1)}
                     </Text>
                   )}
                 </View>
-              </View>
-              <View style={styles.friendActions}>
-                <TouchableOpacity
-                  style={styles.muteButton}
-                  onPress={() => handleToggleMute(friend.userId, friend.muted)}
-                >
-                  <Text style={styles.muteButtonText}>
-                    {friend.muted ? 'Unmute' : 'Mute'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => handleRemoveFriend(friend.userId)}
-                >
-                  <Text style={styles.removeButtonText}>Remove</Text>
-                </TouchableOpacity>
               </View>
             </View>
           ))
@@ -270,6 +324,51 @@ export default function FriendsListScreen({ navigation }: any) {
           navigation.navigate('PublicStats');
         }}
       />
+      <NamePromptModal
+        visible={showNamePrompt && !checkingName}
+        userId={user?.uid || ''}
+        onNameSet={() => {
+          setShowNamePrompt(false);
+          // Reload friends to show updated name
+          if (user) {
+            getFriends(user.uid).then(setFriends);
+            getPendingFriendRequests(user.uid).then(setPendingRequests);
+          }
+        }}
+      />
+      {/* Friend Menu Modal */}
+      <Modal
+        visible={menuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseMenu}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={handleCloseMenu}
+        >
+          <View style={styles.menuContainer}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleMenuMute}
+            >
+              <Text style={styles.menuItemText}>
+                {selectedFriend?.muted ? 'Unmute' : 'Mute'}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleMenuRemove}
+            >
+              <Text style={[styles.menuItemText, styles.menuItemTextDanger]}>
+                Remove
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -376,6 +475,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
+  menuButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  menuButtonText: {
+    fontSize: 24,
+    color: colors.textSecondary,
+    lineHeight: 24,
+  },
   mutedBadge: {
     ...typography.bodySmall,
     color: colors.textMuted,
@@ -397,11 +505,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 2,
   },
-  friendActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
   acceptButton: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -416,32 +519,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.accent,
   },
-  muteButton: {
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 4,
-    padding: spacing.sm,
-    flex: 1,
+    minWidth: 200,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    padding: spacing.md,
     alignItems: 'center',
   },
-  muteButtonText: {
-    ...typography.bodySmall,
+  menuItemText: {
+    ...typography.body,
     color: colors.text,
   },
-  removeButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 4,
-    padding: spacing.sm,
-    flex: 1,
-    alignItems: 'center',
-  },
-  removeButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+  menuItemTextDanger: {
     color: colors.error,
+    fontWeight: '600',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   emptyState: {
     padding: spacing.xl,

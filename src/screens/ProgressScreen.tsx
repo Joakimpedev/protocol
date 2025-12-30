@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
+import { useDevMode } from '../contexts/DevModeContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { 
@@ -30,6 +31,7 @@ const guideBlocks = require('../data/guide_blocks.json');
 export default function ProgressScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isPremium } = usePremium();
+  const { isDevModeEnabled } = useDevMode();
   const insets = useSafeAreaInsets();
   const [signupDate, setSignupDate] = useState<string | null>(null);
   const [photoDay, setPhotoDay] = useState<string | null>(null);
@@ -479,19 +481,21 @@ export default function ProgressScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Dev Tools */}
-      <View style={styles.devToolsSection}>
-        <Text style={styles.devToolsTitle}>Dev Tools</Text>
-        <TouchableOpacity style={styles.devToolButton} onPress={handleResetPhotos}>
-          <Text style={styles.devToolButtonText}>Reset All Photos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.devToolButton} onPress={handleAdvanceWeek}>
-          <Text style={styles.devToolButtonText}>Advance to Next Week</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.devToolButton} onPress={handleTestReviewPrompt}>
-          <Text style={styles.devToolButtonText}>Test Review Prompt</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Dev Tools - Only visible when dev mode is enabled */}
+      {isDevModeEnabled && (
+        <View style={styles.devToolsSection}>
+          <Text style={styles.devToolsTitle}>Dev Tools</Text>
+          <TouchableOpacity style={styles.devToolButton} onPress={handleResetPhotos}>
+            <Text style={styles.devToolButtonText}>Reset All Photos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.devToolButton} onPress={handleAdvanceWeek}>
+            <Text style={styles.devToolButtonText}>Advance to Next Week</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.devToolButton} onPress={handleTestReviewPrompt}>
+            <Text style={styles.devToolButtonText}>Test Review Prompt</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </ScrollView>
     
     {/* Paywall Modal */}

@@ -7,6 +7,7 @@ import { colors } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { listenForFriendCompletions } from '../services/notificationService';
 import AppNavigator from './AppNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
 
@@ -117,6 +118,23 @@ export default function RootNavigator() {
       responseListener.current = null;
     };
   }, []);
+
+  // Listen for friend completion notifications
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    console.log('Setting up friend completion listener for user:', user.uid);
+    const unsubscribe = listenForFriendCompletions(user.uid, (userName, friendId) => {
+      console.log(`Friend ${userName} (${friendId}) completed their routine`);
+    });
+
+    return () => {
+      console.log('Cleaning up friend completion listener');
+      unsubscribe();
+    };
+  }, [user]);
 
   // Show loading while checking auth OR checking routine status
   // Don't render navigator until we know definitively what to show

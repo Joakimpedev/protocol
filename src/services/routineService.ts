@@ -16,7 +16,7 @@ export interface IngredientSelection {
 
 export interface ExerciseSelection {
   exercise_id: string;
-  state: 'added' | 'skipped';
+  state: 'added' | 'skipped' | 'excluded';
 }
 
 export interface UserRoutineData {
@@ -199,7 +199,7 @@ export function shouldShowDeferredProduct(deferUntil?: string): boolean {
 export async function updateExerciseState(
   userId: string,
   exerciseId: string,
-  state: 'added' | 'skipped'
+  state: 'added' | 'skipped' | 'excluded'
 ): Promise<void> {
   try {
     const userDoc = await getDoc(doc(db, 'users', userId));

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Modal, ActivityIndicator } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
+import { useDevMode } from '../contexts/DevModeContext';
 import PaywallModal from '../components/PaywallModal';
 import {
   getNotificationPreferences,
@@ -18,10 +19,12 @@ import { setDevPremiumMode } from '../services/subscriptionService';
 import { resetDeferredProducts } from '../services/routineService';
 import ReviewPromptModal from '../components/ReviewPromptModal';
 import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
+import { saveFeedback } from '../services/feedbackService';
 
 export default function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuth();
   const { isPremium, subscriptionStatus, refreshSubscriptionStatus } = usePremium();
+  const { isDevModeEnabled, enableDevMode, disableDevMode } = useDevMode();
   const [morningTime, setMorningTime] = useState(DEFAULT_MORNING_TIME);
   const [eveningTime, setEveningTime] = useState(DEFAULT_EVENING_TIME);
   const [savedMorningTime, setSavedMorningTime] = useState(DEFAULT_MORNING_TIME);
@@ -35,6 +38,14 @@ export default function SettingsScreen({ navigation }: any) {
   const [showGlobalComparison, setShowGlobalComparison] = useState(true);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const codeInputRef = useRef<TextInput>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackEmail, setFeedbackEmail] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [savingFeedback, setSavingFeedback] = useState(false);
 
   // Helper to convert time string (HH:MM) to Date
   const timeStringToDate = (timeString: string): Date => {
@@ -351,6 +362,88 @@ export default function SettingsScreen({ navigation }: any) {
     }
   };
 
+  const handleVersionPress = () => {
+    if (isDevModeEnabled) {
+      // If dev mode is enabled, don't count taps
+      return;
+    }
+    
+    const newCount = versionTapCount + 1;
+    setVersionTapCount(newCount);
+    
+    if (newCount >= 7) {
+      setVersionTapCount(0);
+      setShowCodeInput(true);
+      // Focus input after modal appears
+      setTimeout(() => {
+        codeInputRef.current?.focus();
+      }, 100);
+    }
+  };
+
+  const handleCodeSubmit = async () => {
+    const code = codeInput.trim().toLowerCase();
+    if (code === 'devmode32') {
+      try {
+        await enableDevMode();
+        setShowCodeInput(false);
+        setCodeInput('');
+        Alert.alert('Dev Mode Enabled', 'Development tools are now available.');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to enable dev mode.');
+      }
+    } else {
+      Alert.alert('Invalid Code', 'The code you entered is incorrect.');
+      setCodeInput('');
+    }
+  };
+
+  const handleDisableDevMode = async () => {
+    Alert.alert(
+      'Disable Dev Mode',
+      'Are you sure you want to disable dev mode? All dev tools will be hidden.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disable',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await disableDevMode();
+              setVersionTapCount(0);
+              Alert.alert('Dev Mode Disabled', 'Development tools have been hidden.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to disable dev mode.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!user) return;
+    
+    if (!feedbackText.trim()) {
+      Alert.alert('Error', 'Please enter your feedback');
+      return;
+    }
+
+    setSavingFeedback(true);
+    try {
+      await saveFeedback(user.uid, feedbackText.trim(), feedbackEmail.trim() || undefined);
+      Alert.alert('Thank you!', 'Your feedback has been submitted.');
+      setFeedbackEmail('');
+      setFeedbackText('');
+      setShowFeedbackModal(false);
+    } catch (error: any) {
+      console.error('Error submitting feedback:', error);
+      Alert.alert('Error', error.message || 'Failed to submit feedback. Please try again.');
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
+
   const formatSubscriptionStatus = (): string => {
     if (!isPremium) {
       return 'Free';
@@ -521,50 +614,69 @@ export default function SettingsScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Dev Tools Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dev Tools</Text>
-        <Text style={styles.sectionDescription}>
-          Development utilities for testing
-        </Text>
-        <View style={styles.settingRow}>
-          <View style={styles.settingRowContent}>
-            <Text style={styles.settingLabel}>Premium Mode (Dev)</Text>
-            <Text style={styles.settingDescription}>
-              Enable premium features for testing
-            </Text>
+      {/* Dev Tools Section - Only visible when dev mode is enabled */}
+      {isDevModeEnabled && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Dev Tools</Text>
+          <Text style={styles.sectionDescription}>
+            Development utilities for testing
+          </Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingRowContent}>
+              <Text style={styles.settingLabel}>Premium Mode (Dev)</Text>
+              <Text style={styles.settingDescription}>
+                Enable premium features for testing
+              </Text>
+            </View>
+            <Switch
+              value={isPremium}
+              onValueChange={handleToggleDevPremium}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.surface}
+              ios_backgroundColor={colors.border}
+            />
           </View>
-          <Switch
-            value={isPremium}
-            onValueChange={handleToggleDevPremium}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor={colors.surface}
-            ios_backgroundColor={colors.border}
-          />
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={handleResetToday}
+          >
+            <Text style={styles.devButtonText}>Reset Today's Completions</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={handleResetSkipAnalytics}
+          >
+            <Text style={styles.devButtonText}>Reset Skip Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={handleResetDeferredProducts}
+          >
+            <Text style={styles.devButtonText}>Reset Deferred Products</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={handleTestReviewPrompt}
+          >
+            <Text style={styles.devButtonText}>Test Review Prompt</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devButton, styles.disableDevModeButton]}
+            onPress={handleDisableDevMode}
+          >
+            <Text style={[styles.devButtonText, styles.disableDevModeButtonText]}>Disable Dev Mode</Text>
+          </TouchableOpacity>
         </View>
+      )}
+
+      {/* Feedback Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Feedback</Text>
         <TouchableOpacity
-          style={styles.devButton}
-          onPress={handleResetToday}
+          style={styles.feedbackButton}
+          onPress={() => setShowFeedbackModal(true)}
         >
-          <Text style={styles.devButtonText}>Reset Today's Completions</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.devButton}
-          onPress={handleResetSkipAnalytics}
-        >
-          <Text style={styles.devButtonText}>Reset Skip Analytics</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.devButton}
-          onPress={handleResetDeferredProducts}
-        >
-          <Text style={styles.devButtonText}>Reset Deferred Products</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.devButton}
-          onPress={handleTestReviewPrompt}
-        >
-          <Text style={styles.devButtonText}>Test Review Prompt</Text>
+          <Text style={styles.feedbackButtonText}>Send Feedback</Text>
         </TouchableOpacity>
       </View>
 
@@ -603,6 +715,138 @@ export default function SettingsScreen({ navigation }: any) {
         onLeaveReview={handleLeaveReview}
         onNotNow={handleNotNow}
       />
+
+      {/* Version Text at Bottom */}
+      <TouchableOpacity
+        style={styles.versionContainer}
+        onPress={handleVersionPress}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.versionText}>Protocol</Text>
+        <Text style={styles.versionText}>v.1.0.0</Text>
+      </TouchableOpacity>
+
+      {/* Code Input Modal */}
+      <Modal
+        visible={showCodeInput}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowCodeInput(false);
+          setCodeInput('');
+          setVersionTapCount(0);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Enter Code</Text>
+            <TextInput
+              ref={codeInputRef}
+              style={styles.codeInput}
+              value={codeInput}
+              onChangeText={setCodeInput}
+              placeholder="Enter code"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry={false}
+              onSubmitEditing={handleCodeSubmit}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowCodeInput(false);
+                  setCodeInput('');
+                  setVersionTapCount(0);
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={handleCodeSubmit}
+              >
+                <Text style={[styles.modalButtonText, styles.modalButtonSubmitText]}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedbackModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowFeedbackModal(false);
+          setFeedbackEmail('');
+          setFeedbackText('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Send Feedback</Text>
+            <Text style={styles.modalDescription}>
+              We'd love to hear your thoughts! Your feedback helps us improve.
+            </Text>
+            
+            <Text style={styles.label}>Email (optional)</Text>
+            <Text style={styles.labelDescription}>
+              If you'd like a reply, please provide your email
+            </Text>
+            <TextInput
+              style={styles.feedbackInput}
+              value={feedbackEmail}
+              onChangeText={setFeedbackEmail}
+              placeholder="your.email@example.com"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              editable={!savingFeedback}
+            />
+
+            <Text style={[styles.label, { marginTop: spacing.md }]}>Feedback *</Text>
+            <TextInput
+              style={[styles.feedbackInput, styles.feedbackTextArea]}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+              placeholder="Tell us what you think..."
+              placeholderTextColor={colors.textMuted}
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+              editable={!savingFeedback}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  setFeedbackEmail('');
+                  setFeedbackText('');
+                }}
+                disabled={savingFeedback}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit, savingFeedback && styles.buttonDisabled]}
+                onPress={handleSubmitFeedback}
+                disabled={savingFeedback || !feedbackText.trim()}
+              >
+                {savingFeedback ? (
+                  <ActivityIndicator color={colors.text} />
+                ) : (
+                  <Text style={[styles.modalButtonText, styles.modalButtonSubmitText]}>Send</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -758,6 +1002,122 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.warning,
+  },
+  disableDevModeButton: {
+    borderColor: colors.error,
+    marginTop: spacing.lg,
+  },
+  disableDevModeButtonText: {
+    color: colors.error,
+  },
+  versionContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    marginTop: spacing.xl,
+  },
+  versionText: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.xl,
+    width: '80%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    ...typography.headingSmall,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  codeInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+  },
+  modalButtonSubmit: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+  },
+  modalButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalButtonSubmitText: {
+    color: colors.text,
+  },
+  feedbackButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  feedbackButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  modalDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  label: {
+    ...typography.label,
+    marginBottom: spacing.xs,
+  },
+  labelDescription: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  feedbackInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  feedbackTextArea: {
+    minHeight: 120,
+    maxHeight: 200,
   },
 });
 

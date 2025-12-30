@@ -6,7 +6,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { MewingSettings } from './exerciseService';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 // Configure notification behavior
@@ -834,21 +834,21 @@ export async function scheduleHardestDayNotification(userId: string): Promise<vo
 /**
  * Notify friends when a user completes their routine
  * Called when user completes their full routine for the day
+ * 
+ * Uses Firestore to trigger notifications on friends' devices
  */
 export async function notifyFriendsOfCompletion(userId: string): Promise<void> {
   try {
-    const enabled = await areNotificationsEnabled();
-    if (!enabled) {
-      return;
-    }
+    console.log(`[notifyFriendsOfCompletion] Called for userId: ${userId}`);
 
-    // Get user's email for notification
+    // Get user's info for notification
     const userDoc = await getDoc(doc(db, 'users', userId));
     if (!userDoc.exists()) {
+      console.log(`User ${userId} document not found`);
       return;
     }
     const userData = userDoc.data();
-    const userEmail = userData.email || 'A friend';
+    const userName = userData.displayName || userData.email || 'A friend';
 
     // Get all friends
     const friendsRef = collection(db, 'friendConnections');
@@ -863,16 +863,37 @@ export async function notifyFriendsOfCompletion(userId: string): Promise<void> {
 
     for (const docSnap of querySnapshot.docs) {
       const connection = docSnap.data();
-      friendIds.push(connection.friendId);
+      const friendId = connection.friendId;
+      
+      // Safety check: never include self in friend list
+      if (friendId !== userId) {
+        friendIds.push(friendId);
+      } else {
+        console.warn(`Found self-connection in friendConnections for userId: ${userId}`);
+      }
     }
 
     if (friendIds.length === 0) {
+      console.log(`No friends to notify for userId: ${userId}`);
       return;
     }
 
-    // For each friend, check if they've muted this user and send notification if not
+    console.log(`Notifying ${friendIds.length} friends about ${userName}'s completion (userId: ${userId})`);
+
+    // Write completion event to Firestore for each friend
+    // Friends' devices will listen to these and show local notifications
+    const today = new Date().toISOString().split('T')[0];
+    const completionRef = collection(db, 'friendCompletions');
+    
     for (const friendId of friendIds) {
       try {
+        // Safety check: never send notification to the person who completed
+        if (friendId === userId) {
+          console.warn(`Skipping notification to self (userId: ${userId})`);
+          continue;
+        }
+
+        // Check if friend has muted this user
         const friendDoc = await getDoc(doc(db, 'users', friendId));
         if (!friendDoc.exists()) {
           continue;
@@ -883,31 +904,129 @@ export async function notifyFriendsOfCompletion(userId: string): Promise<void> {
         
         // Skip if friend has muted this user
         if (mutedFriends.includes(userId)) {
+          console.log(`Friend ${friendId} has muted user ${userId}`);
           continue;
         }
 
-        // Send notification to friend
-        await Notifications.scheduleNotificationAsync({
-          identifier: `friend-completion-${userId}-${Date.now()}`,
-          content: {
-            title: 'Friend completed routine',
-            body: `${userEmail} completed their routine today.`,
-            sound: true,
-            data: { type: 'friend-completion', friendId: userId, screen: 'Social' },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: 1, // Send immediately
-            ...(Platform.OS === 'android' && { channelId: 'default' }),
-          },
-        });
+        // Create a completion notification document
+        // Friends will listen to these documents and show notifications
+        const completionDocId = `${userId}_${friendId}_${today}`;
+        await setDoc(doc(completionRef, completionDocId), {
+          userId, // Person who completed
+          friendId, // Person to notify
+          userName,
+          date: today,
+          createdAt: new Date().toISOString(),
+          notified: false, // Will be set to true when friend's device processes it
+        }, { merge: true });
+        
+        console.log(`Created completion notification document for friend ${friendId}`);
       } catch (error) {
-        console.error(`Error notifying friend ${friendId}:`, error);
+        console.error(`Error creating completion notification for friend ${friendId}:`, error);
         // Continue with other friends even if one fails
       }
     }
+    
+    console.log(`[notifyFriendsOfCompletion] Completed for userId: ${userId}`);
   } catch (error) {
     console.error('Error notifying friends of completion:', error);
   }
 }
+
+/**
+ * Listen for friend completion notifications and show local notifications
+ * Should be called when app starts or when user logs in
+ */
+export function listenForFriendCompletions(
+  currentUserId: string,
+  onNotification: (userName: string, friendId: string) => void
+): () => void {
+  console.log(`[listenForFriendCompletions] Setting up listener for userId: ${currentUserId}`);
+  
+  const completionRef = collection(db, 'friendCompletions');
+  const q = query(
+    completionRef,
+    where('friendId', '==', currentUserId),
+    where('notified', '==', false)
+  );
+
+  return onSnapshot(q, async (snapshot) => {
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const completionUserId = data.userId;
+      const friendId = data.friendId;
+      const userName = data.userName || 'A friend';
+      
+      // Safety check
+      if (friendId !== currentUserId) {
+        console.warn(`Completion notification friendId mismatch: expected ${currentUserId}, got ${friendId}`);
+        continue;
+      }
+      
+      if (completionUserId === currentUserId) {
+        console.warn(`Skipping self-completion notification`);
+        continue;
+      }
+
+      // Check if user has muted this friend
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUserId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const mutedFriends = userData.mutedFriends || [];
+          if (mutedFriends.includes(completionUserId)) {
+            console.log(`User has muted ${completionUserId}, skipping notification`);
+            // Mark as notified anyway so we don't keep checking
+            await updateDoc(doc(completionRef, docSnap.id), { notified: true });
+            continue;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking mute status:', error);
+      }
+
+      // Check if notifications are enabled
+      const enabled = await areNotificationsEnabled();
+      if (!enabled) {
+        console.log('Notifications not enabled, skipping');
+        // Mark as notified anyway
+        await updateDoc(doc(completionRef, docSnap.id), { notified: true });
+        continue;
+      }
+
+      // Show local notification
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `friend-completion-${completionUserId}-${currentUserId}-${Date.now()}`,
+          content: {
+            title: 'Friend completed routine',
+            body: `${userName} completed their routine today.`,
+            sound: true,
+            data: { type: 'friend-completion', friendId: completionUserId, screen: 'Social' },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 1,
+            ...(Platform.OS === 'android' && { channelId: 'default' }),
+          },
+        });
+        
+        console.log(`Showed notification for ${userName}'s completion`);
+        
+        // Call callback if provided
+        if (onNotification) {
+          onNotification(userName, completionUserId);
+        }
+        
+        // Mark as notified
+        await updateDoc(doc(completionRef, docSnap.id), { notified: true });
+      } catch (error) {
+        console.error('Error showing friend completion notification:', error);
+      }
+    }
+  }, (error) => {
+    console.error('Error listening for friend completions:', error);
+  });
+}
+
 

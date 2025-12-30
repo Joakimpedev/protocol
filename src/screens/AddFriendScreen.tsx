@@ -33,7 +33,7 @@ export default function AddFriendScreen({ navigation }: any) {
 
       // Send friend request
       await sendFriendRequest(user.uid, trimmedCode);
-      Alert.alert('Success', 'Friend request sent', [
+      Alert.alert('Success', 'Friend request sent! Your friend will see it in their pending requests.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
@@ -151,6 +151,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
 
 
 

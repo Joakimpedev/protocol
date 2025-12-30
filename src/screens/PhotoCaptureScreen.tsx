@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { colors, typography, spacing } from '../constants/theme';
+import { useDevMode } from '../contexts/DevModeContext';
 import FaceOutlineOverlay from '../components/FaceOutlineOverlay';
 
 interface PhotoCaptureScreenProps {
@@ -21,6 +22,7 @@ interface PhotoCaptureScreenProps {
 
 export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureScreenProps) {
   const { weekNumber } = route.params;
+  const { isDevModeEnabled } = useDevMode();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('front');
   const cameraRef = useRef<any>(null);
@@ -106,6 +108,16 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
             <View style={styles.captureButtonInner} />
           )}
         </TouchableOpacity>
+
+        {/* Dev Mode: Import Photo Button */}
+        {isDevModeEnabled && (
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={() => navigation.navigate('PhotoImport', { weekNumber })}
+          >
+            <Text style={styles.importButtonText}>Import Photo (Dev)</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.closeButton}
@@ -204,6 +216,20 @@ const styles = StyleSheet.create({
   buttonText: {
     ...typography.body,
     color: colors.background,
+    fontWeight: '600',
+  },
+  importButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 4,
+    marginBottom: spacing.md,
+  },
+  importButtonText: {
+    ...typography.bodySmall,
+    color: colors.warning,
     fontWeight: '600',
   },
 });

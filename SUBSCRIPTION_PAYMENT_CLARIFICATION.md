@@ -90,3 +90,5 @@ For subscriptions to work, you need:
 
 No Sign in with Apple required. Focus on getting your RevenueCat products configured in App Store Connect and you're good to go!
 
+
+

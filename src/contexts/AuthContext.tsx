@@ -84,6 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.code === 'ERR_REQUEST_CANCELED') {
         throw new Error('Sign in cancelled');
       }
+      
+      // Provide helpful error message for audience mismatch
+      if (error?.code === 'auth/invalid-credential' && error?.message?.includes('audience')) {
+        const helpfulError = new Error(
+          'Apple Sign-In configuration error: The app bundle identifier doesn\'t match Firebase settings. ' +
+          'If you\'re using an Expo development build, you need to configure Firebase to accept "host.exp.Exponent" as a valid client ID. ' +
+          'See APPLE_SIGN_IN_SETUP.md for detailed instructions.'
+        );
+        helpfulError.name = error.name;
+        throw helpfulError;
+      }
+      
       throw error;
     }
   };

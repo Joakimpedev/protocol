@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Switch, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
@@ -33,6 +34,17 @@ export default function PremiumInsightScreen({ navigation }: any) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [totalProducts, setTotalProducts] = useState<number | null>(null);
   const [productsInRoutine, setProductsInRoutine] = useState<number | null>(null);
+  const [exercisesInRoutine, setExercisesInRoutine] = useState<number | null>(null);
+  
+  // Monthly skip data (last 30 days)
+  const [monthlyProductSkips, setMonthlyProductSkips] = useState<number>(0);
+  const [monthlyTimerSkips, setMonthlyTimerSkips] = useState<number>(0);
+  const [monthlyExerciseEarlyEnds, setMonthlyExerciseEarlyEnds] = useState<number>(0);
+  const [monthlySkippedProducts, setMonthlySkippedProducts] = useState<Array<{
+    stepId: string;
+    productName: string;
+    count: number;
+  }>>([]);
   
   // Hardest day notification state
   const [hardestDayNotificationEnabled, setHardestDayNotificationEnabled] = useState(false);
@@ -48,8 +60,47 @@ export default function PremiumInsightScreen({ navigation }: any) {
       loadMonthlyInsights();
       loadHardestDayNotificationPreferences();
       loadTotalProducts();
+      loadMonthlySkipData();
     }
   }, [user]);
+
+  // Reload data when screen comes into focus (e.g., after completing exercises)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) {
+        loadSummary();
+        loadMonthlyInsights();
+        loadMonthlySkipData();
+      }
+    }, [user])
+  );
+
+  const loadMonthlySkipData = async () => {
+    if (!user) return;
+    
+    try {
+      const {
+        getProductSkipCountLast30Days,
+        getTimerSkipCountLast30Days,
+        getExerciseEarlyEndCountLast30Days,
+        getSkippedProductsWithCountsLast30Days,
+      } = await import('../services/analyticsService');
+      
+      const [productSkips, timerSkips, exerciseEarlyEnds, skippedProducts] = await Promise.all([
+        getProductSkipCountLast30Days(user.uid),
+        getTimerSkipCountLast30Days(user.uid),
+        getExerciseEarlyEndCountLast30Days(user.uid),
+        getSkippedProductsWithCountsLast30Days(user.uid),
+      ]);
+      
+      setMonthlyProductSkips(productSkips);
+      setMonthlyTimerSkips(timerSkips);
+      setMonthlyExerciseEarlyEnds(exerciseEarlyEnds);
+      setMonthlySkippedProducts(skippedProducts);
+    } catch (error) {
+      console.error('Error loading monthly skip data:', error);
+    }
+  };
 
 
   const loadSummary = async () => {
@@ -58,6 +109,11 @@ export default function PremiumInsightScreen({ navigation }: any) {
     try {
       setLoading(true);
       const data = await getWeeklySummary(user.uid);
+      console.log('Loaded weekly summary:', {
+        overallConsistency: data.overallConsistency,
+        breakdown: data.breakdown,
+        daysCompleted: data.daysCompleted,
+      });
       setSummary(data);
     } catch (error) {
       console.error('Error loading weekly summary:', error);
@@ -115,12 +171,20 @@ export default function PremiumInsightScreen({ navigation }: any) {
           (ing: any) => ing.state === 'added' || ing.state === 'active'
         ).length;
         setProductsInRoutine(productsInRoutine);
+        
+        // Count exercises in the routine (not skipped)
+        const exerciseSelections = userData.exerciseSelections || [];
+        const exercisesInRoutine = exerciseSelections.filter(
+          (ex: any) => ex.state === 'added' || ex.state === 'active'
+        ).length;
+        setExercisesInRoutine(exercisesInRoutine);
       }
     } catch (error) {
       console.error('Error loading total products:', error);
       // Fallback to estimate if we can't load
       setTotalProducts(6);
       setProductsInRoutine(6);
+      setExercisesInRoutine(3); // Fallback estimate
     }
   };
 
@@ -298,7 +362,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     );
   }
 
-  // Calculate week-over-week change percentage
+  // Calculate week-over-week change percentage (between scores 0.0-10.0)
   const calculateChange = (current: number, previous: number): number => {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
@@ -312,8 +376,9 @@ export default function PremiumInsightScreen({ navigation }: any) {
     return '→ 0%';
   };
 
-  // Render progress bar
-  const renderProgressBar = (percentage: number) => {
+  // Render progress bar (converts score 0.0-10.0 to percentage 0-100 for display)
+  const renderProgressBar = (score: number) => {
+    const percentage = (score / 10.0) * 100;
     const filledWidth = Math.min(100, Math.max(0, percentage));
     return (
       <View style={styles.progressBarContainer}>
@@ -446,10 +511,17 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // Constants based on research/realistic estimates
     const AVERAGE_WAITING_TIME_SECONDS = 30; // 30 seconds wait time per product application
     const AVERAGE_PRODUCT_TIME_SECONDS = 45; // 45 seconds to apply a product
+    const AVERAGE_EXERCISE_DURATION_MINUTES = 12; // Average exercise duration in minutes (based on guide_blocks: 5-20 min range)
 
     const productSkips = summary.productSkips || 0;
     const timerSkips = summary.timerSkips || 0;
+    const exerciseEarlyEnds = summary.exerciseEarlyEnds || 0;
     const daysWithActivity = summary.daysCompleted || 1;
+    
+    // Get current day of week (Monday = 1, Tuesday = 2, ..., Sunday = 7)
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const daysInWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // Convert Sunday (0) to 7
     
     // Use actual total products from user's routine, or fallback to estimate
     const actualTotalProducts = totalProducts || 6; // Fallback to 6 if not loaded yet
@@ -457,8 +529,10 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // Calculate time saved (convert seconds to minutes for display)
     const waitingTimeSavedSeconds = timerSkips * AVERAGE_WAITING_TIME_SECONDS;
     const productTimeSavedSeconds = productSkips * AVERAGE_PRODUCT_TIME_SECONDS;
+    // For exercises ended early, estimate time saved as 50% of average duration (assuming they did half before ending)
+    const exerciseTimeSavedMinutes = exerciseEarlyEnds * (AVERAGE_EXERCISE_DURATION_MINUTES * 0.5);
     const totalTimeSavedSeconds = waitingTimeSavedSeconds + productTimeSavedSeconds;
-    const totalTimeSavedMinutes = totalTimeSavedSeconds / 60;
+    const totalTimeSavedMinutes = (totalTimeSavedSeconds / 60) + exerciseTimeSavedMinutes;
 
     // Calculate effectiveness using Linear Accumulation model (from math AI)
     // Base effectiveness per application = 10 points, Boosted (with wait) = 14 points
@@ -470,26 +544,20 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // For products: Use products actually in the routine (not skipped entirely)
     const actualProductsInRoutine = productsInRoutine || actualTotalProducts; // Fallback to total if not loaded
     
-    // Calculate waiting periods using actual products in routine for consistency
-    // Use products × days with activity (more realistic than estimate of 2 per day)
-    // This ensures waiting shows lower effectiveness loss per minute than full product skips
-    const totalPossibleWaitingOpportunities = actualProductsInRoutine * daysWithActivity;
+    // Calculate waiting periods using actual products in routine × days in week (based on current day)
+    // Max effectiveness lost for waiting = 30% (when all waiting periods are skipped)
+    // Linear calculation: (timerSkips / totalPossibleWaitingOpportunities) × 30
+    // Monday = 1 day, Tuesday = 2 days, ..., Sunday = 7 days
+    const totalPossibleWaitingOpportunities = actualProductsInRoutine * daysInWeek;
     
     // Cap timerSkips to not exceed possible opportunities
     const actualTimerSkips = Math.min(timerSkips, totalPossibleWaitingOpportunities);
     
-    // Calculate points for waiting periods using Linear Accumulation
-    // Applications where you waited = boosted points (14 each)
-    // Applications where you skipped wait = base points (10 each)
-    const applicationsWithWait = Math.max(0, totalPossibleWaitingOpportunities - actualTimerSkips);
-    const applicationsWithoutWait = actualTimerSkips;
-    const waitingPointsEarned = (applicationsWithWait * BOOSTED_POINTS_PER_APPLICATION) + 
-                                 (applicationsWithoutWait * BASE_POINTS_PER_APPLICATION);
-    const waitingPointsIdeal = totalPossibleWaitingOpportunities * BOOSTED_POINTS_PER_APPLICATION;
-    const waitingEffectiveness = totalPossibleWaitingOpportunities > 0
-      ? (waitingPointsEarned / waitingPointsIdeal) * 100
-      : 100;
-    const waitingEffectivenessLost = 100 - waitingEffectiveness;
+    // Calculate waiting effectiveness lost: (skipped / total) × 30%
+    // Example: 2 skips out of 28 = (2/28) × 30 = 2.14%
+    const waitingEffectivenessLost = totalPossibleWaitingOpportunities > 0
+      ? (actualTimerSkips / totalPossibleWaitingOpportunities) * 30
+      : 0;
 
     // For products: Use products actually in the routine (not skipped entirely)
     // productSkips from weekly summary = number of times products were skipped during the week
@@ -511,14 +579,26 @@ export default function PremiumInsightScreen({ navigation }: any) {
       : 100;
     const productEffectivenessLost = 100 - productEffectiveness;
 
-    // Overall effectiveness: Total points earned vs total points possible
-    // This combines both waiting periods and product usage
-    const totalPointsEarned = waitingPointsEarned + productPointsEarned;
-    const totalPointsIdeal = waitingPointsIdeal + productPointsIdeal;
-    const overallEffectiveness = totalPointsIdeal > 0
-      ? (totalPointsEarned / totalPointsIdeal) * 100
-      : 100;
-    const totalEffectivenessLost = 100 - overallEffectiveness;
+    // For exercises ended early: Calculate effectiveness lost
+    // Max effectiveness lost for exercises = 50% (when all exercises are ended early in the week)
+    // Linear calculation: (exerciseEarlyEnds / totalPossibleExerciseSessions) × 50
+    // Get exercises in routine to calculate percentage impact
+    const actualExercisesInRoutine = exercisesInRoutine || 3; // Fallback to 3 if not loaded
+    // Monday = 1 day, Tuesday = 2 days, ..., Sunday = 7 days
+    const totalPossibleExerciseSessions = actualExercisesInRoutine * daysInWeek;
+    
+    // Cap exerciseEarlyEnds to not exceed possible sessions
+    const actualExerciseEarlyEnds = Math.min(exerciseEarlyEnds, totalPossibleExerciseSessions);
+    
+    // Calculate exercise effectiveness lost: (ended early / total) × 50%
+    // Example: 3 exercises × 7 days = 21 sessions, if 2 ended early = (2/21) × 50 = 4.76%
+    // If all 21 ended early = (21/21) × 50 = 50%
+    const exerciseEffectivenessLost = totalPossibleExerciseSessions > 0
+      ? (actualExerciseEarlyEnds / totalPossibleExerciseSessions) * 50
+      : 0;
+    
+    // Total effectiveness lost: Simply add waiting periods skipped + exercises ended early percentages
+    const totalEffectivenessLost = waitingEffectivenessLost + exerciseEffectivenessLost;
 
     // Project over a month (4 weeks) - use same weekly rate
     const monthlyTimeSavedMinutes = totalTimeSavedMinutes * 4;
@@ -556,13 +636,16 @@ export default function PremiumInsightScreen({ navigation }: any) {
     };
 
     return {
+      formatTime,
       formatTimeFromSeconds,
       waitingTimeSaved: waitingTimeSavedSeconds / 60, // Convert to minutes for display
       productTimeSaved: productTimeSavedSeconds / 60, // Convert to minutes for display
+      exerciseTimeSaved: exerciseTimeSavedMinutes, // Already in minutes
       totalTimeSavedMinutes,
       totalTimeSavedFormatted: formatTime(totalTimeSavedMinutes),
       waitingEffectivenessLost,
       productEffectivenessLost,
+      exerciseEffectivenessLost,
       totalEffectivenessLost,
       monthlyTimeSavedFormatted: formatTime(monthlyTimeSavedMinutes),
       monthlyEffectivenessLost,
@@ -570,6 +653,99 @@ export default function PremiumInsightScreen({ navigation }: any) {
   };
 
   const timeVsEffectiveness = calculateTimeVsEffectiveness();
+
+  // Calculate time saved vs effectiveness lost (last 30 days)
+  const calculateTimeVsEffectiveness30Days = () => {
+    // Constants based on research/realistic estimates
+    const AVERAGE_WAITING_TIME_SECONDS = 30; // 30 seconds wait time per product application
+    const AVERAGE_PRODUCT_TIME_SECONDS = 45; // 45 seconds to apply a product
+    const AVERAGE_EXERCISE_DURATION_MINUTES = 12; // Average exercise duration in minutes
+
+    const productSkips = monthlyProductSkips || 0;
+    const timerSkips = monthlyTimerSkips || 0;
+    const exerciseEarlyEnds = monthlyExerciseEarlyEnds || 0;
+    
+    // Use actual total products from user's routine, or fallback to estimate
+    const actualTotalProducts = totalProducts || 6;
+    const actualProductsInRoutine = productsInRoutine || actualTotalProducts;
+    const actualExercisesInRoutine = exercisesInRoutine || 3;
+
+    // Calculate time saved (convert seconds to minutes for display)
+    const waitingTimeSavedSeconds = timerSkips * AVERAGE_WAITING_TIME_SECONDS;
+    const productTimeSavedSeconds = productSkips * AVERAGE_PRODUCT_TIME_SECONDS;
+    // For exercises ended early, estimate time saved as 50% of average duration
+    const exerciseTimeSavedMinutes = exerciseEarlyEnds * (AVERAGE_EXERCISE_DURATION_MINUTES * 0.5);
+    const totalTimeSavedSeconds = waitingTimeSavedSeconds + productTimeSavedSeconds;
+    const totalTimeSavedMinutes = (totalTimeSavedSeconds / 60) + exerciseTimeSavedMinutes;
+
+    // Calculate effectiveness using Linear Accumulation model
+    const BASE_POINTS_PER_APPLICATION = 10;
+    const BOOSTED_POINTS_PER_APPLICATION = 14; // 40% boost from waiting (14 vs 10)
+    
+    // For 30 days: Calculate waiting periods using actual products in routine × 30 days
+    const totalPossibleWaitingOpportunities = actualProductsInRoutine * 30;
+    const actualTimerSkips = Math.min(timerSkips, totalPossibleWaitingOpportunities);
+    
+    // Calculate waiting effectiveness lost: (skipped / total) × 30%
+    const waitingEffectivenessLost = totalPossibleWaitingOpportunities > 0
+      ? (actualTimerSkips / totalPossibleWaitingOpportunities) * 30
+      : 0;
+
+    // Calculate product applications for 30 days
+    const totalPossibleApplications = actualProductsInRoutine * 30;
+    const actualApplications = Math.max(0, totalPossibleApplications - productSkips);
+    
+    const productPointsEarned = actualApplications * BOOSTED_POINTS_PER_APPLICATION;
+    const productPointsIdeal = actualProductsInRoutine * 30 * BOOSTED_POINTS_PER_APPLICATION;
+    const productEffectiveness = productPointsIdeal > 0
+      ? (productPointsEarned / productPointsIdeal) * 100
+      : 100;
+    const productEffectivenessLost = 100 - productEffectiveness;
+
+    // For exercises ended early: Calculate effectiveness lost for 30 days
+    const totalPossibleExerciseSessions = actualExercisesInRoutine * 30;
+    const actualExerciseEarlyEnds = Math.min(exerciseEarlyEnds, totalPossibleExerciseSessions);
+    
+    // Calculate exercise effectiveness lost: (ended early / total) × 50%
+    const exerciseEffectivenessLost = totalPossibleExerciseSessions > 0
+      ? (actualExerciseEarlyEnds / totalPossibleExerciseSessions) * 50
+      : 0;
+
+    // Total effectiveness lost
+    const totalEffectivenessLost = waitingEffectivenessLost + exerciseEffectivenessLost;
+
+    // Format time (handles both seconds and minutes)
+    const formatTime = (minutes: number) => {
+      if (minutes < 1) {
+        const seconds = Math.round(minutes * 60);
+        return `${seconds}s`;
+      }
+      if (minutes < 60) {
+        return `${Math.round(minutes)}m`;
+      }
+      const hours = Math.floor(minutes / 60);
+      const mins = Math.round(minutes % 60);
+      if (mins === 0) {
+        return `${hours}h`;
+      }
+      return `${hours}h ${mins}m`;
+    };
+
+    return {
+      formatTime,
+      waitingTimeSaved: waitingTimeSavedSeconds / 60, // Convert to minutes for display
+      productTimeSaved: productTimeSavedSeconds / 60, // Convert to minutes for display
+      exerciseTimeSaved: exerciseTimeSavedMinutes, // Already in minutes
+      totalTimeSavedMinutes,
+      totalTimeSavedFormatted: formatTime(totalTimeSavedMinutes),
+      waitingEffectivenessLost,
+      productEffectivenessLost,
+      exerciseEffectivenessLost,
+      totalEffectivenessLost,
+    };
+  };
+
+  const timeVsEffectiveness30Days = calculateTimeVsEffectiveness30Days();
 
   // Render Weekly Summary
   const renderWeekly = () => (
@@ -590,7 +766,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           <View style={styles.breakdownRowHeader}>
             <Text style={styles.breakdownLabel}>Morning:</Text>
             <View style={styles.breakdownValueContainer}>
-              <MatrixRedactedText value={`${summary.breakdown.morning}%`} style={styles.breakdownValueGreen} />
+              <MatrixRedactedText value={summary.breakdown.morning.toFixed(1)} style={styles.breakdownValueGreen} />
               {summary.breakdownPreviousWeek && (
                 <Text style={styles.breakdownChange}>
                   {formatChange(summary.breakdown.morning, summary.breakdownPreviousWeek.morning)}
@@ -606,7 +782,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           <View style={styles.breakdownRowHeader}>
             <Text style={styles.breakdownLabel}>Evening:</Text>
             <View style={styles.breakdownValueContainer}>
-              <MatrixRedactedText value={`${summary.breakdown.evening}%`} style={styles.breakdownValueGreen} />
+              <MatrixRedactedText value={summary.breakdown.evening.toFixed(1)} style={styles.breakdownValueGreen} />
               {summary.breakdownPreviousWeek && (
                 <Text style={styles.breakdownChange}>
                   {formatChange(summary.breakdown.evening, summary.breakdownPreviousWeek.evening)}
@@ -622,7 +798,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           <View style={styles.breakdownRowHeader}>
             <Text style={styles.breakdownLabel}>Exercises:</Text>
             <View style={styles.breakdownValueContainer}>
-              <MatrixRedactedText value={`${summary.breakdown.exercises}%`} style={styles.breakdownValueGreen} />
+              <MatrixRedactedText value={summary.breakdown.exercises.toFixed(1)} style={styles.breakdownValueGreen} />
               {summary.breakdownPreviousWeek && (
                 <Text style={styles.breakdownChange}>
                   {formatChange(summary.breakdown.exercises, summary.breakdownPreviousWeek.exercises)}
@@ -649,123 +825,6 @@ export default function PremiumInsightScreen({ navigation }: any) {
         </View>
       </View>
 
-      <View style={styles.divider} />
-
-      {/* What You Have Skipped */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>What you have skipped</Text>
-        
-        <View style={styles.skipRow}>
-          <Text style={styles.skipLabel}>Products skipped:</Text>
-          <MatrixRedactedText value={summary.productSkips || 0} style={styles.skipValueGreen} />
-        </View>
-
-        {/* List of skipped products */}
-        {summary.skippedProducts && summary.skippedProducts.length > 0 && (
-          <View style={styles.skippedProductsList}>
-            {summary.skippedProducts.map((product, index) => (
-              <View key={product.stepId} style={styles.skippedProductRow}>
-                <Text style={styles.skippedProductName}>{product.productName}</Text>
-                <MatrixRedactedText value={`${product.count}x`} style={styles.skippedProductCountGreen} />
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.skipRow}>
-          <Text style={styles.skipLabel}>Waiting skipped:</Text>
-          <MatrixRedactedText value={summary.timerSkips} style={styles.skipValueGreen} />
-        </View>
-
-        {/* Timer skip insight */}
-        {skipImpact && summary.timerSkips > 0 && (
-          <Text style={styles.skipInsight}>
-            Waiting periods (like after applying products) help products absorb properly. 
-            According to studies, skipping them reduces effectiveness by approximately 25-30%.
-          </Text>
-        )}
-
-        <View style={styles.skipRow}>
-          <Text style={styles.skipLabel}>Exercises ended early:</Text>
-          <MatrixRedactedText value={summary.exerciseEarlyEnds || 0} style={styles.skipValueGreen} />
-        </View>
-
-        {/* Exercise early end insight */}
-        {skipImpact && (summary.exerciseEarlyEnds || 0) > 0 && (
-          <Text style={styles.skipInsight}>
-            Completing full exercise sessions gives better results. 
-            Partial sessions still count, but full sessions maximize progress.
-          </Text>
-        )}
-
-        {/* Time Saved vs Effectiveness Lost */}
-        {timeVsEffectiveness && (timeVsEffectiveness.totalTimeSavedMinutes > 0 || timeVsEffectiveness.totalEffectivenessLost > 0) && (
-          <View style={styles.timeEffectivenessCard}>
-            <Text style={styles.timeEffectivenessTitle}>Time vs Effectiveness</Text>
-            
-            {/* This Week */}
-            <View style={[styles.timeEffectivenessSection, styles.timeEffectivenessSectionLast]}>
-              <Text style={styles.timeEffectivenessSubtitle}>This Week</Text>
-              <View style={styles.timeEffectivenessRow}>
-                <View style={styles.timeEffectivenessItem}>
-                  <Text style={styles.timeEffectivenessLabel}>Time saved</Text>
-                  <MatrixRedactedText 
-                    value={timeVsEffectiveness.totalTimeSavedFormatted}
-                    style={styles.timeEffectivenessValue}
-                  />
-                </View>
-                <View style={styles.timeEffectivenessDivider} />
-                <View style={styles.timeEffectivenessItem}>
-                  <Text style={styles.timeEffectivenessLabel}>Effectiveness lost</Text>
-                  <MatrixRedactedText 
-                    value={`${timeVsEffectiveness.totalEffectivenessLost.toFixed(1)}%`}
-                    style={styles.timeEffectivenessValueLost}
-                  />
-                </View>
-              </View>
-              
-              {/* Breakdown */}
-              {(timeVsEffectiveness.waitingTimeSaved > 0 || timeVsEffectiveness.productTimeSaved > 0) && (
-                <View style={styles.timeEffectivenessBreakdown}>
-                  {timeVsEffectiveness.waitingTimeSaved > 0 && (
-                    <View style={styles.timeEffectivenessBreakdownRow}>
-                      <Text style={styles.timeEffectivenessBreakdownLabel}>Waiting periods skips</Text>
-                      <View style={styles.timeEffectivenessBreakdownValues}>
-                        <MatrixRedactedText 
-                          value={timeVsEffectiveness.formatTimeFromSeconds(Math.round(timeVsEffectiveness.waitingTimeSaved * 60))}
-                          style={styles.timeEffectivenessBreakdownValue}
-                        />
-                        <Text style={styles.timeEffectivenessBreakdownSeparator}>•</Text>
-                        <MatrixRedactedText 
-                          value={`${timeVsEffectiveness.waitingEffectivenessLost.toFixed(1)}%`}
-                          style={styles.timeEffectivenessBreakdownValueLost}
-                        />
-                      </View>
-                    </View>
-                  )}
-                  
-                  {timeVsEffectiveness.productTimeSaved > 0 && (
-                    <View style={styles.timeEffectivenessBreakdownRow}>
-                      <Text style={styles.timeEffectivenessBreakdownLabel}>Full product skips</Text>
-                      <View style={styles.timeEffectivenessBreakdownValues}>
-                        <MatrixRedactedText 
-                          value={timeVsEffectiveness.formatTimeFromSeconds(Math.round(timeVsEffectiveness.productTimeSaved * 60))}
-                          style={styles.timeEffectivenessBreakdownValue}
-                        />
-                        <Text style={styles.timeEffectivenessBreakdownSeparator}>•</Text>
-                        <MatrixRedactedText 
-                          value={`${timeVsEffectiveness.productEffectivenessLost.toFixed(1)}%`}
-                          style={styles.timeEffectivenessBreakdownValueLost}
-                        />
-                      </View>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-      </View>
     </>
   );
 
@@ -784,54 +843,175 @@ export default function PremiumInsightScreen({ navigation }: any) {
       );
     }
 
-    if (!monthlyInsights) {
-      return (
-        <>
-          <View style={styles.header}>
-            <Text style={styles.title}>Monthly Insights</Text>
-          </View>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Patterns (last 30 days)</Text>
-            <View style={styles.divider} />
-            <View style={styles.patternRow}>
-              <Text style={styles.patternLabel}>Hardest day:</Text>
-              <Text style={styles.patternValue}>N/A</Text>
-            </View>
-            <View style={styles.patternRow}>
-              <Text style={styles.patternLabel}>Best day:</Text>
-              <Text style={styles.patternValue}>N/A</Text>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notification timing</Text>
-            <View style={styles.timingSubsection}>
-              <View style={styles.timingRow}>
-                <Text style={styles.timingLabel}>Typical morning routine start:</Text>
-                <Text style={styles.timingValue}>N/A</Text>
-              </View>
-            </View>
-            <View style={styles.timingSubsection}>
-              <View style={styles.timingRow}>
-                <Text style={styles.timingLabel}>Typical night routine start:</Text>
-                <Text style={styles.timingValue}>N/A</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Skin Progress</Text>
-            <Text style={styles.body}>N/A - No skin progress data available.</Text>
-          </View>
-        </>
-      );
-    }
-
     return (
       <>
         <View style={styles.header}>
           <Text style={styles.title}>Monthly Insights</Text>
         </View>
+
+        {/* What You Have Skipped (Last 30 Days) - FIRST SECTION */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>What you have skipped</Text>
+          
+          <View style={styles.skipRow}>
+            <Text style={styles.skipLabel}>Products skipped:</Text>
+            <MatrixRedactedText value={monthlyProductSkips} style={styles.skipValueGreen} />
+          </View>
+
+          {/* List of skipped products */}
+          {monthlySkippedProducts && monthlySkippedProducts.length > 0 && (
+            <View style={styles.skippedProductsList}>
+              {monthlySkippedProducts.map((product, index) => (
+                <View key={product.stepId} style={styles.skippedProductRow}>
+                  <Text style={styles.skippedProductName}>{product.productName}</Text>
+                  <MatrixRedactedText value={`${product.count}x`} style={styles.skippedProductCountGreen} />
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.skipRow}>
+            <Text style={styles.skipLabel}>Waiting skipped:</Text>
+            <MatrixRedactedText value={monthlyTimerSkips} style={styles.skipValueGreen} />
+          </View>
+
+          {/* Timer skip insight */}
+          {monthlyTimerSkips > 0 && (
+            <Text style={styles.skipInsight}>
+              Waiting periods (like after applying products) help products absorb properly. 
+              According to studies, skipping them reduces effectiveness by approximately 25-30%.
+            </Text>
+          )}
+
+          <View style={styles.skipRow}>
+            <Text style={styles.skipLabel}>Exercises ended early:</Text>
+            <MatrixRedactedText value={monthlyExerciseEarlyEnds} style={styles.skipValueGreen} />
+          </View>
+
+          {/* Exercise early end insight */}
+          {monthlyExerciseEarlyEnds > 0 && (
+            <Text style={styles.skipInsight}>
+              Completing full exercise sessions gives better results. 
+              Partial sessions still count, but full sessions maximize progress.
+            </Text>
+          )}
+        </View>
+
+        {/* Time vs Effectiveness (Last 30 Days) */}
+        {timeVsEffectiveness30Days && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Time vs Effectiveness</Text>
+            
+            <View style={styles.timeEffectivenessCard}>
+              <View style={styles.timeEffectivenessSection}>
+                <Text style={styles.timeEffectivenessSubtitle}>Time Saved</Text>
+                <View style={styles.timeEffectivenessRow}>
+                  <View style={styles.timeEffectivenessItem}>
+                    <Text style={styles.timeEffectivenessLabel}>Total</Text>
+                    <Text style={styles.timeEffectivenessValue}>
+                      {timeVsEffectiveness30Days.totalTimeSavedFormatted}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.timeEffectivenessBreakdown}>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Products:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValue}>
+                      {timeVsEffectiveness30Days.formatTime(timeVsEffectiveness30Days.productTimeSaved)}
+                    </Text>
+                  </View>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Waiting:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValue}>
+                      {timeVsEffectiveness30Days.formatTime(timeVsEffectiveness30Days.waitingTimeSaved)}
+                    </Text>
+                  </View>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Exercises:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValue}>
+                      {timeVsEffectiveness30Days.formatTime(timeVsEffectiveness30Days.exerciseTimeSaved)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.timeEffectivenessSection, styles.timeEffectivenessSectionLast]}>
+                <Text style={styles.timeEffectivenessSubtitle}>Effectiveness Lost</Text>
+                <View style={styles.timeEffectivenessRow}>
+                  <View style={styles.timeEffectivenessItem}>
+                    <Text style={styles.timeEffectivenessLabel}>Total</Text>
+                    <Text style={styles.timeEffectivenessValueLost}>
+                      {timeVsEffectiveness30Days.totalEffectivenessLost.toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.timeEffectivenessBreakdown}>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Products:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValueLost}>
+                      {timeVsEffectiveness30Days.productEffectivenessLost.toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Waiting:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValueLost}>
+                      {timeVsEffectiveness30Days.waitingEffectivenessLost.toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.timeEffectivenessBreakdownRow}>
+                    <Text style={styles.timeEffectivenessBreakdownLabel}>Exercises:</Text>
+                    <Text style={styles.timeEffectivenessBreakdownValueLost}>
+                      {timeVsEffectiveness30Days.exerciseEffectivenessLost.toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.timeEffectivenessInsight}>
+                Skipping steps saves time but reduces effectiveness. Finding the right balance helps maintain consistency while maximizing results.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {!monthlyInsights ? (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Your Patterns (last 30 days)</Text>
+              <View style={styles.divider} />
+              <View style={styles.patternRow}>
+                <Text style={styles.patternLabel}>Hardest day:</Text>
+                <Text style={styles.patternValue}>N/A</Text>
+              </View>
+              <View style={styles.patternRow}>
+                <Text style={styles.patternLabel}>Best day:</Text>
+                <Text style={styles.patternValue}>N/A</Text>
+              </View>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Notification timing</Text>
+              <View style={styles.timingSubsection}>
+                <View style={styles.timingRow}>
+                  <Text style={styles.timingLabel}>Typical morning routine start:</Text>
+                  <Text style={styles.timingValue}>N/A</Text>
+                </View>
+              </View>
+              <View style={styles.timingSubsection}>
+                <View style={styles.timingRow}>
+                  <Text style={styles.timingLabel}>Typical night routine start:</Text>
+                  <Text style={styles.timingValue}>N/A</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Skin Progress</Text>
+              <Text style={styles.body}>N/A - No skin progress data available.</Text>
+            </View>
+          </>
+        ) : (
+          <>
 
         {/* Correlation Insights - What's Working and What's Hurting */}
         {/* For premium users: show message if less than 4 weeks */}
@@ -1155,7 +1335,10 @@ export default function PremiumInsightScreen({ navigation }: any) {
           )}
         </View>
 
-      </>
+          </>
+        )}
+
+      </> 
     );
   };
 

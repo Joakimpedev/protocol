@@ -148,3 +148,5 @@ Before building for production:
 - **Will notifications work?** → Yes, with EAS build on real device
 - **What about Android?** → Same, works automatically with EAS build
 
+
+

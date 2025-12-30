@@ -11,9 +11,8 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [anonymousLoading, setAnonymousLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
-  const { signUp, signInAnonymous, signInWithApple } = useAuth();
+  const { signUp, signInWithApple } = useAuth();
   const { data, updateData } = useOnboarding();
 
   const handleSignUp = async () => {
@@ -82,66 +81,6 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
       Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAnonymousSignIn = async () => {
-    setAnonymousLoading(true);
-    try {
-      // Sign in anonymously
-      const userCredential = await signInAnonymous();
-      const user = userCredential.user;
-
-      // Save onboarding data to Firestore
-      // Remove undefined values (Firestore doesn't allow undefined)
-      const signupDate = new Date();
-      const photoDay = signupDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-
-      const userData: any = {
-        email: null, // Anonymous users don't have email
-        isAnonymous: true,
-        concerns: data.selectedCategories || [],
-        routineStarted: false,
-        signupDate: signupDate.toISOString(),
-        photoDay,
-        createdAt: signupDate.toISOString(),
-      };
-
-      // Only include optional fields if they have values
-      if (data.skinType) {
-        userData.skinType = data.skinType;
-      }
-      if (data.budget) {
-        userData.budget = data.budget;
-      }
-      if (data.dailyTime) {
-        userData.dailyTime = data.dailyTime;
-      }
-      if (data.timeAvailability) {
-        userData.timeAvailability = data.timeAvailability;
-      }
-      if (data.experienceLevel) {
-        userData.experienceLevel = data.experienceLevel;
-      }
-      if (data.hasCurrentRoutine !== undefined) {
-        userData.hasCurrentRoutine = data.hasCurrentRoutine;
-      }
-
-      await setDoc(doc(db, 'users', user.uid), userData);
-
-      // Navigate to plan screen
-      navigation.navigate('Shopping');
-    } catch (error: any) {
-      let errorMessage = error.message || 'Failed to sign in anonymously';
-      
-      // Provide helpful error message for admin-restricted-operation
-      if (error.code === 'auth/admin-restricted-operation' || errorMessage.includes('admin-restricted-operation')) {
-        errorMessage = 'Anonymous authentication is not enabled in Firebase Console.\n\nTo enable:\n1. Go to Firebase Console\n2. Authentication → Sign-in method\n3. Enable Anonymous\n4. Click Save';
-      }
-      
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setAnonymousLoading(false);
     }
   };
 
@@ -272,9 +211,9 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
         />
 
         <TouchableOpacity
-          style={[styles.button, (loading || anonymousLoading || appleLoading) && styles.buttonDisabled]}
+          style={[styles.button, (loading || appleLoading) && styles.buttonDisabled]}
           onPress={handleSignUp}
-          disabled={loading || anonymousLoading || appleLoading}
+          disabled={loading || appleLoading}
         >
           {loading ? (
             <ActivityIndicator color={colors.text} />
@@ -292,7 +231,7 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
               cornerRadius={4}
               style={styles.appleButton}
               onPress={handleAppleSignIn}
-              disabled={loading || anonymousLoading || appleLoading}
+              disabled={loading || appleLoading}
             />
           </>
         )}
@@ -300,24 +239,10 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
         <View style={styles.divider} />
 
         <TouchableOpacity
-          style={[styles.button, styles.anonymousButton, (anonymousLoading || loading || appleLoading) && styles.buttonDisabled]}
-          onPress={handleAnonymousSignIn}
-          disabled={loading || anonymousLoading || appleLoading}
-        >
-          {anonymousLoading ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <Text style={styles.buttonText}>Continue Anonymously (Testing)</Text>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.divider} />
-
-        <TouchableOpacity
           onPress={() => {
             navigation.navigate('OnboardingSignIn');
           }}
-          disabled={loading || anonymousLoading || appleLoading}
+          disabled={loading || appleLoading}
         >
           <Text style={styles.linkText}>Already have an account? Sign in</Text>
         </TouchableOpacity>
@@ -363,10 +288,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     marginTop: spacing.lg,
-  },
-  anonymousButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
   },
   buttonDisabled: {
     opacity: 0.5,

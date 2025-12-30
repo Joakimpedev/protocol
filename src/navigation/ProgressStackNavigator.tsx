@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '../constants/theme';
 import ProgressScreen from '../screens/ProgressScreen';
 import PhotoCaptureScreen from '../screens/PhotoCaptureScreen';
+import PhotoImportScreen from '../screens/PhotoImportScreen';
 import PhotoPreviewScreen from '../screens/PhotoPreviewScreen';
 import WhatToExpectScreen from '../screens/WhatToExpectScreen';
 import PhotoComparisonScreen from '../screens/PhotoComparisonScreen';
@@ -27,6 +28,14 @@ export default function ProgressStackNavigator() {
       <Stack.Screen 
         name="PhotoCapture" 
         component={PhotoCaptureScreen}
+        options={{
+          headerShown: false,
+          presentation: 'fullScreenModal',
+        }}
+      />
+      <Stack.Screen 
+        name="PhotoImport" 
+        component={PhotoImportScreen}
         options={{
           headerShown: false,
           presentation: 'fullScreenModal',

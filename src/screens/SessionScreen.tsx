@@ -279,7 +279,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
         <Text style={styles.stepName}>{currentStep.displayName}</Text>
         
         {currentStep.productName && (
-          <Text style={styles.productName}>{currentStep.productName}</Text>
+          <Text style={styles.productName}>Your product: {currentStep.productName}</Text>
         )}
 
         {shortDescription && (

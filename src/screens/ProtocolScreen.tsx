@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Touch
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
-import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData, IngredientSelection, ExerciseSelection, updateIngredientState } from '../services/routineService';
+import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData, IngredientSelection, ExerciseSelection, updateIngredientState, updateExerciseState } from '../services/routineService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import PaywallModal from '../components/PaywallModal';
@@ -126,6 +126,7 @@ export default function ProtocolScreen({ navigation }: any) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [configureProductId, setConfigureProductId] = useState<string | null>(null);
   const [editingProductName, setEditingProductName] = useState<string>('');
+  const [configureExerciseId, setConfigureExerciseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -176,7 +177,8 @@ export default function ProtocolScreen({ navigation }: any) {
   // Initialize editing product name when configure modal opens
   // This must be before any early returns to follow Rules of Hooks
   useEffect(() => {
-    if (configureProductId && selectedIngredients.length > 0) {
+    if (configureProductId) {
+      // Only initialize when modal opens, not when data updates
       const product = selectedIngredients.find((item: any) => item.ingredient_id === configureProductId);
       if (product) {
         const selection = product.selection as IngredientSelection;
@@ -188,11 +190,15 @@ export default function ProtocolScreen({ navigation }: any) {
         } else {
           setEditingProductName('');
         }
+      } else {
+        setEditingProductName('');
       }
     } else {
       setEditingProductName('');
     }
-  }, [configureProductId, selectedIngredients]);
+    // Only depend on configureProductId, not selectedIngredients to avoid resetting while typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configureProductId]);
 
   if (loading) {
     return (
@@ -422,6 +428,34 @@ export default function ProtocolScreen({ navigation }: any) {
             } catch (error) {
               console.error('Error removing ingredient:', error);
               Alert.alert('Error', 'Failed to remove ingredient');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleExerciseExclude = async (exerciseId: string) => {
+    if (!user) return;
+
+    Alert.alert(
+      'Exclude from routine?',
+      'This exercise will be excluded from your routine and will not count toward your consistency score.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Exclude',
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              await updateExerciseState(user.uid, exerciseId, 'excluded');
+              setConfigureExerciseId(null);
+            } catch (error) {
+              console.error('Error excluding exercise:', error);
+              Alert.alert('Error', 'Failed to exclude exercise');
             } finally {
               setSaving(false);
             }
@@ -666,60 +700,56 @@ export default function ProtocolScreen({ navigation }: any) {
 
   const renderExerciseCard = (item: any) => {
     const exercise = item;
+    const selection = item.selection as ExerciseSelection;
     const exerciseData = exercises.find((ex: Exercise) => ex.exercise_id === exercise.exercise_id);
 
     if (!exerciseData) return null;
 
-    // Handle jaw exercises with variations
-    if (exerciseData.exercise_id === 'jaw_exercises') {
-      const variations = (exerciseData as any).variations || [];
-      return (
-        <View key={exercise.exercise_id} style={styles.exerciseCard}>
+    const exerciseCardContent = (
+      <>
+        <View style={styles.exerciseCardHeader}>
           <Text style={styles.exerciseName}>{exerciseData.display_name}</Text>
-          <Text style={styles.exerciseExplanation}>
-            Jaw exercises strengthen the masseter and surrounding facial muscles. Stronger jaw muscles create better definition and improve the overall structure of your lower face. These resistance movements target different areas of the jaw for balanced development.
-          </Text>
-          {variations.length > 0 && (
-            <>
-              <Text style={styles.variationsTitle}>Exercises:</Text>
-              {variations.map((variation: any, index: number) => (
-                <Text key={variation.variation_id || index} style={styles.variationListItem}>
-                  • {variation.name}
-                </Text>
-              ))}
-            </>
-          )}
+          <TouchableOpacity
+            style={styles.configureButton}
+            onPress={() => setConfigureExerciseId(exercise.exercise_id)}
+          >
+            <Text style={styles.configureButtonText}>•••</Text>
+          </TouchableOpacity>
         </View>
-      );
-    }
-
-    // Handle neck posture exercises with variations
-    if (exerciseData.exercise_id === 'neck_posture') {
-      const variations = (exerciseData as any).variations || [];
-      return (
-        <View key={exercise.exercise_id} style={styles.exerciseCard}>
-          <Text style={styles.exerciseName}>{exerciseData.display_name}</Text>
-          <Text style={styles.exerciseExplanation}>
-            Forward head posture pulls your jaw back and hides definition. Neck posture exercises correct alignment, improve jaw appearance, and prevent the forward head position that undermines your jawline. Proper alignment makes your existing structure more visible.
-          </Text>
-          {variations.length > 0 && (
-            <>
-              <Text style={styles.variationsTitle}>Exercises:</Text>
-              {variations.map((variation: any, index: number) => (
-                <Text key={variation.variation_id || index} style={styles.variationListItem}>
-                  • {variation.name}
-                </Text>
-              ))}
-            </>
-          )}
-        </View>
-      );
-    }
-
-    // Handle other exercises (mewing, chewing, etc.)
-    return (
-      <View key={exercise.exercise_id} style={styles.exerciseCard}>
-        <Text style={styles.exerciseName}>{exerciseData.display_name}</Text>
+        {exerciseData.exercise_id === 'jaw_exercises' && (
+          <>
+            <Text style={styles.exerciseExplanation}>
+              Jaw exercises strengthen the masseter and surrounding facial muscles. Stronger jaw muscles create better definition and improve the overall structure of your lower face. These resistance movements target different areas of the jaw for balanced development.
+            </Text>
+            {(exerciseData as any).variations && (exerciseData as any).variations.length > 0 && (
+              <>
+                <Text style={styles.variationsTitle}>Exercises:</Text>
+                {(exerciseData as any).variations.map((variation: any, index: number) => (
+                  <Text key={variation.variation_id || index} style={styles.variationListItem}>
+                    • {variation.name}
+                  </Text>
+                ))}
+              </>
+            )}
+          </>
+        )}
+        {exerciseData.exercise_id === 'neck_posture' && (
+          <>
+            <Text style={styles.exerciseExplanation}>
+              Forward head posture pulls your jaw back and hides definition. Neck posture exercises correct alignment, improve jaw appearance, and prevent the forward head position that undermines your jawline. Proper alignment makes your existing structure more visible.
+            </Text>
+            {(exerciseData as any).variations && (exerciseData as any).variations.length > 0 && (
+              <>
+                <Text style={styles.variationsTitle}>Exercises:</Text>
+                {(exerciseData as any).variations.map((variation: any, index: number) => (
+                  <Text key={variation.variation_id || index} style={styles.variationListItem}>
+                    • {variation.name}
+                  </Text>
+                ))}
+              </>
+            )}
+          </>
+        )}
         {exerciseData.exercise_id === 'mewing' && (
           <>
             <Text style={styles.exerciseInstructions}>
@@ -753,6 +783,12 @@ export default function ProtocolScreen({ navigation }: any) {
             )}
           </>
         )}
+      </>
+    );
+
+    return (
+      <View key={exercise.exercise_id} style={styles.exerciseCard}>
+        {exerciseCardContent}
       </View>
     );
   };
@@ -844,7 +880,10 @@ export default function ProtocolScreen({ navigation }: any) {
         <View style={styles.divider} />
 
         {/* Exercises Section */}
-        {selectedExercises.length > 0 && (
+        {selectedExercises.filter((item: any) => {
+          const selection = item.selection as ExerciseSelection;
+          return selection.state !== 'excluded';
+        }).length > 0 && (
           <>
             <Text style={styles.sectionTitle}>
               Exercises
@@ -853,7 +892,12 @@ export default function ProtocolScreen({ navigation }: any) {
               These exercises target facial muscles and posture to improve your jawline and overall facial structure. Consistency matters more than intensity. Results come from repetition.
             </Text>
             <View style={styles.section}>
-              {selectedExercises.map((item: any) => renderExerciseCard(item))}
+              {selectedExercises
+                .filter((item: any) => {
+                  const selection = item.selection as ExerciseSelection;
+                  return selection.state !== 'excluded';
+                })
+                .map((item: any) => renderExerciseCard(item))}
             </View>
           </>
         )}
@@ -895,7 +939,11 @@ export default function ProtocolScreen({ navigation }: any) {
         
         // Show active product modal
         if (state === 'active') {
-          const currentName = editingProductName || selection.product_name || '';
+          // If modal is open, always use editingProductName (even if empty) since user is editing
+          // Otherwise fall back to original product name
+          const currentName = configureProductId === product.ingredient_id 
+            ? editingProductName 
+            : (selection.product_name || '');
           return (
             <ActiveProductModal
               visible={true}
@@ -940,6 +988,44 @@ export default function ProtocolScreen({ navigation }: any) {
         }
         
         return null;
+      })()}
+      {/* Exercise Configuration Modal */}
+      {configureExerciseId && (() => {
+        const exercise = selectedExercises.find((item: any) => item.exercise_id === configureExerciseId);
+        if (!exercise) return null;
+        const selection = exercise.selection as ExerciseSelection;
+        
+        return (
+          <Modal
+            visible={true}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setConfigureExerciseId(null)}
+          >
+            <View style={activeProductModalStyles.overlay}>
+              <View style={activeProductModalStyles.modal}>
+                <View style={activeProductModalStyles.header}>
+                  <Text style={activeProductModalStyles.title}>{exercise.display_name.toUpperCase()}</Text>
+                  <TouchableOpacity onPress={() => setConfigureExerciseId(null)}>
+                    <Text style={activeProductModalStyles.closeButton}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={activeProductModalStyles.divider} />
+                
+                <TouchableOpacity
+                  style={activeProductModalStyles.removeButton}
+                  onPress={() => {
+                    setConfigureExerciseId(null);
+                    handleExerciseExclude(exercise.exercise_id);
+                  }}
+                >
+                  <Text style={activeProductModalStyles.removeText}>Exclude from routine</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        );
       })()}
     </View>
   );
@@ -1150,9 +1236,15 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
+  exerciseCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.xs,
+  },
   exerciseName: {
     ...typography.headingSmall,
-    marginBottom: spacing.xs,
+    flex: 1,
   },
   exerciseDescription: {
     ...typography.body,
@@ -1393,5 +1485,9 @@ const activeProductModalStyles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textMuted,
     textDecorationLine: 'underline',
+  },
+  removeButton: {
+    padding: spacing.md,
+    alignItems: 'center',
   },
 });

@@ -17,10 +17,11 @@ export interface FriendConnection {
 export interface FriendProfile {
   userId: string;
   email?: string;
+  displayName?: string;
   friendCode: string;
   muted: boolean;
   lastCompletionDate?: string; // Last date they completed their routine
-  weeklyConsistency?: number; // Their weekly consistency score
+  weeklyConsistency?: number; // Their weekly consistency score (0.0-10.0)
 }
 
 /**
@@ -130,8 +131,11 @@ export async function sendFriendRequest(userId: string, friendCode: string): Pro
       throw new Error('Cannot add yourself as a friend');
     }
 
-    // Check if connection already exists
-    const existingConnection = await getFriendConnection(userId, friendUserId);
+    // Check if connection already exists (check both directions)
+    const existingConnection1 = await getFriendConnection(userId, friendUserId);
+    const existingConnection2 = await getFriendConnection(friendUserId, userId);
+    const existingConnection = existingConnection1 || existingConnection2;
+    
     if (existingConnection) {
       if (existingConnection.status === 'accepted') {
         throw new Error('Already friends');
@@ -248,17 +252,14 @@ export async function getFriends(userId: string): Promise<FriendProfile[]> {
           .filter((c: any) => c.allCompleted === true)
           .sort((a: any, b: any) => b.date.localeCompare(a.date))[0];
 
-        // Calculate weekly consistency
-        const weekStart = getWeekStartDateString();
-        const weekCompletions = completions.filter((c: any) => {
-          return c.date >= weekStart && c.allCompleted === true;
-        });
-        const uniqueDays = new Set(weekCompletions.map((c: any) => c.date));
-        const weeklyConsistency = Math.round((uniqueDays.size / 7) * 100);
+        // Calculate weekly consistency score (0.0-10.0)
+        const { calculateWeeklyConsistency } = await import('./completionService');
+        const weeklyConsistency = await calculateWeeklyConsistency(connection.friendId);
 
         friends.push({
           userId: connection.friendId,
           email: friendData.email,
+          displayName: friendData.displayName,
           friendCode: friendData.friendCode,
           muted,
           lastCompletionDate: lastCompletion?.date,
@@ -299,6 +300,7 @@ export async function getPendingFriendRequests(userId: string): Promise<FriendPr
         requests.push({
           userId: connection.friendId,
           email: friendData.email,
+          displayName: friendData.displayName,
           friendCode: friendData.friendCode,
           muted: false,
         });
@@ -367,6 +369,7 @@ export async function removeFriend(userId: string, friendId: string): Promise<vo
 
 /**
  * Subscribe to friends list changes
+ * Also subscribes to each friend's user document for real-time updates
  */
 export function subscribeToFriends(
   userId: string,
@@ -379,8 +382,108 @@ export function subscribeToFriends(
     where('status', '==', 'accepted')
   );
 
+  let friendUnsubscribes: (() => void)[] = [];
+  let connectionUnsubscribe: (() => void) | null = null;
+
+  const loadFriendsData = async (connections: FriendConnection[]): Promise<FriendProfile[]> => {
+    const friendsPromises = connections.map(async (connection) => {
+      const friendDoc = await getDoc(doc(db, 'users', connection.friendId));
+      if (!friendDoc.exists()) {
+        return null;
+      }
+
+      const friendData = friendDoc.data();
+      
+      // Get user's mute preference
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      const userData = userDoc.data();
+      const mutedFriends = userData?.mutedFriends || [];
+      const muted = mutedFriends.includes(connection.friendId);
+
+      // Get last completion date
+      const completions = friendData.dailyCompletions || [];
+      const lastCompletion = completions
+        .filter((c: any) => c.allCompleted === true)
+        .sort((a: any, b: any) => b.date.localeCompare(a.date))[0];
+
+      // Calculate weekly consistency score (0.0-10.0)
+      const { calculateWeeklyConsistency } = await import('./completionService');
+      const weeklyConsistency = await calculateWeeklyConsistency(connection.friendId);
+
+      return {
+        userId: connection.friendId,
+        email: friendData.email,
+        displayName: friendData.displayName,
+        friendCode: friendData.friendCode,
+        muted,
+        lastCompletionDate: lastCompletion?.date,
+        weeklyConsistency,
+      };
+    });
+
+    const friends = await Promise.all(friendsPromises);
+    return friends.filter((f): f is FriendProfile => f !== null);
+  };
+
+  const updateFriends = async (connectionSnapshot: any) => {
+    const connections = connectionSnapshot.docs.map((docSnap: any) => docSnap.data() as FriendConnection);
+    
+    // Unsubscribe from old friend documents
+    friendUnsubscribes.forEach(unsub => unsub());
+    friendUnsubscribes = [];
+
+    // Load initial friends data
+    const friends = await loadFriendsData(connections);
+    callback(friends);
+
+    // Subscribe to each friend's user document for real-time updates
+    connections.forEach((connection) => {
+      const friendUnsubscribe = onSnapshot(
+        doc(db, 'users', connection.friendId),
+        async () => {
+          // When friend document changes, reload all friends data
+          const updatedFriends = await loadFriendsData(connections);
+          callback(updatedFriends);
+        },
+        (error) => {
+          console.error(`Error subscribing to friend ${connection.friendId}:`, error);
+        }
+      );
+      friendUnsubscribes.push(friendUnsubscribe);
+    });
+  };
+
+  // Subscribe to connection changes
+  connectionUnsubscribe = onSnapshot(q, (snapshot) => {
+    updateFriends(snapshot);
+  });
+
+  // Return cleanup function
+  return () => {
+    if (connectionUnsubscribe) {
+      connectionUnsubscribe();
+    }
+    friendUnsubscribes.forEach(unsub => unsub());
+  };
+}
+
+/**
+ * Subscribe to pending friend requests changes
+ */
+export function subscribeToPendingRequests(
+  userId: string,
+  callback: (requests: FriendProfile[]) => void
+): () => void {
+  const friendsRef = collection(db, 'friendConnections');
+  const q = query(
+    friendsRef,
+    where('userId', '==', userId),
+    where('status', '==', 'pending'),
+    where('requestedBy', '!=', userId) // Only requests sent TO this user
+  );
+
   return onSnapshot(q, async (snapshot) => {
-    const friends: FriendProfile[] = [];
+    const requests: FriendProfile[] = [];
 
     for (const docSnap of snapshot.docs) {
       const connection = docSnap.data() as FriendConnection;
@@ -388,39 +491,17 @@ export function subscribeToFriends(
       
       if (friendDoc.exists()) {
         const friendData = friendDoc.data();
-        
-        // Get user's mute preference
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        const userData = userDoc.data();
-        const mutedFriends = userData?.mutedFriends || [];
-        const muted = mutedFriends.includes(connection.friendId);
-
-        // Get last completion date
-        const completions = friendData.dailyCompletions || [];
-        const lastCompletion = completions
-          .filter((c: any) => c.allCompleted === true)
-          .sort((a: any, b: any) => b.date.localeCompare(a.date))[0];
-
-        // Calculate weekly consistency
-        const weekStart = getWeekStartDateString();
-        const weekCompletions = completions.filter((c: any) => {
-          return c.date >= weekStart && c.allCompleted === true;
-        });
-        const uniqueDays = new Set(weekCompletions.map((c: any) => c.date));
-        const weeklyConsistency = Math.round((uniqueDays.size / 7) * 100);
-
-        friends.push({
+        requests.push({
           userId: connection.friendId,
           email: friendData.email,
+          displayName: friendData.displayName,
           friendCode: friendData.friendCode,
-          muted,
-          lastCompletionDate: lastCompletion?.date,
-          weeklyConsistency,
+          muted: false,
         });
       }
     }
 
-    callback(friends);
+    callback(requests);
   });
 }
 

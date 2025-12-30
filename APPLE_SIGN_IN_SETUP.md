@@ -118,8 +118,46 @@ eas build --platform ios
 - Make sure Apple provider is enabled in Firebase Console
 - Make sure your App ID matches in Firebase and Apple Developer
 
+**Error: "The audience in ID token [host.exp.Exponent] does not match the expected audience com.protocol.galdr"**
+
+This error occurs when using Expo development builds (like Expo Go or default Expo dev client). The development client uses `host.exp.Exponent` as the bundle identifier, but Firebase expects `com.protocol.galdr`.
+
+**This is a development-only issue - production builds will work correctly!**
+
+**Recommended Workflow:**
+
+You can skip fixing this during development and test Apple Sign-In later:
+
+1. **During Development:**
+   - Use **Anonymous Sign-In** or **Email/Password** for testing
+   - Apple Sign-In will show this error in Expo dev builds, but that's okay
+   - Continue developing other features
+
+2. **When Ready to Test Apple Sign-In:**
+   - Build a proper development build with EAS that uses your actual bundle ID:
+     ```bash
+     eas build --profile development --platform ios
+     ```
+   - This will use `com.protocol.galdr` instead of `host.exp.Exponent`
+   - Apple Sign-In will work correctly in this build
+
+3. **Production:**
+   - Production builds always use `com.protocol.galdr` and will work correctly
+   - No additional configuration needed
+
+**If you want to fix it for Expo dev builds (optional):**
+
+You can configure Firebase to accept the development client's bundle ID, but this is not necessary if you're using anonymous sign-in during development:
+
+1. Create a Service ID in Apple Developer Console for `host.exp.Exponent`
+2. Configure Firebase Console to accept it as an additional OAuth client ID
+
+**Note:** The production build will always work correctly since it uses `com.protocol.galdr` as the bundle identifier.
+
 **Button doesn't appear:**
 - Make sure you're testing on iOS (button only shows on iOS)
 - Make sure `expo-apple-authentication` is installed
 - Make sure `usesAppleSignIn: true` is in app.json
+
+
 

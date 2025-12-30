@@ -272,7 +272,7 @@ export default function TodayScreen({ navigation }: any) {
 
       {/* Exercises Hub Link */}
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, sessionCompletions?.exercises && styles.cardCompleted]}
         onPress={handleExercisesPress}
       >
         <View style={styles.cardHeader}>
@@ -286,10 +286,29 @@ export default function TodayScreen({ navigation }: any) {
               <Text style={styles.cardInfoText}>{formatDuration(estimatedExerciseDuration)}</Text>
             </View>
             <View style={styles.checkmarkContainer}>
-              <Text style={styles.arrowText}>→</Text>
+              {sessionCompletions?.exercises ? (
+                <Text style={styles.completedCheckmark}>✓</Text>
+              ) : (
+                <Text style={styles.arrowText}>→</Text>
+              )}
             </View>
           </View>
         </View>
+
+        {!sessionCompletions?.exercises && (
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={handleExercisesPress}
+          >
+            <Text style={styles.startButtonText}>Start</Text>
+          </TouchableOpacity>
+        )}
+
+        {sessionCompletions?.exercises && (
+          <View style={styles.completedBadge}>
+            <Text style={styles.completedBadgeText}>Completed</Text>
+          </View>
+        )}
       </TouchableOpacity>
       </ScrollView>
     </View>
@@ -374,8 +393,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 4,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
+    minHeight: 90,
   },
   cardCompleted: {
     opacity: 0.7,
@@ -384,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   cardTitle: {
     ...typography.headingSmall,
@@ -420,9 +440,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 4,
-    padding: spacing.md,
+    padding: spacing.sm,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   startButtonText: {
     ...typography.body,
@@ -476,3 +496,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

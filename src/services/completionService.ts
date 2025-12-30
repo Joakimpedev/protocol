@@ -101,12 +101,25 @@ export function getDayOfWeek(dateString: string): number {
  */
 export function getWeekStartDateString(): string {
   const today = new Date();
-  const day = today.getDay();
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const day = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  
+  // Calculate days to subtract to get to Monday
+  // Monday (1): subtract 0 days
+  // Tuesday (2): subtract 1 day
+  // Wednesday (3): subtract 2 days
+  // ...
+  // Sunday (0): subtract 6 days
+  const daysToSubtract = day === 0 ? 6 : day - 1;
+  
   const monday = new Date(today);
-  monday.setDate(diff);
+  monday.setDate(today.getDate() - daysToSubtract);
   monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().split('T')[0];
+  
+  // Use local date formatting to avoid timezone issues with toISOString()
+  const year = monday.getFullYear();
+  const month = String(monday.getMonth() + 1).padStart(2, '0');
+  const dayOfMonth = String(monday.getDate()).padStart(2, '0');
+  return `${year}-${month}-${dayOfMonth}`;
 }
 
 /**
@@ -234,20 +247,35 @@ export async function getTodayCompletedSteps(userId: string): Promise<string[]> 
 }
 
 /**
- * Calculate daily completion score (0.0-10.0)
- * Based on equal weight (1/3 each) for morning, evening, and exercises sections
+ * Calculate daily section scores (0.0-10.0 for each section)
+ * Returns scores for morning, evening, and exercises sections
+ * 
+ * Simplified logic:
+ * - Morning: (completed steps / expected steps) * 10
+ * - Evening: (completed steps / expected steps) * 10
+ * - Exercises: (completed exercises / total exercises) * 10
  */
-export async function calculateDailyScore(userId: string, date: string): Promise<number> {
+export async function calculateDailySectionScores(userId: string, date: string): Promise<{
+  morning: number;
+  evening: number;
+  exercises: number;
+}> {
   try {
     const userDoc = await getDoc(doc(db, 'users', userId));
     
     if (!userDoc.exists()) {
-      return 0;
+      return { morning: 0, evening: 0, exercises: 0 };
     }
 
     const data = userDoc.data();
     const completions: DailyCompletion[] = data.dailyCompletions || [];
     const todayCompletion = completions.find(c => c.date === date);
+    
+    // Get session completions to determine which sections were actually completed
+    const sessionCompletions: any[] = data.sessionCompletions || [];
+    const todaySessionCompletion = sessionCompletions.find((c: any) => c.date === date);
+    const morningSessionCompleted = todaySessionCompletion?.morning === true;
+    const eveningSessionCompleted = todaySessionCompletion?.evening === true;
     
     // Get exercise completions for this date
     const exerciseCompletions: any[] = data.exerciseCompletions || [];
@@ -270,7 +298,9 @@ export async function calculateDailyScore(userId: string, date: string): Promise
     const ingredientSelections = (data.ingredientSelections || [])
       .filter((ing: any) => ing.state === 'added' || ing.state === 'active');
     
-    // Separate ingredients by timing (morning vs evening)
+    // Build morning and evening ingredient lists
+    // For flexible timing ingredients, count them in both sections if both sessions completed,
+    // or in the section where the session was completed
     const morningIngredientIds: string[] = [];
     const eveningIngredientIds: string[] = [];
     
@@ -279,11 +309,25 @@ export async function calculateDailyScore(userId: string, date: string): Promise
       if (!ingredient) return;
       
       const timingOptions = ingredient.timing_options || [];
-      if (timingOptions.includes('morning')) {
-        morningIngredientIds.push(sel.ingredient_id);
+      const hasMorning = timingOptions.includes('morning');
+      const hasEvening = timingOptions.includes('evening');
+      const isFlexible = hasMorning && hasEvening;
+      
+      if (hasMorning) {
+        // Add to morning if:
+        // - It's morning-only, OR
+        // - It's flexible AND morning session was completed
+        if (!isFlexible || morningSessionCompleted) {
+          morningIngredientIds.push(sel.ingredient_id);
+        }
       }
-      if (timingOptions.includes('evening')) {
-        eveningIngredientIds.push(sel.ingredient_id);
+      if (hasEvening) {
+        // Add to evening if:
+        // - It's evening-only, OR
+        // - It's flexible AND evening session was completed
+        if (!isFlexible || eveningSessionCompleted) {
+          eveningIngredientIds.push(sel.ingredient_id);
+        }
       }
     });
     
@@ -292,78 +336,101 @@ export async function calculateDailyScore(userId: string, date: string): Promise
     const washFaceId = washFace?.step_id;
     if (washFaceId) {
       const washFaceTiming = washFace.timing_options || [];
-      if (washFaceTiming.includes('morning') && morningIngredientIds.length > 0) {
-        morningIngredientIds.push(washFaceId);
+      const washFaceHasMorning = washFaceTiming.includes('morning');
+      const washFaceHasEvening = washFaceTiming.includes('evening');
+      const washFaceIsFlexible = washFaceHasMorning && washFaceHasEvening;
+      
+      if (washFaceHasMorning) {
+        // Add to morning if morning-only OR (flexible AND morning session completed)
+        if (!washFaceIsFlexible || morningSessionCompleted) {
+          morningIngredientIds.push(washFaceId);
+        }
       }
-      if (washFaceTiming.includes('evening') && eveningIngredientIds.length > 0) {
-        eveningIngredientIds.push(washFaceId);
+      if (washFaceHasEvening) {
+        // Add to evening if evening-only OR (flexible AND evening session completed)
+        if (!washFaceIsFlexible || eveningSessionCompleted) {
+          eveningIngredientIds.push(washFaceId);
+        }
       }
     }
     
-    // Get exercises (excluding mewing)
+    // Get exercises (excluding mewing and exercises without completion tracking)
+    const { getAllExercises } = require('./exerciseService');
+    const allExercises = getAllExercises();
     const allExerciseIds = (data.exerciseSelections || [])
-      .filter((ex: any) => ex.state === 'added' && ex.exercise_id !== 'mewing')
+      .filter((ex: any) => {
+        if (ex.state !== 'added' || ex.exercise_id === 'mewing') {
+          return false;
+        }
+        // Only include exercises that have has_completion: true
+        const exercise = allExercises.find((e: any) => e.exercise_id === ex.exercise_id);
+        return exercise && exercise.has_completion === true;
+      })
       .map((ex: any) => ex.exercise_id);
     
-    // Count completed items from different sources
+    // Get completed steps from daily completions
     const completedSteps = todayCompletion?.completedSteps || [];
     
-    // Count completed morning ingredients and base steps
-    const completedMorningIds = completedSteps.filter(id => 
-      morningIngredientIds.includes(id) && !skippedStepIds.includes(id)
+    // Calculate morning section score
+    const morningExpected = morningIngredientIds.filter(id => !skippedStepIds.includes(id));
+    const completedMorning = completedSteps.filter(id => 
+      morningExpected.includes(id) && !skippedStepIds.includes(id)
     );
+    const morningPercentage = morningExpected.length > 0 
+      ? completedMorning.length / morningExpected.length 
+      : 0;
+    const morningScore = Math.round(morningPercentage * 10 * 10) / 10;
     
-    // Count completed evening ingredients and base steps
-    const completedEveningIds = completedSteps.filter(id => 
-      eveningIngredientIds.includes(id) && !skippedStepIds.includes(id)
+    // Calculate evening section score
+    const eveningExpected = eveningIngredientIds.filter(id => !skippedStepIds.includes(id));
+    const completedEvening = completedSteps.filter(id => 
+      eveningExpected.includes(id) && !skippedStepIds.includes(id)
     );
+    const eveningPercentage = eveningExpected.length > 0 
+      ? completedEvening.length / eveningExpected.length 
+      : 0;
+    const eveningScore = Math.round(eveningPercentage * 10 * 10) / 10;
     
-    // Count completed exercises (from exerciseCompletions, not dailyCompletions)
-    const completedExerciseCount = completedExerciseIds.filter(id => 
-      allExerciseIds.includes(id) && !skippedStepIds.includes(id)
-    ).length;
+    // Calculate exercises section score
+    const exercisesExpected = allExerciseIds.filter(id => !skippedStepIds.includes(id));
+    const completedExercises = completedExerciseIds.filter(id => 
+      exercisesExpected.includes(id) && !skippedStepIds.includes(id)
+    );
+    const exercisesPercentage = exercisesExpected.length > 0 
+      ? completedExercises.length / exercisesExpected.length 
+      : 0;
+    const exercisesScore = Math.round(exercisesPercentage * 10 * 10) / 10;
     
-    // Calculate completion percentage for each section (0-1)
-    // Morning section
-    const morningExpected = morningIngredientIds.filter(id => !skippedStepIds.includes(id)).length;
-    const morningPercentage = morningExpected > 0 ? completedMorningIds.length / morningExpected : 0;
+    return {
+      morning: Math.min(10.0, Math.max(0.0, morningScore)),
+      evening: Math.min(10.0, Math.max(0.0, eveningScore)),
+      exercises: Math.min(10.0, Math.max(0.0, exercisesScore)),
+    };
+  } catch (error) {
+    console.error('Error calculating daily section scores:', error);
+    return { morning: 0, evening: 0, exercises: 0 };
+  }
+}
+
+/**
+ * Calculate daily completion score (0.0-10.0)
+ * Based on equal weight (1/3 each) for morning, evening, and exercises sections
+ * 
+ * Formula: (morningScore + eveningScore + exercisesScore) / 3
+ * Always divides by 3, even if a section has 0 expected steps (counts as 0)
+ */
+export async function calculateDailyScore(userId: string, date: string): Promise<number> {
+  try {
+    // Get section scores (each is 0.0-10.0)
+    const sectionScores = await calculateDailySectionScores(userId, date);
     
-    // Evening section
-    const eveningExpected = eveningIngredientIds.filter(id => !skippedStepIds.includes(id)).length;
-    const eveningPercentage = eveningExpected > 0 ? completedEveningIds.length / eveningExpected : 0;
+    // Always average all three sections equally (1/3 each)
+    // This ensures consistent scoring regardless of which sections have steps
+    const totalScore = sectionScores.morning + sectionScores.evening + sectionScores.exercises;
+    const averageScore = totalScore / 3;
     
-    // Exercises section
-    const exercisesExpected = allExerciseIds.filter(id => !skippedStepIds.includes(id)).length;
-    const exercisesPercentage = exercisesExpected > 0 ? completedExerciseCount / exercisesExpected : 0;
-    
-    // If no sections have any expected steps, return 0
-    if (morningExpected === 0 && eveningExpected === 0 && exercisesExpected === 0) {
-      return 0;
-    }
-    
-    // Calculate average of the three sections (equal weight: 1/3 each)
-    // If a section has no expected steps, it doesn't contribute to the score
-    let totalPercentage = 0;
-    let sectionCount = 0;
-    
-    if (morningExpected > 0) {
-      totalPercentage += morningPercentage;
-      sectionCount++;
-    }
-    if (eveningExpected > 0) {
-      totalPercentage += eveningPercentage;
-      sectionCount++;
-    }
-    if (exercisesExpected > 0) {
-      totalPercentage += exercisesPercentage;
-      sectionCount++;
-    }
-    
-    // Average percentage (0-1)
-    const averagePercentage = sectionCount > 0 ? totalPercentage / sectionCount : 0;
-    
-    // Convert to 0.0-10.0 score (round to 1 decimal)
-    const score = Math.round(averagePercentage * 10 * 10) / 10;
+    // Round to 1 decimal place
+    const score = Math.round(averageScore * 10) / 10;
     
     return Math.min(10.0, Math.max(0.0, score));
   } catch (error) {
@@ -375,6 +442,7 @@ export async function calculateDailyScore(userId: string, date: string): Promise
 /**
  * Calculate weekly consistency score
  * Returns average daily score (0.0-10.0) for the week
+ * Uses the same logic as getWeeklySummary to ensure consistency
  */
 export async function calculateWeeklyConsistency(userId: string): Promise<number> {
   try {
@@ -387,30 +455,73 @@ export async function calculateWeeklyConsistency(userId: string): Promise<number
 
     const data = userDoc.data();
     const completions: DailyCompletion[] = data.dailyCompletions || [];
+    const sessionCompletions: any[] = data.sessionCompletions || [];
     
-    // Get all completion records from this week
-    const weekCompletions = completions.filter(c => {
-      return c.date >= weekStart;
-    });
-
-    // Calculate daily scores for each day in the week
+    // Calculate days revealed (from when user started to today, inclusive)
+    // IMPORTANT: Only count days from when user actually started using the app
+    const today = getTodayDateString();
+    const todayParts = today.split('-').map(Number);
+    const weekStartParts = weekStart.split('-').map(Number);
+    const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+    const weekStartDateObj = new Date(weekStartParts[0], weekStartParts[1] - 1, weekStartParts[2]);
+    
+    // Get when user actually started (routineStartDate or signupDate as fallback)
+    const routineStartDateStr = data.routineStartDate || data.routine_started_date || data.signupDate || data.signup_date;
+    let actualStartDate = weekStartDateObj; // Default to week start
+    
+    if (routineStartDateStr) {
+      // Parse the date string directly to avoid timezone issues
+      const routineStartDateOnly = routineStartDateStr.split('T')[0]; // Get date part before time
+      const routineStartDateParts = routineStartDateOnly.split('-').map(Number);
+      const routineStartDateObj = new Date(routineStartDateParts[0], routineStartDateParts[1] - 1, routineStartDateParts[2]);
+      routineStartDateObj.setHours(0, 0, 0, 0);
+      
+      // Use the later of: week start or when they actually started
+      if (routineStartDateObj > weekStartDateObj) {
+        actualStartDate = routineStartDateObj;
+      }
+    }
+    
+    // Calculate days from actual start to today (inclusive)
+    actualStartDate.setHours(0, 0, 0, 0);
+    todayDate.setHours(0, 0, 0, 0);
+    
+    const timeDiff = todayDate.getTime() - actualStartDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const daysRevealedForOverall = Math.min(Math.max(1, daysDiff + 1), 7); // At least 1 day, max 7 days
+    
+    // Helper to format local date (avoid timezone issues with toISOString)
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // Calculate overall consistency score (0.0-10.0) as average of daily scores
+    // IMPORTANT: Calculate scores for ALL days revealed, not just days with completion data
+    // Days without data should count as 0.0
     const dailyScores: number[] = [];
-    const uniqueDays = new Set(weekCompletions.map(c => c.date));
     
-    // Calculate score for each day that has any completion data
-    for (const date of uniqueDays) {
-      const score = await calculateDailyScore(userId, date);
+    // Calculate scores starting from when user actually started, not week start
+    for (let i = 0; i < daysRevealedForOverall; i++) {
+      const checkDate = new Date(actualStartDate);
+      checkDate.setDate(actualStartDate.getDate() + i);
+      // Use local date formatting instead of toISOString() to avoid timezone shifts
+      const checkDateStr = formatLocalDate(checkDate);
+      
+      // Calculate score for this day (will be 0.0 if no completions)
+      const score = await calculateDailyScore(userId, checkDateStr);
       dailyScores.push(score);
     }
     
-    // If no days have data, return 0
-    if (dailyScores.length === 0) {
-      return 0;
-    }
+    // Average all days revealed (including days with 0 score)
+    const totalScore = dailyScores.reduce((sum, s) => sum + s, 0);
+    const overallConsistency = daysRevealedForOverall > 0
+      ? Math.round((totalScore / daysRevealedForOverall) * 10) / 10
+      : 0;
     
-    // Calculate average (round to 1 decimal)
-    const average = dailyScores.reduce((sum, score) => sum + score, 0) / dailyScores.length;
-    return Math.round(average * 10) / 10;
+    return overallConsistency;
   } catch (error) {
     console.error('Error calculating weekly consistency:', error);
     return 0;
@@ -426,17 +537,17 @@ export interface WeeklySummaryData {
   overallConsistency: number; // 0.0-10.0 score (displayed as percentage)
   daysCompleted: number; // 0-7 (days with any completion)
   breakdown: {
-    morning: number; // percentage (0-100)
-    evening: number; // percentage (0-100)
-    exercises: number; // percentage (0-100)
+    morning: number; // score (0.0-10.0)
+    evening: number; // score (0.0-10.0)
+    exercises: number; // score (0.0-10.0)
     morningDays: number; // days completed (for comparison)
     eveningDays: number; // days completed (for comparison)
     exercisesDays: number; // days completed (for comparison)
   };
   breakdownPreviousWeek: {
-    morning: number; // percentage (0-100)
-    evening: number; // percentage (0-100)
-    exercises: number; // percentage (0-100)
+    morning: number; // score (0.0-10.0)
+    evening: number; // score (0.0-10.0)
+    exercises: number; // score (0.0-10.0)
   };
   currentStreak: number; // consecutive days
   bestStreak: number; // best consecutive days ever
@@ -490,20 +601,131 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummaryDat
       return c.date >= weekStart && c.date <= weekEnd;
     });
 
-    // Count unique days with any completion data
+    // Count unique days with any completion data (for display purposes)
     const uniqueDays = new Set(weekCompletions.map(c => c.date));
     const daysCompleted = uniqueDays.size;
     
-    // Calculate overall consistency score (0.0-10.0) as average of daily scores
-    const dailyScores: number[] = [];
-    for (const date of uniqueDays) {
-      const score = await calculateDailyScore(userId, date);
-      dailyScores.push(score);
+    // Calculate days revealed (from when user started to today, inclusive)
+    // IMPORTANT: Only count days from when user actually started using the app
+    // If they signed up on Wednesday, don't count Monday/Tuesday as 0 - only count from Wednesday
+    const today = getTodayDateString();
+    const todayParts = today.split('-').map(Number);
+    const weekStartParts = weekStart.split('-').map(Number);
+    const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+    const weekStartDateObj = new Date(weekStartParts[0], weekStartParts[1] - 1, weekStartParts[2]);
+    
+    // Get when user actually started (routineStartDate or signupDate as fallback)
+    const routineStartDateStr = data.routineStartDate || data.routine_started_date || data.signupDate || data.signup_date;
+    let actualStartDate = weekStartDateObj; // Default to week start
+    
+    if (routineStartDateStr) {
+      // Parse the date string directly to avoid timezone issues
+      // Extract just the date part (YYYY-MM-DD) before parsing
+      const routineStartDateOnly = routineStartDateStr.split('T')[0]; // Get date part before time
+      const routineStartDateParts = routineStartDateOnly.split('-').map(Number);
+      const routineStartDateObj = new Date(routineStartDateParts[0], routineStartDateParts[1] - 1, routineStartDateParts[2]);
+      routineStartDateObj.setHours(0, 0, 0, 0);
+      
+      // Use the later of: week start or when they actually started
+      // If they started on Wednesday, use Wednesday, not Monday
+      if (routineStartDateObj > weekStartDateObj) {
+        actualStartDate = routineStartDateObj;
+      }
     }
     
-    const overallConsistency = dailyScores.length > 0
-      ? Math.round((dailyScores.reduce((sum, s) => sum + s, 0) / dailyScores.length) * 10) / 10
+    // Calculate days from actual start to today (inclusive)
+    // Make sure both dates are at midnight for accurate day counting
+    actualStartDate.setHours(0, 0, 0, 0);
+    todayDate.setHours(0, 0, 0, 0);
+    
+    // Calculate days difference
+    // Example: Dec 27 00:00 to Dec 30 00:00 = 3 * 24 hours = 3 days difference
+    // But we want inclusive, so Dec 27, 28, 29, 30 = 4 days total
+    const timeDiff = todayDate.getTime() - actualStartDate.getTime();
+    const daysDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    // Add 1 because we want inclusive (both start and end day count)
+    // If same day: daysDiff = 0, so daysRevealed = 1 (correct)
+    // If 1 day apart: daysDiff = 1, so daysRevealed = 2 (correct: today and yesterday)
+    // If 3 days apart: daysDiff = 3, so daysRevealed = 4 (correct: Dec 27, 28, 29, 30)
+    const daysRevealedForOverall = Math.min(Math.max(1, daysDiff + 1), 7); // At least 1 day, max 7 days
+    
+    // Helper to format local date (avoid timezone issues with toISOString)
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // Debug: Log the date calculation to diagnose issues
+    console.log('Date Calculation Debug:', {
+      actualStartDateStr: formatLocalDate(actualStartDate),
+      todayDateStr: formatLocalDate(todayDate),
+      actualStartDateMs: actualStartDate.getTime(),
+      todayDateMs: todayDate.getTime(),
+      timeDiff,
+      daysDiff,
+      daysRevealedForOverall,
+      calculation: `(${formatLocalDate(todayDate)} - ${formatLocalDate(actualStartDate)}) = ${daysDiff} days diff, +1 = ${daysRevealedForOverall} days total`,
+    });
+    
+    // Calculate overall consistency score (0.0-10.0) as average of daily scores
+    // IMPORTANT: Calculate scores for ALL days revealed, not just days with completion data
+    // Days without data should count as 0.0
+    const dailyScores: number[] = [];
+    const dailyScoreDetails: Array<{ date: string; score: number; hasData: boolean }> = [];
+    
+    // Calculate scores starting from when user actually started, not week start
+    // IMPORTANT: This loop MUST include today (the last day)
+    
+    const calculatedDates: string[] = [];
+    for (let i = 0; i < daysRevealedForOverall; i++) {
+      const checkDate = new Date(actualStartDate);
+      checkDate.setDate(actualStartDate.getDate() + i);
+      // Use local date formatting instead of toISOString() to avoid timezone shifts
+      const checkDateStr = formatLocalDate(checkDate);
+      calculatedDates.push(checkDateStr);
+      
+      // Check if there's any completion data for this day
+      const hasCompletionData = completions.some(c => c.date === checkDateStr) ||
+                                sessionCompletions.some((c: any) => c.date === checkDateStr) ||
+                                (data.exerciseCompletions || []).some((c: any) => c.date === checkDateStr);
+      
+      // Calculate score for this day (will be 0.0 if no completions)
+      const score = await calculateDailyScore(userId, checkDateStr);
+      dailyScores.push(score);
+      dailyScoreDetails.push({ date: checkDateStr, score, hasData: hasCompletionData });
+    }
+    
+    // Debug: Verify we're including today
+    const todayStr = formatLocalDate(todayDate);
+    const includesToday = calculatedDates.includes(todayStr);
+    console.log('Daily Scores Calculation:', {
+      calculatedDates,
+      todayStr,
+      includesToday,
+      daysRevealedForOverall,
+      warning: includesToday ? 'OK: Today is included' : 'ERROR: Today is missing!',
+    });
+    
+    // Average all days revealed (including days with 0 score)
+    const totalScore = dailyScores.reduce((sum, s) => sum + s, 0);
+    const overallConsistency = daysRevealedForOverall > 0
+      ? Math.round((totalScore / daysRevealedForOverall) * 10) / 10
       : 0;
+    
+    // Debug logging to help diagnose issues
+    console.log('Overall Consistency Calculation:', {
+      weekStart,
+      actualStartDate: actualStartDate.toISOString().split('T')[0],
+      routineStartDate: routineStartDateStr,
+      today,
+      daysRevealedForOverall,
+      dailyScoreDetails,
+      totalScore,
+      overallConsistency,
+      calculation: `${totalScore} / ${daysRevealedForOverall} = ${overallConsistency}`,
+    });
     
     // Calculate previous week dates first (needed for breakdown comparison)
     const previousWeekStart = new Date(weekStartDate);
@@ -513,7 +735,143 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummaryDat
     previousWeekEnd.setDate(previousWeekStart.getDate() + 6);
     const previousWeekEndStr = previousWeekEnd.toISOString().split('T')[0];
     
-    // Calculate breakdown by routine type (days completed)
+    // Calculate breakdown by routine type using simple day-based approach
+    // Reuse daysRevealedForOverall and actualStartDate that we calculated above
+    const daysRevealed = daysRevealedForOverall;
+    
+    // Debug logging (can be removed later)
+    console.log('Weekly Summary Debug:', {
+      today,
+      weekStart,
+      actualStartDate: actualStartDate.toISOString().split('T')[0],
+      routineStartDate: routineStartDateStr,
+      daysRevealed,
+      todayDayOfWeek: todayDate.getDay(),
+    });
+    
+    // Count days with morning completed (only from when user started)
+    let morningDaysCompleted = 0;
+    weekSessions.forEach((session: any) => {
+      // Only count sessions from when user actually started
+      if (session.date >= actualStartDate.toISOString().split('T')[0] && session.morning === true) {
+        morningDaysCompleted++;
+      }
+    });
+    
+    // Count days with evening completed (only from when user started)
+    let eveningDaysCompleted = 0;
+    weekSessions.forEach((session: any) => {
+      // Only count sessions from when user actually started
+      if (session.date >= actualStartDate.toISOString().split('T')[0] && session.evening === true) {
+        eveningDaysCompleted++;
+      }
+    });
+    
+    // Count individual exercise completions (not just days where all are completed)
+    // Get user's exercises (excluding mewing)
+    const { getAllExercises } = require('./exerciseService');
+    const allExercises = getAllExercises();
+    const userExerciseSelections = (data.exerciseSelections || [])
+      .filter((ex: any) => {
+        if (ex.state !== 'added' || ex.exercise_id === 'mewing') {
+          return false;
+        }
+        // Only include exercises that have has_completion: true
+        const exercise = allExercises.find((e: any) => e.exercise_id === ex.exercise_id);
+        return exercise && exercise.has_completion === true;
+      });
+    const numExercises = userExerciseSelections.length;
+    
+    // Count individual exercise completions across all days in the week
+    const exerciseCompletions: any[] = data.exerciseCompletions || [];
+    let totalExerciseCompletions = 0;
+    let exerciseDaysCompleted = 0; // Keep for backward compatibility
+    
+    // Get exercise IDs from userExerciseSelections for easier lookup
+    const userExerciseIds = userExerciseSelections.map((ex: any) => ex.exercise_id);
+    
+    // Debug: Log exercise completion data for troubleshooting
+    console.log('Exercises Analytics Debug:', {
+      numExercises,
+      userExerciseIds,
+      totalExerciseCompletionsInDB: exerciseCompletions.length,
+      exerciseCompletionsDates: exerciseCompletions.map((c: any) => c.date),
+      daysRevealed,
+    });
+    
+    // Check each day from when user started (up to today)
+    // Count individual exercise completions across all days, even if only partially completed
+    // IMPORTANT: Exercise completions are stored using getTodayDateString() which uses toISOString()
+    // So we must use toISOString() here too to match the stored format
+    for (let i = 0; i < daysRevealed; i++) {
+      const checkDate = new Date(actualStartDate);
+      checkDate.setDate(actualStartDate.getDate() + i);
+      checkDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone shifts when converting to ISO
+      // Use toISOString() to match how dates are stored in exerciseCompletions (via getTodayDateString())
+      const checkDateStr = checkDate.toISOString().split('T')[0];
+      
+      // Find exercise completion for this day
+      const dayExerciseCompletion = exerciseCompletions.find((c: any) => c.date === checkDateStr);
+      
+      // Debug: Log lookup attempts
+      if (dayExerciseCompletion) {
+        console.log(`Found exercise completion for ${checkDateStr}:`, dayExerciseCompletion.exercises);
+      }
+      
+      // Count individual exercise completions for this day (even if not all exercises are done)
+      if (dayExerciseCompletion && dayExerciseCompletion.exercises) {
+        let allExercisesCompleted = true;
+        
+        // Count how many exercises were completed on this day
+        // Check each exercise ID from user's routine
+        for (const exerciseId of userExerciseIds) {
+          if (dayExerciseCompletion.exercises[exerciseId] === true) {
+            totalExerciseCompletions++;
+          } else {
+            allExercisesCompleted = false;
+          }
+        }
+        
+        // Track days where all exercises completed (for backward compatibility)
+        if (allExercisesCompleted && numExercises > 0) {
+          exerciseDaysCompleted++;
+        }
+      }
+      // Note: If no exercise completion record exists for a day, that's fine - 
+      // it means 0 exercises were completed that day, which is correct
+    }
+    
+    // Calculate scores using per-day accumulation
+    // Morning: (days completed / days revealed) × 10.0
+    const morningAvg = daysRevealed > 0
+      ? Math.round((morningDaysCompleted / daysRevealed) * 10 * 10) / 10
+      : 0;
+    
+    // Evening: (days completed / days revealed) × 10.0
+    const eveningAvg = daysRevealed > 0
+      ? Math.round((eveningDaysCompleted / daysRevealed) * 10 * 10) / 10
+      : 0;
+    
+    // Exercises: (total exercise completions / (numExercises × daysRevealed)) × 10.0
+    // This counts individual exercise completions across all days in the week
+    // Example: 2 exercises, Tuesday (2 days revealed) = 4 possible completions
+    //   - If 2 exercises completed today, 0 yesterday: (2 / 4) × 10 = 5.0
+    //   - If 4 exercises completed (both days): (4 / 4) × 10 = 10.0
+    //   - If 1 exercise completed today: (1 / 4) × 10 = 2.5
+    const totalPossibleExerciseCompletions = numExercises * daysRevealed;
+    const exercisesAvg = totalPossibleExerciseCompletions > 0
+      ? Math.round((totalExerciseCompletions / totalPossibleExerciseCompletions) * 10 * 10) / 10
+      : 0;
+    
+    // Debug: Log final exercises calculation
+    console.log('Exercises Score Calculation:', {
+      totalExerciseCompletions,
+      totalPossibleExerciseCompletions,
+      exercisesAvg,
+      calculation: `${totalExerciseCompletions} / ${totalPossibleExerciseCompletions} × 10 = ${exercisesAvg}`,
+    });
+    
+    // Also calculate days completed for reference (keep for backward compatibility)
     const breakdownDays = {
       morning: 0,
       evening: 0,
@@ -526,48 +884,96 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummaryDat
       if (session.exercises) breakdownDays.exercises++;
     });
     
-    // Calculate percentages (0-100)
     const breakdown = {
-      morning: Math.round((breakdownDays.morning / 7) * 100),
-      evening: Math.round((breakdownDays.evening / 7) * 100),
-      exercises: Math.round((breakdownDays.exercises / 7) * 100),
+      morning: morningAvg,
+      evening: eveningAvg,
+      exercises: exercisesAvg,
       morningDays: breakdownDays.morning,
       eveningDays: breakdownDays.evening,
       exercisesDays: breakdownDays.exercises,
     };
     
-    // Get previous week breakdown for comparison
-    const previousWeekSessions = sessionCompletions.filter((c: any) => {
+    // Get previous week breakdown for comparison (use same simple day-based approach)
+    const prevWeekSessions = sessionCompletions.filter((c: any) => {
       return c.date >= previousWeekStartStr && c.date <= previousWeekEndStr;
     });
     
-    const prevBreakdownDays = {
-      morning: 0,
-      evening: 0,
-      exercises: 0,
-    };
+    // Previous week is complete (7 days)
+    const prevDaysRevealed = 7;
     
-    previousWeekSessions.forEach((session: any) => {
-      if (session.morning) prevBreakdownDays.morning++;
-      if (session.evening) prevBreakdownDays.evening++;
-      if (session.exercises) prevBreakdownDays.exercises++;
+    // Count days with morning completed in previous week
+    let prevMorningDaysCompleted = 0;
+    prevWeekSessions.forEach((session: any) => {
+      if (session.morning === true) {
+        prevMorningDaysCompleted++;
+      }
     });
     
+    // Count days with evening completed in previous week
+    let prevEveningDaysCompleted = 0;
+    prevWeekSessions.forEach((session: any) => {
+      if (session.evening === true) {
+        prevEveningDaysCompleted++;
+      }
+    });
+    
+    // Count individual exercise completions in previous week
+    let prevTotalExerciseCompletions = 0;
+    let prevExerciseDaysCompleted = 0; // Keep for backward compatibility
+    const prevWeekStartDateObj = new Date(previousWeekStartStr);
+    
+    // Use the same exercise IDs list
+    // IMPORTANT: Use toISOString() to match how dates are stored in exerciseCompletions
+    for (let i = 0; i < 7; i++) {
+      const checkDate = new Date(prevWeekStartDateObj);
+      checkDate.setDate(prevWeekStartDateObj.getDate() + i);
+      checkDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone shifts when converting to ISO
+      const checkDateStr = checkDate.toISOString().split('T')[0];
+      
+      const dayExerciseCompletion = exerciseCompletions.find((c: any) => c.date === checkDateStr);
+      
+      if (dayExerciseCompletion && dayExerciseCompletion.exercises) {
+        let allExercisesCompleted = true;
+        
+        // Count how many exercises were completed on this day
+        // Check each exercise ID from user's routine
+        for (const exerciseId of userExerciseIds) {
+          if (dayExerciseCompletion.exercises[exerciseId] === true) {
+            prevTotalExerciseCompletions++;
+          } else {
+            allExercisesCompleted = false;
+          }
+        }
+        
+        // Track days where all exercises completed (for backward compatibility)
+        if (allExercisesCompleted && numExercises > 0) {
+          prevExerciseDaysCompleted++;
+        }
+      }
+    }
+    
+    // Calculate previous week scores using same logic as current week
+    const prevMorningAvg = Math.round((prevMorningDaysCompleted / prevDaysRevealed) * 10 * 10) / 10;
+    const prevEveningAvg = Math.round((prevEveningDaysCompleted / prevDaysRevealed) * 10 * 10) / 10;
+    const prevTotalPossibleExerciseCompletions = numExercises * prevDaysRevealed;
+    const prevExercisesAvg = prevTotalPossibleExerciseCompletions > 0
+      ? Math.round((prevTotalExerciseCompletions / prevTotalPossibleExerciseCompletions) * 10 * 10) / 10
+      : 0;
+    
     const breakdownPreviousWeek = {
-      morning: Math.round((prevBreakdownDays.morning / 7) * 100),
-      evening: Math.round((prevBreakdownDays.evening / 7) * 100),
-      exercises: Math.round((prevBreakdownDays.exercises / 7) * 100),
+      morning: prevMorningAvg,
+      evening: prevEveningAvg,
+      exercises: prevExercisesAvg,
     };
     
     
     // Calculate trend (compare to previous week) - do this early so we can use it in early returns
-    
+    // Get previous week completions to calculate overall consistency
     const previousWeekCompletions = completions.filter(c => {
-      return c.date >= previousWeekStartStr && c.date <= previousWeekEndStr && c.allCompleted === true;
+      return c.date >= previousWeekStartStr && c.date <= previousWeekEndStr;
     });
-    
-    // Calculate previous week score
     const prevUniqueDays = new Set(previousWeekCompletions.map(c => c.date));
+    
     const prevDailyScores: number[] = [];
     for (const date of prevUniqueDays) {
       const score = await calculateDailyScore(userId, date);
@@ -636,7 +1042,7 @@ export async function getWeeklySummary(userId: string): Promise<WeeklySummaryDat
     }
     
     let currentStreak = 0;
-    const today = getTodayDateString();
+    // Reuse 'today' variable declared earlier in function
     let checkDate = new Date(today);
     
     // Count backwards from today (or yesterday if today not completed)

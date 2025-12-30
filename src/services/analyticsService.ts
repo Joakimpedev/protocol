@@ -400,6 +400,80 @@ export async function getExerciseEarlyEndCount(
 }
 
 /**
+ * Get timer skip count for last 30 days
+ */
+export async function getTimerSkipCountLast30Days(userId: string): Promise<number> {
+  try {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    return await getTimerSkipCount(userId, startDateStr, endDateStr);
+  } catch (error) {
+    console.error('Error getting timer skip count for last 30 days:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get product skip count for last 30 days
+ */
+export async function getProductSkipCountLast30Days(userId: string): Promise<number> {
+  try {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    return await getProductSkipCount(userId, startDateStr, endDateStr);
+  } catch (error) {
+    console.error('Error getting product skip count for last 30 days:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get exercise early end count for last 30 days
+ */
+export async function getExerciseEarlyEndCountLast30Days(userId: string): Promise<number> {
+  try {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    return await getExerciseEarlyEndCount(userId, startDateStr, endDateStr);
+  } catch (error) {
+    console.error('Error getting exercise early end count for last 30 days:', error);
+    return 0;
+  }
+}
+
+/**
+ * Get skipped products with names and counts for last 30 days
+ */
+export async function getSkippedProductsWithCountsLast30Days(
+  userId: string
+): Promise<Array<{ stepId: string; productName: string; count: number }>> {
+  try {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    const startDateStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const endDateStr = today.toISOString().split('T')[0];
+    
+    return await getSkippedProductsWithCounts(userId, startDateStr, endDateStr);
+  } catch (error) {
+    console.error('Error getting skipped products with counts for last 30 days:', error);
+    return [];
+  }
+}
+
+/**
  * Get most skipped step for a date range
  * Returns { stepId, stepName, count } or null if no skips
  */

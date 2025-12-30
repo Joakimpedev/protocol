@@ -76,8 +76,9 @@ export default function WeeklySummaryScreen({ navigation }: any) {
     return '→ 0%';
   };
 
-  // Render progress bar
-  const renderProgressBar = (percentage: number) => {
+  // Render progress bar (converts score 0.0-10.0 to percentage 0-100 for display)
+  const renderProgressBar = (score: number) => {
+    const percentage = (score / 10.0) * 100;
     const filledWidth = Math.min(100, Math.max(0, percentage));
     return (
       <View style={styles.progressBarContainer}>
@@ -146,7 +147,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
               <View style={styles.breakdownRowHeader}>
                 <Text style={styles.breakdownLabel}>Morning</Text>
                 <View style={styles.breakdownValueContainer}>
-                  <Text style={styles.breakdownValue}>{summary.breakdown.morning}%</Text>
+                  <Text style={styles.breakdownValue}>{summary.breakdown.morning.toFixed(1)}</Text>
                   {summary.breakdownPreviousWeek && (
                     <Text style={styles.breakdownChange}>
                       {formatChange(summary.breakdown.morning, summary.breakdownPreviousWeek.morning)}
@@ -162,7 +163,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
               <View style={styles.breakdownRowHeader}>
                 <Text style={styles.breakdownLabel}>Evening</Text>
                 <View style={styles.breakdownValueContainer}>
-                  <Text style={styles.breakdownValue}>{summary.breakdown.evening}%</Text>
+                  <Text style={styles.breakdownValue}>{summary.breakdown.evening.toFixed(1)}</Text>
                   {summary.breakdownPreviousWeek && (
                     <Text style={styles.breakdownChange}>
                       {formatChange(summary.breakdown.evening, summary.breakdownPreviousWeek.evening)}
@@ -178,7 +179,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
               <View style={styles.breakdownRowHeader}>
                 <Text style={styles.breakdownLabel}>Exercises</Text>
                 <View style={styles.breakdownValueContainer}>
-                  <Text style={styles.breakdownValue}>{summary.breakdown.exercises}%</Text>
+                  <Text style={styles.breakdownValue}>{summary.breakdown.exercises.toFixed(1)}</Text>
                   {summary.breakdownPreviousWeek && (
                     <Text style={styles.breakdownChange}>
                       {formatChange(summary.breakdown.exercises, summary.breakdownPreviousWeek.exercises)}
@@ -446,4 +447,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
