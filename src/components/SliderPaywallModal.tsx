@@ -143,10 +143,12 @@ export default function SliderPaywallModal({
   ).current;
 
   const loadOfferings = async () => {
+    setLoading(true);
     try {
       const offering = await getOfferings();
-      if (offering) {
+      if (offering && offering.availablePackages.length > 0) {
         const availablePackages = offering.availablePackages;
+        console.log('Loaded packages:', availablePackages.length, availablePackages.map(p => p.identifier));
         setPackages(availablePackages);
         
         // Pre-select annual package (default/standard)
@@ -158,14 +160,31 @@ export default function SliderPaywallModal({
         } else if (availablePackages.length > 0) {
           setSelectedPackage(availablePackages[0]);
         }
+      } else {
+        console.warn('No offering available from RevenueCat. Showing fallback options.');
+        // Clear packages to show fallback UI
+        setPackages([]);
       }
     } catch (error) {
       console.error('Error loading offerings:', error);
-      Alert.alert('Error', 'Failed to load subscription options. Please try again.');
+      // Don't show alert immediately - let user see fallback UI
+      // Alert.alert('Error', 'Failed to load subscription options. Please try again.');
+      setPackages([]);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePurchase = async () => {
+    // In fallback mode, we can't actually purchase - need RevenueCat packages
+    if (packages.length === 0) {
+      Alert.alert(
+        'Subscription Unavailable', 
+        'Unable to load subscription options. Please check your internet connection and try again, or contact support if the issue persists.'
+      );
+      return;
+    }
+
     if (!selectedPackage) {
       Alert.alert('Error', 'Please select a subscription plan');
       return;
@@ -552,16 +571,17 @@ export default function SliderPaywallModal({
 
           {/* Purchase Button */}
           <TouchableOpacity
-            style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
+            style={[styles.purchaseButton, (loading || (packages.length === 0)) && styles.purchaseButtonDisabled]}
             onPress={handlePurchase}
-            disabled={loading || (!selectedPackage && packages.length > 0)}
+            disabled={loading || packages.length === 0 || !selectedPackage}
           >
             {loading ? (
               <ActivityIndicator color={colors.background} />
+            ) : packages.length === 0 ? (
+              <Text style={styles.purchaseButtonText}>Loading subscription options...</Text>
             ) : (
               <Text style={styles.purchaseButtonText}>
-                {(selectedPackage && (selectedPackage.packageType === 'ANNUAL' || selectedPackage.identifier.toLowerCase().includes('annual') || selectedPackage.identifier.toLowerCase().includes('yearly'))) || 
-                  (packages.length === 0 && selectedFallback === 'yearly')
+                {(selectedPackage && (selectedPackage.packageType === 'ANNUAL' || selectedPackage.identifier.toLowerCase().includes('annual') || selectedPackage.identifier.toLowerCase().includes('yearly')))
                   ? 'Try Full Protocol For Free'
                   : 'Try Full Protocol'}
               </Text>

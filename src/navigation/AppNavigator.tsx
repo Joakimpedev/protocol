@@ -1,12 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { colors, typography } from '../constants/theme';
 import TodayStackNavigator from './TodayStackNavigator';
 import ProtocolStackNavigator from './ProtocolStackNavigator';
 import ProgressStackNavigator from './ProgressStackNavigator';
 import SocialStackNavigator from './SocialStackNavigator';
+import { useTabNotifications } from '../hooks/useTabNotifications';
 
 // Wrapper component that resets stack when tab loses focus
 function TodayStackWithReset() {
@@ -177,7 +178,51 @@ const customTabBarButtonStyles = StyleSheet.create({
   },
 });
 
+// Custom Tab Label with Badge
+function TabLabelWithBadge({ label, showBadge, color }: { label: string; showBadge: boolean; color: string }) {
+  return (
+    <View style={badgeStyles.labelContainer}>
+      <Text style={[badgeStyles.label, { color }]}>{label}</Text>
+      {showBadge && (
+        <View style={badgeStyles.badge}>
+          <View style={badgeStyles.dot} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  labelContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+    paddingHorizontal: 4,
+  },
+  label: {
+    ...typography.label,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -22,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.accent,
+  },
+});
+
 export default function AppNavigator() {
+  const notifications = useTabNotifications();
+
   return (
     <Tab.Navigator
         screenOptions={{
@@ -220,34 +265,38 @@ export default function AppNavigator() {
         <Tab.Screen 
           name="Today" 
           component={TodayStackWithReset}
-          options={{
+          options={({ route }) => ({
             title: 'Today',
             headerShown: false,
-          }}
+            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Today" showBadge={notifications.today} color={color} />,
+          })}
         />
         <Tab.Screen 
           name="Progress" 
           component={ProgressStackWithReset}
-          options={{
+          options={({ route }) => ({
             title: 'Progress',
             headerShown: false,
-          }}
+            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Progress" showBadge={notifications.progress} color={color} />,
+          })}
         />
         <Tab.Screen 
           name="Social" 
           component={SocialStackWithReset}
-          options={{
+          options={({ route }) => ({
             title: 'Social',
             headerShown: false,
-          }}
+            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Social" showBadge={notifications.social} color={color} />,
+          })}
         />
         <Tab.Screen 
           name="Protocol" 
           component={ProtocolStackWithReset}
-          options={{
+          options={({ route }) => ({
             title: 'Protocol',
             headerShown: false,
-          }}
+            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Protocol" showBadge={notifications.protocol} color={color} />,
+          })}
         />
       </Tab.Navigator>
   );

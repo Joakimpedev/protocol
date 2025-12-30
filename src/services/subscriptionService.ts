@@ -59,20 +59,50 @@ export async function initializeRevenueCat(userId: string): Promise<void> {
     try {
       if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY.includes('YOUR_')) {
         console.warn('RevenueCat API key not configured. Subscription features will not work.');
+        isInitialized = false;
         return;
       }
 
-      await Purchases.setLogLevel(LOG_LEVEL.DEBUG); // Use INFO or WARN in production
+      console.log('[RevenueCat] Starting initialization...');
+      console.log('[RevenueCat] API Key:', REVENUECAT_API_KEY.substring(0, 15) + '...');
+      console.log('[RevenueCat] User ID:', userId);
+      console.log('[RevenueCat] Platform:', Platform.OS);
+
+      // Use DEBUG in development, INFO in production for better error visibility
+      const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+      const logLevel = isDev ? LOG_LEVEL.DEBUG : LOG_LEVEL.INFO;
+      console.log('[RevenueCat] Setting log level:', logLevel);
+      await Purchases.setLogLevel(logLevel);
+      
+      console.log('[RevenueCat] Configuring SDK...');
       await Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+      console.log('[RevenueCat] SDK configured successfully');
       
       // Set user ID for RevenueCat (link to Firebase Auth user)
+      console.log('[RevenueCat] Logging in user...');
       await Purchases.logIn(userId);
+      console.log('[RevenueCat] User logged in successfully');
+      
+      // Verify initialization by checking if we can get customer info
+      try {
+        console.log('[RevenueCat] Verifying initialization...');
+        const customerInfo = await Purchases.getCustomerInfo();
+        console.log('[RevenueCat] Initialized successfully. Customer ID:', customerInfo.originalAppUserId);
+      } catch (verifyError: any) {
+        console.warn('[RevenueCat] Configured but customer info check failed:', verifyError?.message || verifyError);
+        // Still mark as initialized - this might be a temporary issue
+      }
       
       isInitialized = true;
-      console.log('RevenueCat initialized successfully');
-    } catch (error) {
-      console.error('Error initializing RevenueCat:', error);
+      console.log('[RevenueCat] Initialization complete');
+    } catch (error: any) {
+      console.error('[RevenueCat] Initialization failed:', error);
+      console.error('[RevenueCat] Error type:', error?.constructor?.name);
+      console.error('[RevenueCat] Error message:', error?.message);
+      console.error('[RevenueCat] Error stack:', error?.stack);
       isInitialized = false;
+      // Re-throw to help with debugging
+      throw error;
     } finally {
       initializationPromise = null;
     }
@@ -178,16 +208,59 @@ function parseCustomerInfo(customerInfo: CustomerInfo): SubscriptionStatus {
 }
 
 /**
+ * Wait for RevenueCat to be initialized (with timeout)
+ */
+export async function waitForInitialization(timeoutMs: number = 15000): Promise<boolean> {
+  if (isInitialized) {
+    console.log('[RevenueCat] Already initialized');
+    return true;
+  }
+
+  // If initialization is in progress, wait for it
+  if (initializationPromise) {
+    console.log('[RevenueCat] Waiting for initialization to complete (timeout:', timeoutMs, 'ms)...');
+    try {
+      await Promise.race([
+        initializationPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Initialization timeout after ${timeoutMs}ms`)), timeoutMs)
+        )
+      ]);
+      const success = isInitialized;
+      console.log('[RevenueCat] Initialization wait result:', success);
+      return success;
+    } catch (error: any) {
+      console.error('[RevenueCat] Error waiting for initialization:', error?.message || error);
+      console.error('[RevenueCat] Current initialization state:', isInitialized);
+      return false;
+    }
+  }
+
+  console.warn('[RevenueCat] No initialization in progress');
+  return false;
+}
+
+/**
  * Get available subscription offerings (packages)
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
+  // Wait for initialization if not already initialized
   if (!isInitialized) {
-    console.warn('RevenueCat not initialized yet. Cannot get offerings.');
-    return null;
+    console.log('RevenueCat not initialized yet. Waiting for initialization...');
+    const initialized = await waitForInitialization();
+    if (!initialized) {
+      console.warn('RevenueCat initialization timeout or failed. Cannot get offerings.');
+      return null;
+    }
   }
 
   try {
     const offerings = await Purchases.getOfferings();
+    if (!offerings.current) {
+      console.warn('No current offering available in RevenueCat');
+      return null;
+    }
+    console.log('Successfully loaded offerings:', offerings.current.identifier, 'Packages:', offerings.current.availablePackages.length);
     return offerings.current;
   } catch (error) {
     console.error('Error getting offerings:', error);

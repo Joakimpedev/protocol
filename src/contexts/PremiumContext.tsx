@@ -43,11 +43,25 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   // Initialize RevenueCat when user is available (skip in dev mode)
   useEffect(() => {
     if (user && !isDevMode) {
-      initializeRevenueCat(user.uid).then(() => {
-        // After initialization, refresh subscription status
-        refreshSubscriptionStatus();
-      });
+      console.log('[PremiumContext] Initializing RevenueCat for user:', user.uid);
+      initializeRevenueCat(user.uid)
+        .then(() => {
+          console.log('[PremiumContext] RevenueCat initialization completed, refreshing subscription status');
+          // After initialization, refresh subscription status
+          refreshSubscriptionStatus();
+        })
+        .catch((error: any) => {
+          console.error('[PremiumContext] Failed to initialize RevenueCat:', error);
+          console.error('[PremiumContext] Error details:', {
+            message: error?.message,
+            name: error?.name,
+            stack: error?.stack,
+          });
+          // Still refresh status from Firestore as fallback
+          refreshSubscriptionStatus();
+        });
     } else if (user && isDevMode) {
+      console.log('[PremiumContext] Skipping RevenueCat initialization (dev mode)');
       // In dev mode, check Firestore first to respect dev premium switch
       // If no explicit setting, default to premium enabled
       refreshSubscriptionStatus();

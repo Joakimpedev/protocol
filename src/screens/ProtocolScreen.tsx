@@ -224,6 +224,15 @@ export default function ProtocolScreen({ navigation }: any) {
   // Get current ingredient selections
   const currentIngredientIds = new Set(ingredientSelections.map((sel: IngredientSelection) => sel.ingredient_id));
   
+  // Check if there are missing products (pending, deferred, or not_received, but not skipped)
+  const hasMissingProducts = ingredientSelections.some((sel: IngredientSelection) => {
+    const state = sel.state === 'added' ? 'active' : 
+                sel.state === 'not_received' ? (sel.waiting_for_delivery ? 'deferred' : 'pending') :
+                sel.state;
+    // Missing if pending, deferred, or not_received (but not skipped)
+    return (state === 'pending' || state === 'deferred' || state === 'not_received') && state !== 'skipped';
+  });
+  
   // Helper to check if ingredient is premium (for free users, hide premium ingredients)
   const isPremiumIngredient = (ing: any): boolean => {
     return ing?.session?.premium === true;
@@ -809,6 +818,15 @@ export default function ProtocolScreen({ navigation }: any) {
         <Text style={[styles.heading, styles.protocolHeading]}>
           Your{'\n'}Protocol
         </Text>
+
+        {/* Missing Products Banner */}
+        {hasMissingProducts && (
+          <View style={styles.missingProductsBanner}>
+            <Text style={styles.missingProductsBannerText}>
+              You are missing products
+            </Text>
+          </View>
+        )}
 
         {/* Custom protocol intro */}
         {problemNamesText && (
@@ -1409,6 +1427,20 @@ const styles = StyleSheet.create({
     fontFamily: MONOSPACE_FONT,
     fontSize: 11,
     fontWeight: '500',
+  },
+  missingProductsBanner: {
+    backgroundColor: colors.surfaceGreen,
+    borderWidth: 1,
+    borderColor: colors.borderGreen,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  missingProductsBannerText: {
+    ...typography.body,
+    color: colors.accent,
+    fontWeight: '600',
   },
 });
 
