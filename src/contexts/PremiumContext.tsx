@@ -4,7 +4,7 @@
  * Provides premium subscription status across the app
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import {
   getSubscriptionStatusFromFirestore,
@@ -14,6 +14,7 @@ import {
   initializeRevenueCat,
   isRevenueCatConfigured,
 } from '../services/subscriptionService';
+import { getDevMode } from '../services/devModeService';
 
 interface PremiumContextType {
   isPremium: boolean;
@@ -69,7 +70,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   }, [user, isDevMode]);
 
   // Refresh subscription status from Firestore (fast) and RevenueCat (authoritative)
-  const refreshSubscriptionStatus = async () => {
+  const refreshSubscriptionStatus = useCallback(async () => {
     if (!user) {
       setIsPremium(false);
       setIsLoading(false);
@@ -78,13 +79,18 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true);
     try {
+      // Check runtime dev mode setting (from Settings toggle, not just __DEV__)
+      const runtimeDevMode = await getDevMode();
+      
       // First, get from Firestore for fast UI update
       const firestoreStatus = await getSubscriptionStatusFromFirestore(user.uid);
       
-      // In dev mode, always use Firestore value to respect dev premium switch
+      // In dev mode (build-time OR runtime), always use Firestore value to respect dev premium switch
       // The dev premium switch writes to Firestore, so we check it here
-      if (isDevMode) {
+      if (isDevMode || runtimeDevMode) {
         // Use Firestore value directly (respects dev premium switch on/off)
+        // This allows dev mode toggle to override RevenueCat subscription
+        console.log('[PremiumContext] Dev mode active - using Firestore value, ignoring RevenueCat');
         setSubscriptionStatus(firestoreStatus);
         setIsPremium(firestoreStatus.isPremium);
         setIsLoading(false);
@@ -117,7 +123,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, isDevMode]);
 
   // Refresh status periodically (every 5 minutes) to catch cancellations
   // Only start after user is available (initialization happens in separate effect)

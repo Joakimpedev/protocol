@@ -12,6 +12,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import Purchases from 'react-native-purchases';
 import { auth } from '../config/firebase';
 
 interface AuthContextType {
@@ -101,6 +102,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Log out of RevenueCat first to clear subscription state
+    try {
+      await Purchases.logOut();
+      console.log('[Auth] RevenueCat logout successful');
+    } catch (error) {
+      // RevenueCat might not be initialized, that's okay
+      console.log('[Auth] RevenueCat logout skipped (not initialized)');
+    }
+    
+    // Then sign out of Firebase
     await signOut(auth);
   };
 

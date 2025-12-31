@@ -449,22 +449,32 @@ export default function SettingsScreen({ navigation }: any) {
       return 'Free';
     }
 
+    // Determine plan type from product ID
+    const productId = subscriptionStatus.productId || '';
+    let planType = 'Premium';
+    
+    if (productId.includes('yearly') || productId.includes('annual')) {
+      planType = 'Yearly';
+    } else if (productId.includes('monthly')) {
+      planType = 'Monthly';
+    }
+
+    // Check if expired
     if (subscriptionStatus.expirationDate) {
       const expiration = new Date(subscriptionStatus.expirationDate);
       const now = new Date();
       
       if (expiration < now) {
-        return 'Expired';
+        return `Expired - ${planType}`;
       }
-      
-      if (subscriptionStatus.cancellationDate && !subscriptionStatus.willRenew) {
-        return `Active until ${expiration.toLocaleDateString()}`;
-      }
-      
-      return `Active - Renews ${expiration.toLocaleDateString()}`;
     }
 
-    return 'Active';
+    // Check if cancelled (but still active until expiration)
+    if (subscriptionStatus.cancellationDate && !subscriptionStatus.willRenew) {
+      return `Cancelled - ${planType}`;
+    }
+    
+    return `Active - ${planType}`;
   };
 
   const renderTimePicker = (type: 'morning' | 'evening') => {
