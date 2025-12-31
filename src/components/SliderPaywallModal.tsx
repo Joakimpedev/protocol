@@ -54,7 +54,6 @@ export default function SliderPaywallModal({
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
-  const [selectedFallback, setSelectedFallback] = useState<'monthly' | 'yearly'>('yearly'); // For Expo Go testing
   const [week0Photo, setWeek0Photo] = useState<ProgressPhoto | null>(null);
   const [latestPhoto, setLatestPhoto] = useState<ProgressPhoto | null>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -161,14 +160,11 @@ export default function SliderPaywallModal({
           setSelectedPackage(availablePackages[0]);
         }
       } else {
-        console.warn('No offering available from RevenueCat. Showing fallback options.');
-        // Clear packages to show fallback UI
+        console.warn('No offering available from RevenueCat.');
         setPackages([]);
       }
     } catch (error) {
       console.error('Error loading offerings:', error);
-      // Don't show alert immediately - let user see fallback UI
-      // Alert.alert('Error', 'Failed to load subscription options. Please try again.');
       setPackages([]);
     } finally {
       setLoading(false);
@@ -176,7 +172,6 @@ export default function SliderPaywallModal({
   };
 
   const handlePurchase = async () => {
-    // In fallback mode, we can't actually purchase - need RevenueCat packages
     if (packages.length === 0) {
       Alert.alert(
         'Subscription Unavailable', 
@@ -253,7 +248,7 @@ export default function SliderPaywallModal({
     if (identifier.includes('annual') || packageItem.packageType === 'ANNUAL') {
       return '50% off • 1 week free trial';
     } else if (identifier.includes('monthly') || packageItem.packageType === 'MONTHLY') {
-      return '1 week free';
+      return 'Maximize your efficiency';
     }
     return '';
   };
@@ -486,87 +481,39 @@ export default function SliderPaywallModal({
 
           {/* Subscription Options */}
           <View style={styles.optionsContainer}>
-            {packages.length > 0 ? (
-              packages.map((pkg) => {
-                const isSelected = selectedPackage?.identifier === pkg.identifier;
-                
-                return (
-                  <TouchableOpacity
-                    key={pkg.identifier}
-                    style={[
-                      styles.option,
-                      isSelected && styles.optionSelected,
-                    ]}
-                    onPress={() => {
-                      console.log('Package selected:', pkg.identifier);
-                      setSelectedPackage(pkg);
-                    }}
-                    disabled={loading}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.optionContent} pointerEvents="none">
-                      <Text style={styles.optionTitle}>
-                        {getPackageLabel(pkg)}
-                      </Text>
-                      <Text style={styles.optionSubtitle}>
-                        {getPackageSubtitle(pkg)}
-                      </Text>
-                    </View>
-                    {isSelected && (
-                      <View style={styles.checkmark} pointerEvents="none">
-                        <Text style={styles.checkmarkText}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              // Fallback when packages aren't loaded yet (e.g., Expo Go)
-              <>
+            {packages.map((pkg) => {
+              const isSelected = selectedPackage?.identifier === pkg.identifier;
+              
+              return (
                 <TouchableOpacity
+                  key={pkg.identifier}
                   style={[
                     styles.option,
-                    selectedFallback === 'monthly' && styles.optionSelected
+                    isSelected && styles.optionSelected,
                   ]}
                   onPress={() => {
-                    console.log('Fallback monthly selected');
-                    setSelectedFallback('monthly');
+                    console.log('Package selected:', pkg.identifier);
+                    setSelectedPackage(pkg);
                   }}
+                  disabled={loading}
                   activeOpacity={0.7}
                 >
                   <View style={styles.optionContent} pointerEvents="none">
-                    <Text style={styles.optionTitle}>Monthly</Text>
-                    <Text style={styles.optionSubtitle}>1 week free</Text>
+                    <Text style={styles.optionTitle}>
+                      {getPackageLabel(pkg)}
+                    </Text>
+                    <Text style={styles.optionSubtitle}>
+                      {getPackageSubtitle(pkg)}
+                    </Text>
                   </View>
-                  {selectedFallback === 'monthly' && (
+                  {isSelected && (
                     <View style={styles.checkmark} pointerEvents="none">
                       <Text style={styles.checkmarkText}>✓</Text>
                     </View>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.option,
-                    selectedFallback === 'yearly' && styles.optionSelected
-                  ]}
-                  onPress={() => {
-                    console.log('Fallback yearly selected');
-                    setSelectedFallback('yearly');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent} pointerEvents="none">
-                    <Text style={styles.optionTitle}>Yearly</Text>
-                    <Text style={styles.optionSubtitle}>50% off • 1 week free trial</Text>
-                  </View>
-                  {selectedFallback === 'yearly' && (
-                    <View style={styles.checkmark} pointerEvents="none">
-                      <Text style={styles.checkmarkText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
+              );
+            })}
           </View>
 
           {/* Purchase Button */}
