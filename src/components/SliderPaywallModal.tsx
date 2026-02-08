@@ -214,7 +214,7 @@ export default function SliderPaywallModal({
             plan = 'annual';
           }
           const price = selectedPackage.product.priceString || selectedPackage.product.localizedPriceString || '0';
-          
+
           posthog.capture('purchase_completed', {
             plan: plan,
             price: price,

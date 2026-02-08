@@ -110,7 +110,7 @@ export default function TrialOfferScreen({ navigation }: any) {
           <View style={styles.socialProofContainer}>
             <Text style={styles.socialProofText}>
             <Text style={styles.userCount}>6,800+ users</Text> currently {'\n'}subscribe to Protocol.</Text>
-            <Text style={styles.callToAction}>Try what they use,{'\n'}free for 3 days.</Text>
+            <Text style={styles.callToAction}>Try it free for 3 days.</Text>
           </View>
         </Animated.View>
       </ScrollView>

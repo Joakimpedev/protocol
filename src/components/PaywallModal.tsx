@@ -140,16 +140,16 @@ export default function PaywallModal({
           if (packageIdentifier.includes('annual') || packageIdentifier.includes('yearly') || packageType === 'ANNUAL') {
             plan = 'annual';
           }
-          
+
           // Get price - use product.priceString if available, otherwise use localizedPriceString
           const price = selectedPackage.product.priceString || selectedPackage.product.localizedPriceString || '0';
-          
+
           posthog.capture('purchase_completed', {
             plan: plan,
             price: price,
           });
         }
-        
+
         // Refresh subscription status
         await refreshSubscriptionStatus();
         

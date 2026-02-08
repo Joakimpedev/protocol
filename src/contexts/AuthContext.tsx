@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Platform } from 'react-native';
-import { 
-  User, 
+import {
+  User,
   UserCredential,
-  createUserWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInAnonymously,
   signInWithCredential,
@@ -14,6 +14,12 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Purchases from 'react-native-purchases';
 import { auth } from '../config/firebase';
+import {
+  identifyUser as identifyTikTokUser,
+  resetUser as resetTikTokUser,
+  trackSignedIn as trackTikTokSignedIn,
+  trackCompleteRegistration as trackTikTokCompleteRegistration,
+} from '../services/tiktok';
 
 interface AuthContextType {
   user: User | null;
@@ -41,11 +47,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    return await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+    // Track registration with TikTok
+    try {
+      await identifyTikTokUser(userCredential.user.uid);
+      await trackTikTokCompleteRegistration('email', userCredential.user.uid);
+    } catch (error) {
+      console.warn('[Auth] Failed to track TikTok sign up:', error);
+    }
+
+    return userCredential;
   };
 
   const signIn = async (email: string, password: string) => {
-    return await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+    // Track sign-in with TikTok
+    try {
+      await identifyTikTokUser(userCredential.user.uid);
+      await trackTikTokSignedIn('email');
+    } catch (error) {
+      console.warn('[Auth] Failed to track TikTok sign in:', error);
+    }
+
+    return userCredential;
   };
 
   const signInAnonymous = async () => {
@@ -79,7 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       // Sign in to Firebase with Apple credential
-      return await signInWithCredential(auth, credential);
+      const userCredential = await signInWithCredential(auth, credential);
+
+      // Track with TikTok
+      try {
+        await identifyTikTokUser(userCredential.user.uid);
+        // Check if this is a new user (sign up) or existing user (sign in)
+        const isNewUser = userCredential.user.metadata.creationTime === userCredential.user.metadata.lastSignInTime;
+        if (isNewUser) {
+          await trackTikTokCompleteRegistration('apple', userCredential.user.uid);
+        } else {
+          await trackTikTokSignedIn('apple');
+        }
+      } catch (error) {
+        console.warn('[Auth] Failed to track TikTok Apple sign in:', error);
+      }
+
+      return userCredential;
     } catch (error: any) {
       // User cancelled - don't treat as error
       if (error.code === 'ERR_REQUEST_CANCELED') {
@@ -110,7 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // RevenueCat might not be initialized, that's okay
       console.log('[Auth] RevenueCat logout skipped (not initialized)');
     }
-    
+
+    // Reset TikTok user identity
+    try {
+      await resetTikTokUser();
+      console.log('[Auth] TikTok user reset successful');
+    } catch (error) {
+      console.warn('[Auth] Failed to reset TikTok user:', error);
+    }
+
     // Then sign out of Firebase
     await signOut(auth);
   };

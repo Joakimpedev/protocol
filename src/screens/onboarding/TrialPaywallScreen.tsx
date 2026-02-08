@@ -33,6 +33,7 @@ import { buildRoutineFromOnboarding } from '../../utils/buildRoutineFromOnboardi
 import { useOnboardingTracking, ONBOARDING_SCREENS, buildOnboardingProperties, POSTHOG_EVENTS } from '../../hooks/useOnboardingTracking';
 import { usePostHog } from 'posthog-react-native';
 import { CATEGORIES } from '../../constants/categories';
+import { trackTrialStarted as trackTikTokTrialStarted } from '../../services/tiktok';
 
 function getProblemDisplayName(problemId: string): string {
   const cat = CATEGORIES.find((c) => c.id === problemId);
@@ -189,6 +190,15 @@ export default function TrialPaywallScreen({ navigation }: any) {
         if (posthog) {
           posthog.capture(POSTHOG_EVENTS.TRIAL_STARTED, buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>);
         }
+
+        // Track trial started with TikTok (main conversion event)
+        try {
+          await trackTikTokTrialStarted();
+          console.log('[TrialPaywallScreen] ✅ TikTok trial started event tracked');
+        } catch (error) {
+          console.warn('[TrialPaywallScreen] Failed to track TikTok trial started:', error);
+        }
+
         await refreshSubscriptionStatus();
         const { initializeUserNotifications } = require('../../services/notificationService');
         await initializeUserNotifications(uid!);

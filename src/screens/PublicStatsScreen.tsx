@@ -11,6 +11,23 @@ import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme'
 import { useAuth } from '../contexts/AuthContext';
 import { calculateWeeklyConsistency } from '../services/completionService';
 
+const MIN_TODAY_COMPLETIONS = 847;
+const MAX_TODAY_COMPLETIONS = 2354;
+
+/** Returns a number in [MIN, MAX] that is stable for the same calendar day. */
+function getTodayCompletionsForDate(): number {
+  const today = new Date();
+  const dateKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  let hash = 0;
+  for (let i = 0; i < dateKey.length; i++) {
+    hash = ((hash << 5) - hash) + dateKey.charCodeAt(i);
+    hash |= 0;
+  }
+  const range = MAX_TODAY_COMPLETIONS - MIN_TODAY_COMPLETIONS + 1;
+  const index = Math.abs(hash) % range;
+  return MIN_TODAY_COMPLETIONS + index;
+}
+
 export default function PublicStatsScreen({ navigation }: any) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -53,8 +70,8 @@ export default function PublicStatsScreen({ navigation }: any) {
       // Average user consistency (placeholder: 5.8)
       setAverageConsistency(5.8);
 
-      // Today's completions (placeholder: 847)
-      setTodayCompletions(847);
+      // Today's completions (placeholder: day-stable value in range for variety)
+      setTodayCompletions(getTodayCompletionsForDate());
 
       // Check if user completed today (placeholder: assume true if consistency > 0)
       setUserCompletedToday(consistency > 0);
@@ -137,7 +154,7 @@ export default function PublicStatsScreen({ navigation }: any) {
           
           {userConsistency !== null && userConsistency < 8.0 && (
             <Text style={styles.insightUserText}>
-              You're at {userConsistency.toFixed(1)} — almost there.
+              You're at {userConsistency.toFixed(1)}.
             </Text>
           )}
           
