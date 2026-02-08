@@ -7,6 +7,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const DEV_MODE_KEY = '@protocol:devMode';
+const DEBUG_INFO_KEY = '@protocol:debugInfo';
+const FORCE_ONBOARDING_KEY = '@protocol:forceOnboarding';
+const FORCE_SHOW_APP_KEY = '@protocol:forceShowApp';
 
 export async function getDevMode(): Promise<boolean> {
   try {
@@ -27,3 +30,57 @@ export async function setDevMode(enabled: boolean): Promise<void> {
   }
 }
 
+export async function getDebugInfoEnabled(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(DEBUG_INFO_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error getting debug info setting:', error);
+    return false;
+  }
+}
+
+export async function setDebugInfoEnabled(enabled: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(DEBUG_INFO_KEY, enabled ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error setting debug info:', error);
+    throw error;
+  }
+}
+
+export async function getForceOnboarding(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(FORCE_ONBOARDING_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error getting force onboarding:', error);
+    return false;
+  }
+}
+
+export async function setForceOnboarding(value: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(FORCE_ONBOARDING_KEY, value ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error setting force onboarding:', error);
+    throw error;
+  }
+}
+
+export async function getForceShowApp(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(FORCE_SHOW_APP_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error getting force show app:', error);
+    return false;
+  }
+}export async function setForceShowApp(value: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(FORCE_SHOW_APP_KEY, value ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error setting force show app:', error);
+    throw error;
+  }
+}

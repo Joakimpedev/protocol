@@ -80,15 +80,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   modal: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
-    padding: spacing.xl,
-    width: '100%',
+    padding: spacing.lg,
+    width: '95%',
     maxWidth: 400,
   },
   title: {

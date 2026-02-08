@@ -13,6 +13,9 @@ import WeeklySummaryScreen from '../screens/WeeklySummaryScreen';
 import PremiumInsightScreen from '../screens/PremiumInsightScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import FAQScreen from '../screens/FAQScreen';
+import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -114,6 +117,51 @@ export default function ProgressStackNavigator() {
           headerTintColor: colors.text,
           headerTitle: '',
           headerBackTitle: 'Summary',
+        })}
+      />
+      <Stack.Screen 
+        name="PrivacyPolicy" 
+        component={PrivacyPolicyScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          },
+          headerTintColor: colors.text,
+          headerTitle: '',
+          headerBackTitle: 'Settings',
+        })}
+      />
+      <Stack.Screen 
+        name="FAQ" 
+        component={FAQScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          },
+          headerTintColor: colors.text,
+          headerTitle: '',
+          headerBackTitle: 'Settings',
+        })}
+      />
+      <Stack.Screen 
+        name="TermsOfUse" 
+        component={TermsOfUseScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          },
+          headerTintColor: colors.text,
+          headerTitle: '',
+          headerBackTitle: 'Settings',
         })}
       />
       <Stack.Screen 

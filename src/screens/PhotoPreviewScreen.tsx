@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { colors, typography, spacing } from '../constants/theme';
 import { saveProgressPhoto } from '../services/photoService';
@@ -28,6 +29,7 @@ interface PhotoPreviewScreenProps {
 export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewScreenProps) {
   const { photoUri, weekNumber } = route.params;
   const { user } = useAuth();
+  const posthog = usePostHog();
   const [isSaving, setIsSaving] = useState(false);
   const [previewUri, setPreviewUri] = useState<string>(photoUri);
   const [skinRating, setSkinRating] = useState<'worse' | 'same' | 'better' | null>(null);
@@ -61,6 +63,13 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
     try {
       setIsSaving(true);
       const savedPhotoPath = await saveProgressPhoto(photoUri, weekNumber);
+      
+      // Track progress photo taken event
+      if (posthog) {
+        posthog.capture('progress_photo_taken', {
+          week_number: weekNumber,
+        });
+      }
       
       // Track skin rating (only for non-baseline photos)
       if (user && weekNumber !== 0 && skinRating) {

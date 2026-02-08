@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { colors, typography, spacing } from '../constants/theme';
 import { useDevMode } from '../contexts/DevModeContext';
@@ -30,7 +30,11 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
 
   useEffect(() => {
     if (permission && !permission.granted) {
-      requestPermission();
+      // On iPad, the permission request might not trigger automatically
+      // Try to request it, but handle the case where it doesn't work
+      requestPermission().catch((error) => {
+        console.error('Error requesting camera permission:', error);
+      });
     }
   }, [permission]);
 
@@ -66,12 +70,57 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
     );
   }
 
+  const handleRequestPermission = async () => {
+    try {
+      const result = await requestPermission();
+      if (!result.granted) {
+        // Permission denied - offer to open Settings
+        Alert.alert(
+          'Camera Permission Required',
+          'Please enable camera access in Settings to take progress photos.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting camera permission:', error);
+      Alert.alert(
+        'Permission Error',
+        'Unable to request camera permission. Please enable it in Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
+
   if (!permission.granted) {
     return (
       <View style={styles.container}>
         <Text style={styles.heading}>Camera permission required</Text>
         <Text style={styles.body}>We need camera access to capture progress photos.</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
+        <TouchableOpacity style={styles.button} onPress={handleRequestPermission}>
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
       </View>

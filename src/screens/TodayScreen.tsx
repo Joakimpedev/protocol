@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
+import { useDevMode } from '../contexts/DevModeContext';
 import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData } from '../services/routineService';
 import { calculateWeeklyConsistency, calculateDailyScore, getTodayDateString } from '../services/completionService';
 import { buildRoutineSections, formatDuration, RoutineSection } from '../services/routineBuilder';
@@ -13,6 +14,7 @@ import {
   getEstimatedTotalExerciseDuration,
 } from '../services/exerciseService';
 import { getUserPreferences } from '../services/userPreferencesService';
+import { useResponsive, useDeviceDebugInfo } from '../utils/responsive';
 
 // Adjust top padding here - increase this number to move content lower
 const TOP_PADDING = 120;
@@ -20,6 +22,9 @@ const TOP_PADDING = 120;
 export default function TodayScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isPremium } = usePremium();
+  const { isDebugInfoEnabled } = useDevMode();
+  const responsive = useResponsive();
+  const debugInfo = useDeviceDebugInfo();
   const [routineData, setRoutineData] = useState<UserRoutineData | null>(null);
   const [sections, setSections] = useState<RoutineSection[]>([]);
   const [sessionCompletions, setSessionCompletions] = useState<SessionCompletion | null>(null);
@@ -167,24 +172,24 @@ export default function TodayScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         key={section.name}
-        style={[styles.card, isCompleted && styles.cardCompleted]}
+        style={[styles.card, isCompleted && styles.cardCompleted, { padding: responsive.sz(16), minHeight: responsive.sz(90) }]}
         onPress={() => handleStartSession(section)}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>
+          <Text style={[styles.cardTitle, { fontSize: responsive.font(18) }]}>
             {section.name.charAt(0).toUpperCase() + section.name.slice(1)} Routine
           </Text>
           <View style={styles.cardRightSection}>
             <View style={styles.cardInfoInline}>
-              <Text style={styles.cardInfoText}>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>
                 {stepCount} {stepCount === 1 ? 'step' : 'steps'}
               </Text>
-              <Text style={styles.cardInfoText}>•</Text>
-              <Text style={styles.cardInfoText}>{durationText}</Text>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>•</Text>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>{durationText}</Text>
             </View>
-            <View style={styles.checkmarkContainer}>
+            <View style={[styles.checkmarkContainer, { width: responsive.sz(24) }]}>
               {isCompleted && (
-                <Text style={styles.completedCheckmark}>✓</Text>
+                <Text style={[styles.completedCheckmark, { fontSize: responsive.font(24) }]}>✓</Text>
               )}
             </View>
           </View>
@@ -192,16 +197,16 @@ export default function TodayScreen({ navigation }: any) {
 
         {!isCompleted && (
           <TouchableOpacity
-            style={styles.startButton}
+            style={[styles.startButton, { padding: responsive.sz(8) }]}
             onPress={() => handleStartSession(section)}
           >
-            <Text style={styles.startButtonText}>Start</Text>
+            <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
           </TouchableOpacity>
         )}
 
         {isCompleted && (
-          <View style={styles.completedBadge}>
-            <Text style={styles.completedBadgeText}>Completed</Text>
+          <View style={[styles.completedBadge, { padding: responsive.sz(16) }]}>
+            <Text style={[styles.completedBadgeText, { fontSize: responsive.font(14) }]}>Completed</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -216,6 +221,9 @@ export default function TodayScreen({ navigation }: any) {
     );
   }
 
+  // Dynamic styles that respond to screen width (including iPad compat mode)
+  const dynamicPadding = responsive.safeHorizontalPadding;
+
   if (!routineData || !routineData.routineStarted) {
     return (
       <View style={styles.container}>
@@ -227,29 +235,55 @@ export default function TodayScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      {/* Debug Info Banner - Only shown when enabled in dev mode */}
+      {isDebugInfoEnabled && (
+        <View style={styles.debugBanner}>
+          <Text style={styles.debugText}>
+            {debugInfo.deviceInfo} | Narrow: {responsive.isNarrow ? 'YES' : 'NO'} | Pad: {dynamicPadding}px | Scale: {Math.round(responsive.scaleFactor * 100)}%
+          </Text>
+        </View>
+      )}
       <TouchableOpacity
-        style={styles.settingsButton}
+        style={[
+          styles.settingsButton, 
+          { 
+            right: dynamicPadding,
+            width: responsive.sz(36),
+            height: responsive.sz(36),
+            borderRadius: responsive.sz(18),
+          }
+        ]}
         onPress={() => navigation.navigate('Settings')}
       >
         <Image 
           source={require('../../assets/icons/gear.png')} 
-          style={styles.settingsButtonIcon}
+          style={[styles.settingsButtonIcon, { width: responsive.sz(22), height: responsive.sz(22) }]}
           resizeMode="contain"
         />
       </TouchableOpacity>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={[styles.content, { paddingHorizontal: dynamicPadding }]}
+      >
+        <View style={[
+          { 
+            maxWidth: responsive.contentMaxWidth, 
+            alignSelf: responsive.contentAlign,
+            width: '100%',
+          }
+        ]}>
         <View style={styles.headerContainer}>
-        <Text style={styles.greeting}>{getGreeting()}</Text>
+        <Text style={[styles.greeting, { fontSize: responsive.font(24) }]}>{getGreeting()}</Text>
         
         <View style={styles.consistencyContainer}>
           <View style={styles.scoreItem}>
-            <Text style={styles.consistencyScore}>{todayScore.toFixed(1)}</Text>
-            <Text style={styles.consistencyLabel}>today</Text>
+            <Text style={[styles.consistencyScore, { fontSize: responsive.font(28) }]}>{todayScore.toFixed(1)}</Text>
+            <Text style={[styles.consistencyLabel, { fontSize: responsive.font(14) }]}>today</Text>
           </View>
-          <View style={styles.scoreDivider} />
+          <View style={[styles.scoreDivider, { height: responsive.sz(36) }]} />
           <View style={styles.scoreItem}>
-            <Text style={styles.consistencyScore}>{consistencyScore.toFixed(1)}</Text>
-            <Text style={styles.consistencyLabel}>this week</Text>
+            <Text style={[styles.consistencyScore, { fontSize: responsive.font(28) }]}>{consistencyScore.toFixed(1)}</Text>
+            <Text style={[styles.consistencyLabel, { fontSize: responsive.font(14) }]}>this week</Text>
           </View>
         </View>
 
@@ -272,24 +306,24 @@ export default function TodayScreen({ navigation }: any) {
 
       {/* Exercises Hub Link */}
       <TouchableOpacity
-        style={[styles.card, sessionCompletions?.exercises && styles.cardCompleted]}
+        style={[styles.card, sessionCompletions?.exercises && styles.cardCompleted, { padding: responsive.sz(16), minHeight: responsive.sz(90) }]}
         onPress={handleExercisesPress}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Exercises</Text>
+          <Text style={[styles.cardTitle, { fontSize: responsive.font(18) }]}>Exercises</Text>
           <View style={styles.cardRightSection}>
             <View style={styles.cardInfoInline}>
-              <Text style={styles.cardInfoText}>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>
                 {totalExercises} {totalExercises === 1 ? 'task' : 'tasks'}
               </Text>
-              <Text style={styles.cardInfoText}>•</Text>
-              <Text style={styles.cardInfoText}>{formatDuration(estimatedExerciseDuration)}</Text>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>•</Text>
+              <Text style={[styles.cardInfoText, { fontSize: responsive.font(14) }]}>{formatDuration(estimatedExerciseDuration)}</Text>
             </View>
-            <View style={styles.checkmarkContainer}>
+            <View style={[styles.checkmarkContainer, { width: responsive.sz(24) }]}>
               {sessionCompletions?.exercises ? (
-                <Text style={styles.completedCheckmark}>✓</Text>
+                <Text style={[styles.completedCheckmark, { fontSize: responsive.font(24) }]}>✓</Text>
               ) : (
-                <Text style={styles.arrowText}>→</Text>
+                <Text style={[styles.arrowText, { fontSize: responsive.font(24) }]}>→</Text>
               )}
             </View>
           </View>
@@ -297,19 +331,20 @@ export default function TodayScreen({ navigation }: any) {
 
         {!sessionCompletions?.exercises && (
           <TouchableOpacity
-            style={styles.startButton}
+            style={[styles.startButton, { padding: responsive.sz(8) }]}
             onPress={handleExercisesPress}
           >
-            <Text style={styles.startButtonText}>Start</Text>
+            <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
           </TouchableOpacity>
         )}
 
         {sessionCompletions?.exercises && (
-          <View style={styles.completedBadge}>
-            <Text style={styles.completedBadgeText}>Completed</Text>
+          <View style={[styles.completedBadge, { padding: responsive.sz(16) }]}>
+            <Text style={[styles.completedBadgeText, { fontSize: responsive.font(14) }]}>Completed</Text>
           </View>
         )}
       </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -324,16 +359,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    // paddingHorizontal is set dynamically based on screen width
+  },
+  debugBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ff0000',
+    padding: spacing.xs,
+    zIndex: 9999,
+  },
+  debugText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontFamily: MONOSPACE_FONT,
   },
   settingsButton: {
     position: 'absolute',
     top: 60,
-    right: spacing.md,
+    // right is set dynamically to match content padding
     zIndex: 1000,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -360,19 +410,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   scoreItem: {
     alignItems: 'center',
+    minWidth: 60,
   },
   scoreDivider: {
     width: 1,
-    height: 40,
+    height: 36,
     backgroundColor: colors.border,
   },
   consistencyScore: {
     fontFamily: MONOSPACE_FONT,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '600',
     color: colors.text,
     marginBottom: spacing.xs,
@@ -405,20 +456,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.xs,
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   cardTitle: {
-    ...typography.headingSmall,
+    fontFamily: MONOSPACE_FONT,
+    fontWeight: '600',
     color: colors.text,
     flexShrink: 1,
+    minWidth: 100,
+    // fontSize is set dynamically via inline style
   },
   cardRightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+    flexShrink: 0,
   },
   cardInfoInline: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   checkmarkContainer: {
     width: 24,
@@ -431,9 +489,10 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   cardInfoText: {
-    ...typography.bodySmall,
+    fontFamily: 'System',
     color: colors.textSecondary,
     marginRight: spacing.xs,
+    // fontSize is set dynamically via inline style
   },
   startButton: {
     backgroundColor: colors.surface,
@@ -459,9 +518,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   completedBadgeText: {
-    ...typography.bodySmall,
+    fontFamily: 'System',
     color: colors.accent,
     fontWeight: '500',
+    // fontSize is set dynamically via inline style
   },
   emptyState: {
     ...typography.body,

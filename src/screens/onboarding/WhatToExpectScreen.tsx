@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Platform } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { getCombinedExpectationsForWeek } from '../../utils/whatToExpectUtils';
@@ -171,7 +172,7 @@ export default function WhatToExpectScreen({ navigation }: any) {
   };
 
   const handleContinue = () => {
-    navigation.navigate('OnboardingSignUp');
+    navigation.goBack();
   };
 
   return (
@@ -253,9 +254,9 @@ export default function WhatToExpectScreen({ navigation }: any) {
         </ScrollView>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleContinue}>
+      <AnimatedButton style={styles.button} onPress={handleContinue}>
         <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
+      </AnimatedButton>
     </View>
   );
 }

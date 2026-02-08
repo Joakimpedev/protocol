@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useResponsive } from '../utils/responsive';
 import { markSessionCompleted } from '../services/sessionService';
 import { RoutineSection, RoutineStep } from '../services/routineBuilder';
 import { 
@@ -23,6 +25,8 @@ interface SessionScreenProps {
 
 export default function SessionScreen({ route, navigation }: SessionScreenProps) {
   const { user } = useAuth();
+  const posthog = usePostHog();
+  const responsive = useResponsive();
   const { section } = route.params;
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [waitTimerSeconds, setWaitTimerSeconds] = useState<number | null>(null);
@@ -88,6 +92,18 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
   const handleStepComplete = async () => {
     if (!currentStep) return;
+
+    // Track routine step completed event
+    if (posthog) {
+      const routineType = section.name === 'morning' ? 'morning' : 
+                         section.name === 'evening' ? 'evening' : 
+                         section.name === 'exercises' ? 'exercises' : section.name;
+      
+      posthog.capture('routine_step_completed', {
+        step_name: currentStep.displayName || currentStep.id,
+        routine_type: routineType,
+      });
+    }
 
     // Check if we need to wait before next step
     const waitTime = currentStep.session.wait_after_seconds;
@@ -203,18 +219,18 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   if (isWaiting && waitTimerSeconds !== null) {
     return (
       <View style={styles.container}>
-        <View style={styles.content}>
-          <Text style={styles.waitTitle}>Let it absorb...</Text>
-          <Text style={styles.waitTimer}>{formatTimer(waitTimerSeconds)}</Text>
-          <Text style={styles.waitDescription}>
+        <View style={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+          <Text style={[styles.waitTitle, { fontSize: responsive.font(24) }]}>Let it absorb...</Text>
+          <Text style={[styles.waitTimer, { fontSize: responsive.font(64) }]}>{formatTimer(waitTimerSeconds)}</Text>
+          <Text style={[styles.waitDescription, { fontSize: responsive.font(16) }]}>
             Waiting between steps improves product absorption.
           </Text>
           
           <TouchableOpacity
-            style={styles.skipButton}
+            style={[styles.skipButton, { padding: responsive.sz(16) }]}
             onPress={handleSkipWait}
           >
-            <Text style={styles.skipButtonText}>Skip</Text>
+            <Text style={[styles.skipButtonText, { fontSize: responsive.font(16) }]}>Skip</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -239,20 +255,20 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   if (isPending) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.progressText}>{progressText}</Text>
+        <View style={[styles.header, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+          <Text style={[styles.progressText, { fontSize: responsive.font(14) }]}>{progressText}</Text>
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.pendingContainer}>
-            <Text style={styles.pendingIcon}>◌</Text>
-            <Text style={styles.stepName}>{currentStep.displayName}</Text>
-            <Text style={styles.pendingText}>Waiting for you to get this</Text>
+        <View style={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+          <View style={[styles.pendingContainer, { padding: responsive.sz(24) }]}>
+            <Text style={[styles.pendingIcon, { fontSize: responsive.font(48) }]}>◌</Text>
+            <Text style={[styles.stepName, { fontSize: responsive.font(24) }]}>{currentStep.displayName}</Text>
+            <Text style={[styles.pendingText, { fontSize: responsive.font(16) }]}>Waiting for you to get this</Text>
             <TouchableOpacity
-              style={styles.configureButton}
+              style={[styles.configureButton, { padding: responsive.sz(16) }]}
               onPress={handlePendingProductTap}
             >
-              <Text style={styles.configureButtonText}>Configure</Text>
+              <Text style={[styles.configureButtonText, { fontSize: responsive.font(16) }]}>Configure</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -271,54 +287,54 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.progressText}>{progressText}</Text>
+      <View style={[styles.header, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+        <Text style={[styles.progressText, { fontSize: responsive.font(14) }]}>{progressText}</Text>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.stepName}>{currentStep.displayName}</Text>
+      <View style={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+        <Text style={[styles.stepName, { fontSize: responsive.font(24) }]}>{currentStep.displayName}</Text>
         
         {currentStep.productName && (
-          <Text style={styles.productName}>Your product: {currentStep.productName}</Text>
+          <Text style={[styles.productName, { fontSize: responsive.font(16) }]}>Your product: {currentStep.productName}</Text>
         )}
 
         {shortDescription && (
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.descriptionLabel}>What this does:</Text>
-            <Text style={styles.description}>{shortDescription}</Text>
+          <View style={[styles.descriptionContainer, { padding: responsive.sz(16) }]}>
+            <Text style={[styles.descriptionLabel, { fontSize: responsive.font(12) }]}>What this does:</Text>
+            <Text style={[styles.description, { fontSize: responsive.font(14) }]}>{shortDescription}</Text>
           </View>
         )}
 
-        <View style={styles.instructionContainer}>
-          <Text style={styles.instructionLabel}>Instructions:</Text>
-          <Text style={styles.instruction}>{currentStep.session.action}</Text>
+        <View style={[styles.instructionContainer, { padding: responsive.sz(24) }]}>
+          <Text style={[styles.instructionLabel, { fontSize: responsive.font(12) }]}>Instructions:</Text>
+          <Text style={[styles.instruction, { fontSize: responsive.font(16) }]}>{currentStep.session.action}</Text>
         </View>
 
         {currentStep.session.tip && (
-          <View style={styles.tipContainer}>
-            <Text style={styles.tip}>{currentStep.session.tip}</Text>
+          <View style={[styles.tipContainer, { padding: responsive.sz(16) }]}>
+            <Text style={[styles.tip, { fontSize: responsive.font(14) }]}>{currentStep.session.tip}</Text>
           </View>
         )}
 
         {isContinuous && (
-          <View style={styles.continuousNote}>
-            <Text style={styles.continuousNoteText}>
+          <View style={[styles.continuousNote, { padding: responsive.sz(16) }]}>
+            <Text style={[styles.continuousNoteText, { fontSize: responsive.font(14) }]}>
               This is a continuous practice. Complete when ready.
             </Text>
           </View>
         )}
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { padding: responsive.sz(24) }]}>
         <TouchableOpacity
-          style={[styles.doneButton, isLoading && styles.doneButtonDisabled]}
+          style={[styles.doneButton, { padding: responsive.sz(24) }, isLoading && styles.doneButtonDisabled]}
           onPress={handleStepComplete}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.doneButtonText}>
+            <Text style={[styles.doneButtonText, { fontSize: responsive.font(16) }]}>
               {isLastStep ? 'Complete' : 'Done'}
             </Text>
           )}
@@ -400,7 +416,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: spacing.xl,
+    paddingVertical: spacing.xl,
+    // paddingHorizontal is set dynamically
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingTop: '25%',

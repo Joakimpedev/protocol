@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
 import { colors, typography, spacing } from '../../constants/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useResponsive } from '../../utils/responsive';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -14,6 +16,7 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
   const [appleLoading, setAppleLoading] = useState(false);
   const { signUp, signInWithApple } = useAuth();
   const { data, updateData } = useOnboarding();
+  const responsive = useResponsive();
 
   const handleSignUp = async () => {
     if (!email || !password) {
@@ -182,13 +185,13 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Create your account.</Text>
+    <View style={[styles.container, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+      <Text style={[styles.heading, { fontSize: responsive.font(24) }]}>Create your account.</Text>
       
       <View style={styles.form}>
-        <Text style={styles.label}>Email</Text>
+        <Text style={[styles.label, { fontSize: responsive.font(12) }]}>Email</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { padding: responsive.sz(16), fontSize: responsive.font(16) }]}
           value={email}
           onChangeText={setEmail}
           placeholder="email@example.com"
@@ -198,9 +201,9 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
           editable={!loading}
         />
 
-        <Text style={styles.label}>Password</Text>
+        <Text style={[styles.label, { fontSize: responsive.font(12) }]}>Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { padding: responsive.sz(16), fontSize: responsive.font(16) }]}
           value={password}
           onChangeText={setPassword}
           placeholder="••••••••"
@@ -210,17 +213,17 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
           editable={!loading}
         />
 
-        <TouchableOpacity
-          style={[styles.button, (loading || appleLoading) && styles.buttonDisabled]}
+        <AnimatedButton
+          style={[styles.button, { padding: responsive.sz(16) }, (loading || appleLoading) && styles.buttonDisabled]}
           onPress={handleSignUp}
           disabled={loading || appleLoading}
         >
           {loading ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.buttonText}>Create Account</Text>
+            <Text style={[styles.buttonText, { fontSize: responsive.font(16) }]}>Create Account</Text>
           )}
-        </TouchableOpacity>
+        </AnimatedButton>
 
         {Platform.OS === 'ios' && (
           <>
@@ -229,23 +232,13 @@ export default function OnboardingSignUpScreen({ navigation }: any) {
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
               cornerRadius={4}
-              style={styles.appleButton}
+              style={[styles.appleButton, { height: responsive.sz(44) }]}
               onPress={handleAppleSignIn}
               disabled={loading || appleLoading}
             />
           </>
         )}
 
-        <View style={styles.divider} />
-
-        <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('OnboardingSignIn');
-          }}
-          disabled={loading || appleLoading}
-        >
-          <Text style={styles.linkText}>Already have an account? Sign in</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -255,7 +248,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    // paddingHorizontal is set dynamically
     justifyContent: 'center',
   },
   heading: {

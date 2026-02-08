@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Alert, Image, Modal } from 'react-native';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useResponsive } from '../utils/responsive';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData, IngredientSelection, ExerciseSelection, updateIngredientState, updateExerciseState } from '../services/routineService';
@@ -117,6 +118,7 @@ interface ItemState {
 export default function ProtocolScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isPremium } = usePremium();
+  const responsive = useResponsive();
   const [routineData, setRoutineData] = useState<UserRoutineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -805,17 +807,25 @@ export default function ProtocolScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <TouchableOpacity
-        style={styles.settingsButton}
+        style={[
+          styles.settingsButton, 
+          { 
+            right: responsive.safeHorizontalPadding,
+            width: responsive.sz(36),
+            height: responsive.sz(36),
+            borderRadius: responsive.sz(18),
+          }
+        ]}
         onPress={() => navigation.navigate('Settings')}
       >
         <Image 
           source={require('../../assets/icons/gear.png')} 
-          style={styles.settingsButtonIcon}
+          style={[styles.settingsButtonIcon, { width: responsive.sz(22), height: responsive.sz(22) }]}
           resizeMode="contain"
         />
       </TouchableOpacity>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Text style={[styles.heading, styles.protocolHeading]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollContent, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
+        <Text style={[styles.heading, styles.protocolHeading, { fontSize: responsive.font(32) }]}>
           Your{'\n'}Protocol
         </Text>
 
@@ -1058,7 +1068,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
+    // paddingHorizontal is set dynamically
+    paddingVertical: spacing.lg,
     paddingTop: spacing.xl,
   },
   heading: {
@@ -1338,11 +1349,11 @@ const styles = StyleSheet.create({
   settingsButton: {
     position: 'absolute',
     top: 60,
-    right: spacing.lg,
+    // right is set dynamically to match content padding
     zIndex: 1000,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1350,8 +1361,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   settingsButtonIcon: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     tintColor: colors.text,
   },
   productCard: {
@@ -1450,15 +1461,15 @@ const activeProductModalStyles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: spacing.md,
   },
   modal: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 4,
-    padding: spacing.lg,
-    width: '100%',
+    padding: spacing.md,
+    width: '95%',
     maxWidth: 400,
   },
   header: {

@@ -2,9 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { clearOnboardingProgress } from '../utils/onboardingStorage';
 import * as Notifications from 'expo-notifications';
 import { colors } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
+import { useDevMode } from '../contexts/DevModeContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { listenForFriendCompletions } from '../services/notificationService';
@@ -15,11 +18,35 @@ const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
   const { user, loading } = useAuth();
+  const { isDevModeEnabled, forceShowOnboarding, forceShowApp } = useDevMode();
+  const { onboardingComplete, setOnboardingComplete } = useOnboarding();
   const [hasRoutine, setHasRoutine] = useState<boolean | null>(null);
   const [checkingRoutine, setCheckingRoutine] = useState(true);
   const navigationRef = useRef<any>(null);
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
+  const prevShowOnboardingRef = useRef<boolean | null>(null);
+
+  const isReady = !loading && !(user && checkingRoutine);
+  const showOnboarding = isReady
+    ? (forceShowOnboarding ? true : forceShowApp ? false : onboardingComplete ? false : !user || (user && !hasRoutine))
+    : null;
+  const showApp = !showOnboarding!;
+
+  // Clear onboarding-complete flag once Firestore has routine (so next app open uses normal flow)
+  useEffect(() => {
+    if (user && hasRoutine === true && onboardingComplete) {
+      setOnboardingComplete(false);
+    }
+  }, [user, hasRoutine, onboardingComplete]);
+
+  useEffect(() => {
+    if (!isReady || showOnboarding === null) return;
+    if (prevShowOnboardingRef.current === true && showOnboarding === false) {
+      clearOnboardingProgress();
+    }
+    prevShowOnboardingRef.current = showOnboarding;
+  }, [isReady, showOnboarding]);
 
   useEffect(() => {
     if (!user) {
@@ -39,8 +66,17 @@ export default function RootNavigator() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           // User has routine if they have routineStarted set to true
-          setHasRoutine(userData.routineStarted === true);
+          const routineStarted = userData.routineStarted === true;
+          console.log('[RootNavigator] 🔥 FIRESTORE UPDATE 🔥 - routineStarted:', routineStarted, 'current hasRoutine:', hasRoutine);
+
+          // If this changes from false to true, it will kick user out of onboarding!
+          if (hasRoutine === false && routineStarted === true) {
+            console.log('[RootNavigator] ⚠️ WARNING: routineStarted changed from FALSE to TRUE! This will kick user out!');
+          }
+
+          setHasRoutine(routineStarted);
         } else {
+          console.log('[RootNavigator] User document does not exist');
           setHasRoutine(false);
         }
         setCheckingRoutine(false);
@@ -138,13 +174,15 @@ export default function RootNavigator() {
 
   // Show loading while checking auth OR checking routine status
   // Don't render navigator until we know definitively what to show
-  if (loading || (user && checkingRoutine)) {
+  if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.text} />
       </View>
     );
   }
+
+  console.log('[RootNavigator] Render - showOnboarding:', showOnboarding, 'showApp:', showApp, 'hasRoutine:', hasRoutine);
 
   return (
     <NavigationContainer ref={navigationRef}>
@@ -154,17 +192,9 @@ export default function RootNavigator() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        {user ? (
-          // User is signed in - we know hasRoutine is not null here because checkingRoutine is false
-          hasRoutine ? (
-            // User has routine set up - show main app (Today/Protocol/Progress tabs)
-            <Stack.Screen name="App" component={AppNavigator} />
-          ) : (
-            // User signed in but no routine yet - show onboarding to complete setup (Plan screen)
-            <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
-          )
+        {showApp ? (
+          <Stack.Screen name="App" component={AppNavigator} />
         ) : (
-          // User is not signed in - show onboarding (Welcome screen first)
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         )}
       </Stack.Navigator>

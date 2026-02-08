@@ -2,7 +2,7 @@
   "expo": {
     "name": "Protocol",
     "slug": "protocol",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
@@ -14,7 +14,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "icon": "./assets/images/icon.png",
+      "supportsTablet": false,
       "bundleIdentifier": "com.protocol.galdr",
       "usesAppleSignIn": true,
       "infoPlist": {
@@ -44,7 +45,8 @@
         {
           "color": "#e5e5e5"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {

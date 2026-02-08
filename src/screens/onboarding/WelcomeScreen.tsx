@@ -1,8 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform, Animated } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useDevMode } from '../../contexts/DevModeContext';
+import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
+import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
+import { useAuth } from '../../contexts/AuthContext';
 import { classifyUserInput } from '../../services/openai';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 
 // Matrix-style characters for reveal effect
 const MATRIX_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん■▢▣▤▥▦▧▨▩';
@@ -12,11 +19,31 @@ const getRandomChar = (): string => {
 };
 
 export default function WelcomeScreen({ navigation }: any) {
+  useOnboardingTracking(ONBOARDING_SCREENS.WELCOME);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCursor, setShowCursor] = useState(true);
-  const { updateData } = useOnboarding();
+  const { updateData, reset } = useOnboarding();
+  const { isDevModeEnabled } = useDevMode();
+  const { user } = useAuth();
   const inputRef = useRef<TextInput>(null);
+
+  // Reset routineStarted in Firestore when Welcome screen mounts (for dev mode testing)
+  useEffect(() => {
+    const resetRoutineStarted = async () => {
+      if (user?.uid && isDevModeEnabled) {
+        try {
+          console.log('[WelcomeScreen] Resetting routineStarted to false in Firestore');
+          await updateDoc(doc(db, 'users', user.uid), {
+            routineStarted: false,
+          });
+        } catch (error) {
+          console.error('[WelcomeScreen] Error resetting routineStarted:', error);
+        }
+      }
+    };
+    resetRoutineStarted();
+  }, [user, isDevModeEnabled]);
 
   const headingText = 'Welcome to Protocol';
   const promptText = 'What are you looking to improve?';
@@ -139,19 +166,14 @@ export default function WelcomeScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      // Classify user input
       const classification = await classifyUserInput(input);
-      
       updateData({
         userInput: input,
         aiCategories: classification.categories,
       });
-
-      // Navigate to category screen
       navigation.navigate('Category');
     } catch (error) {
       console.error('Classification error:', error);
-      // Still navigate, but with empty categories
       updateData({
         userInput: input,
         aiCategories: [],
@@ -253,7 +275,8 @@ export default function WelcomeScreen({ navigation }: any) {
         </Animated.View>
       </View>
 
-      <TouchableOpacity
+      <OnboardingDevMenu />
+      <AnimatedButton
         style={[styles.button, (!input.trim() || loading) && styles.buttonDisabled]}
         onPress={handleContinue}
         disabled={!input.trim() || loading}
@@ -263,7 +286,7 @@ export default function WelcomeScreen({ navigation }: any) {
         ) : (
           <Text style={styles.buttonText}>Continue</Text>
         )}
-      </TouchableOpacity>
+      </AnimatedButton>
     </View>
   );
 }

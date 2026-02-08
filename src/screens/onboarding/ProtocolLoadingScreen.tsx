@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MONOSPACE_FONT } from '../../constants/theme';
 import { CATEGORIES } from '../../constants/categories';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
 
 interface ProtocolLoadingScreenProps {
   navigation: any;
@@ -15,35 +16,56 @@ interface Line {
   showCheckmark: boolean;
 }
 
-// Timing configuration (in milliseconds) - Total should be ~3 seconds
+// Timing configuration (in milliseconds) - Customize these values to control animation speed
 const TIMING = {
-  // Character typing speed
-  CHAR_DELAY: 1, // Fast typing for "Building your protocol..."
-  CONCERN_CHAR_DELAY: 1, // Fast typing for concerns
-  MATCHING_CHAR_DELAY: 1, // Slower typing for "Matching ingredients..."
-  PLANNING_CHAR_DELAY: 1, // Slower typing for "Planning optimal routine..."
-  COMPLETE_CHAR_DELAY: 1, // Fast typing for "Complete."
-  
-  // Delays between actions
-  BUILDING_DELAY: 0, // Start immediately
-  CONCERN_DELAY: 500, // Delay before first concern
-  CONCERN_CHECKMARK_DELAY: 150, // Delay before showing checkmark after concern text
-  BETWEEN_CONCERNS_DELAY: 1, // Delay between each concern
-  MATCHING_DELAY: 900, // Delay before "Matching ingredients..."
-  PLANNING_DELAY: 900, // Delay before "Planning optimal routine..."
-  COMPLETE_DELAY: 1500, // Delay before "Complete."
-  COMPLETE_HOLD: 400, // Time to hold "Complete." before navigating
+  // Character typing speed (lower = faster typing)
+  CHAR_DELAY: 1, // Speed for "Building your protocol..."
+  CONCERN_CHAR_DELAY: 1, // Speed for concern lines
+  MATCHING_CHAR_DELAY: 1, // Speed for "Matching ingredients..."
+  PLANNING_CHAR_DELAY: 1, // Speed for "Planning optimal routine..."
+  COMPLETE_CHAR_DELAY: 1, // Speed for "Complete."
+
+  // Delays between actions (waiting times)
+  BUILDING_DELAY: 0, // Delay before starting (start immediately)
+  CONCERN_DELAY: 500, // Delay before first concern appears
+  CONCERN_CHECKMARK_DELAY: 150, // Delay before showing ✓ after concern text completes
+  BETWEEN_CONCERNS_DELAY: 1, // Delay between each concern line
+  MATCHING_DELAY: 900, // Delay before "Matching ingredients..." appears
+  PLANNING_DELAY: 900, // Delay before "Planning optimal routine..." appears
+  COMPLETE_DELAY: 1500, // Delay before "Complete." appears
+  COMPLETE_HOLD: 400, // Time to hold "Complete." before navigating to next screen
 };
 
 export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScreenProps) {
+  useOnboardingTracking(ONBOARDING_SCREENS.PROTOCOL_LOADING);
   const { data } = useOnboarding();
-  const selectedCategories = data.selectedCategories || [];
+  // Use selectedProblems if available, fallback to selectedCategories for backwards compatibility
+  const selectedProblems = data.selectedProblems?.length ? data.selectedProblems : (data.selectedCategories || []);
   const [lines, setLines] = useState<Line[]>([]);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [currentCharIndex, setCurrentCharIndex] = useState(0);
   const timeoutRefs = useRef<NodeJS.Timeout[]>([]);
+  const isFocusedRef = useRef(true); // Track if screen is focused
 
-  // Get category labels from IDs
+  // Listen for screen focus/blur events
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('[ProtocolLoading] Screen focused');
+      isFocusedRef.current = true;
+    });
+
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      console.log('[ProtocolLoading] Screen blurred - cancelling pending navigation');
+      isFocusedRef.current = false;
+    });
+
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation]);
+
+  // Get category label from ID
   const getCategoryLabel = (categoryId: string): string => {
     const category = CATEGORIES.find((cat) => cat.id === categoryId);
     return category?.label || categoryId;
@@ -59,7 +81,7 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
   useEffect(() => {
     // Build the sequence of lines
     const sequence: Line[] = [];
-    
+
     // 1. "Building your protocol..."
     sequence.push({
       id: 'building',
@@ -68,19 +90,19 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
       showCheckmark: false,
     });
 
-    // 2. Each concern with "> Fetching [concern] data"
-    selectedCategories.forEach((categoryId) => {
-      const label = getCategoryLabel(categoryId);
+    // 2. Each problem with "> Fetching [problem] data"
+    selectedProblems.forEach((problemId) => {
+      const label = getCategoryLabel(problemId);
       const displayName = formatCategoryForDisplay(label);
       sequence.push({
-        id: `concern-${categoryId}`,
+        id: `concern-${problemId}`,
         text: `> Fetching ${displayName} data`,
         isComplete: false,
         showCheckmark: false,
       });
     });
 
-    // 3. "Matching ingredients..."
+    // 3. "> Matching ingredients..."
     sequence.push({
       id: 'matching',
       text: '> Matching ingredients...',
@@ -88,7 +110,7 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
       showCheckmark: false,
     });
 
-    // 4. "Planning optimal routine..."
+    // 4. "> Planning optimal routine..."
     sequence.push({
       id: 'planning',
       text: '> Planning optimal routine...',
@@ -96,7 +118,7 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
       showCheckmark: false,
     });
 
-    // 5. "Complete."
+    // 5. "> Complete."
     sequence.push({
       id: 'complete',
       text: '> Complete.',
@@ -170,15 +192,16 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
           )
         );
 
-        // Handle checkmark for concerns
+        // Handle checkmark for concerns (wait first, then show checkmark)
         if (isConcern) {
           currentTimeout = setTimeout(() => {
+            // Show checkmark after the delay
             setLines((prev) =>
               prev.map((line, idx) =>
                 idx === lineIndex ? { ...line, showCheckmark: true } : line
               )
             );
-            // Move to next line after checkmark delay
+            // Move to next line after checkmark appears
             currentTimeout = setTimeout(() => {
               lineIndex++;
               charIndex = 0;
@@ -203,7 +226,14 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
         } else if (isComplete) {
           // Complete line - wait before navigating
           currentTimeout = setTimeout(() => {
-            navigation.navigate('WhatToExpect');
+            // Only navigate if this screen is still focused
+            // This prevents navigation if user already moved to next screen
+            if (isFocusedRef.current) {
+              console.log('[ProtocolLoading] Animation complete, navigating to ProtocolOverview');
+              navigation.navigate('ProtocolOverview');
+            } else {
+              console.log('[ProtocolLoading] Screen not focused, skipping navigation');
+            }
           }, TIMING.COMPLETE_HOLD);
           timeoutRefs.current.push(currentTimeout);
           return;
@@ -232,7 +262,7 @@ export default function ProtocolLoadingScreen({ navigation }: ProtocolLoadingScr
       timeoutRefs.current.forEach((timeout) => clearTimeout(timeout));
       timeoutRefs.current = [];
     };
-  }, [selectedCategories, navigation]);
+  }, [selectedProblems, navigation]);
 
   return (
     <View style={styles.container}>
@@ -276,4 +306,3 @@ const styles = StyleSheet.create({
     color: '#00FF00', // Green checkmark
   },
 });
-

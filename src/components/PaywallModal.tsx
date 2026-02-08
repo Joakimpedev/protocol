@@ -16,10 +16,13 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius, MONOSPACE_FONT } from '../constants/theme';
 import { usePremium } from '../contexts/PremiumContext';
+import { useResponsive } from '../utils/responsive';
+import LegalModal from './LegalModal';
 import {
   getOfferings,
   purchasePackage,
@@ -48,17 +51,36 @@ export default function PaywallModal({
   showFeatures = true,
 }: PaywallModalProps) {
   const { refreshSubscriptionStatus } = usePremium();
+  const posthog = usePostHog();
   const navigation = useNavigation();
+  const responsive = useResponsive();
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'faq'>('privacy');
   const insets = useSafeAreaInsets();
+  
+  // Responsive values - 85% scaling on narrow screens (iPad compatibility mode)
+  const containerPadding = responsive.sz(24);
+  const tableFontSize = responsive.font(14);
+  const tablePadding = responsive.sz(16);
+  const buttonPadding = responsive.sz(16);
+  const titleFontSize = responsive.font(24);
+  const bodyFontSize = responsive.font(16);
+  const smallFontSize = responsive.font(14);
 
   useEffect(() => {
     if (visible) {
       loadOfferings();
+      // Track paywall viewed event
+      if (posthog) {
+        posthog.capture('paywall_viewed', {
+          trigger: 'general',
+        });
+      }
     }
-  }, [visible]);
+  }, [visible, posthog]);
 
   const loadOfferings = async () => {
     setLoading(true);
@@ -109,6 +131,25 @@ export default function PaywallModal({
       const result = await purchasePackage(selectedPackage);
       
       if (result.success) {
+        // Track purchase completed event
+        if (posthog && selectedPackage) {
+          // Determine plan type from package identifier or packageType
+          const packageIdentifier = selectedPackage.identifier.toLowerCase();
+          const packageType = selectedPackage.packageType;
+          let plan = 'monthly';
+          if (packageIdentifier.includes('annual') || packageIdentifier.includes('yearly') || packageType === 'ANNUAL') {
+            plan = 'annual';
+          }
+          
+          // Get price - use product.priceString if available, otherwise use localizedPriceString
+          const price = selectedPackage.product.priceString || selectedPackage.product.localizedPriceString || '0';
+          
+          posthog.capture('purchase_completed', {
+            plan: plan,
+            price: price,
+          });
+        }
+        
         // Refresh subscription status
         await refreshSubscriptionStatus();
         
@@ -184,18 +225,21 @@ export default function PaywallModal({
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + spacing.xl }
+            { 
+              paddingTop: insets.top + spacing.lg,
+              paddingHorizontal: responsive.safeHorizontalPadding,
+            }
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.container}>
+          <View style={[styles.container, { padding: containerPadding }]}>
             {/* Title Section */}
             <View style={styles.titleSection}>
-              <Text style={styles.mainTitle}>
+              <Text style={[styles.mainTitle, { fontSize: titleFontSize }]}>
                 {title || 'Try Full Protocol'}
               </Text>
               {subtitle && (
-                <Text style={styles.subtitle}>{subtitle}</Text>
+                <Text style={[styles.subtitle, { fontSize: bodyFontSize }]}>{subtitle}</Text>
               )}
             </View>
 
@@ -203,53 +247,53 @@ export default function PaywallModal({
             {showFeatures && (
               <>
                 <View style={styles.sellSection}>
-                  <Text style={styles.sellHeadline}>Ready for the full protocol?</Text>
+                  <Text style={[styles.sellHeadline, { fontSize: responsive.font(18) }]}>Ready for the full protocol?</Text>
                   {/* Comparison Table */}
                   <View style={styles.comparisonTable}>
                     {/* Header */}
                     <View style={styles.tableHeader}>
-                      <View style={styles.tableHeaderCell}>
-                        <Text style={styles.tableHeaderText}>Basic</Text>
+                      <View style={[styles.tableHeaderCell, { padding: tablePadding }]}>
+                        <Text style={[styles.tableHeaderText, { fontSize: tableFontSize }]}>Basic</Text>
                       </View>
-                      <View style={[styles.tableHeaderCell, styles.tableHeaderCellFull]}>
-                        <Text style={styles.tableHeaderTextFull}>Full Protocol</Text>
+                      <View style={[styles.tableHeaderCell, styles.tableHeaderCellFull, { padding: tablePadding }]}>
+                        <Text style={[styles.tableHeaderTextFull, { fontSize: tableFontSize }]}>Full Protocol</Text>
                       </View>
                     </View>
 
                     {/* Rows */}
                     <View style={styles.tableRow}>
-                      <View style={styles.tableCell}>
-                        <Text style={styles.tableCellText}>Core ingredients</Text>
+                      <View style={[styles.tableCell, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellText, { fontSize: tableFontSize }]}>Core ingredients</Text>
                       </View>
-                      <View style={[styles.tableCell, styles.tableCellFull]}>
-                        <Text style={styles.tableCellTextFull}>All ingredients</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.tableRow}>
-                      <View style={styles.tableCell}>
-                        <Text style={styles.tableCellText}>1 month of photos</Text>
-                      </View>
-                      <View style={[styles.tableCell, styles.tableCellFull]}>
-                        <Text style={styles.tableCellTextFull}>Unlimited photos</Text>
+                      <View style={[styles.tableCell, styles.tableCellFull, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellTextFull, { fontSize: tableFontSize }]}>All ingredients</Text>
                       </View>
                     </View>
 
                     <View style={styles.tableRow}>
-                      <View style={styles.tableCell}>
-                        <Text style={styles.tableCellText}>Basic summary</Text>
+                      <View style={[styles.tableCell, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellText, { fontSize: tableFontSize }]}>1 month photos</Text>
                       </View>
-                      <View style={[styles.tableCell, styles.tableCellFull]}>
-                        <Text style={styles.tableCellTextFull}>Detailed analytics</Text>
+                      <View style={[styles.tableCell, styles.tableCellFull, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellTextFull, { fontSize: tableFontSize }]}>Unlimited photos</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.tableRow}>
+                      <View style={[styles.tableCell, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellText, { fontSize: tableFontSize }]}>Basic summary</Text>
+                      </View>
+                      <View style={[styles.tableCell, styles.tableCellFull, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellTextFull, { fontSize: tableFontSize }]}>Detailed analytics</Text>
                       </View>
                     </View>
 
                     <View style={[styles.tableRow, styles.tableRowLast]}>
-                      <View style={styles.tableCell}>
-                        <Text style={styles.tableCellText}>Stacked preview</Text>
+                      <View style={[styles.tableCell, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellText, { fontSize: tableFontSize }]}>Stacked preview</Text>
                       </View>
-                      <View style={[styles.tableCell, styles.tableCellFull]}>
-                        <Text style={styles.tableCellTextFull}>Slider preview</Text>
+                      <View style={[styles.tableCell, styles.tableCellFull, { padding: tablePadding }]}>
+                        <Text style={[styles.tableCellTextFull, { fontSize: tableFontSize }]}>Slider preview</Text>
                       </View>
                     </View>
                   </View>
@@ -257,7 +301,7 @@ export default function PaywallModal({
 
                 {/* See Detailed Insight Button */}
                 <TouchableOpacity
-                  style={styles.detailedInsightButton}
+                  style={[styles.detailedInsightButton, { padding: buttonPadding }]}
                   onPress={() => {
                     onClose();
                     // Navigate to PremiumInsight screen
@@ -279,24 +323,24 @@ export default function PaywallModal({
                     }
                   }}
                 >
-                  <Text style={styles.detailedInsightButtonText}>See Detailed Insight</Text>
+                  <Text style={[styles.detailedInsightButtonText, { fontSize: smallFontSize }]}>See Detailed Insight</Text>
                 </TouchableOpacity>
 
                 {/* Secondary Benefits Section */}
                 <View style={styles.benefitsSection}>
-                  <Text style={styles.benefitsTitle}>Also unlocks:</Text>
+                  <Text style={[styles.benefitsTitle, { fontSize: bodyFontSize }]}>Also unlocks:</Text>
                   <View style={styles.benefitsList}>
                     <View style={styles.benefitItem}>
-                      <Text style={styles.benefitBullet}>•</Text>
-                      <Text style={styles.benefitText}>See how you rank against other users</Text>
+                      <Text style={[styles.benefitBullet, { fontSize: smallFontSize }]}>•</Text>
+                      <Text style={[styles.benefitText, { fontSize: smallFontSize }]}>See how you rank against other users</Text>
                     </View>
                     <View style={styles.benefitItem}>
-                      <Text style={styles.benefitBullet}>•</Text>
-                      <Text style={styles.benefitText}>Monthly insights: Strengths and weaknesses</Text>
+                      <Text style={[styles.benefitBullet, { fontSize: smallFontSize }]}>•</Text>
+                      <Text style={[styles.benefitText, { fontSize: smallFontSize }]}>Monthly insights: Strengths and weaknesses</Text>
                     </View>
                     <View style={styles.benefitItem}>
-                      <Text style={styles.benefitBullet}>•</Text>
-                      <Text style={styles.benefitText}>Breakdown by morning / evening / exercises</Text>
+                      <Text style={[styles.benefitBullet, { fontSize: smallFontSize }]}>•</Text>
+                      <Text style={[styles.benefitText, { fontSize: smallFontSize }]}>Breakdown by morning / evening / exercises</Text>
                     </View>
                   </View>
                 </View>
@@ -345,16 +389,16 @@ export default function PaywallModal({
 
             {/* Purchase Button */}
             <TouchableOpacity
-              style={[styles.purchaseButton, (loading || (packages.length === 0)) && styles.purchaseButtonDisabled]}
+              style={[styles.purchaseButton, { padding: buttonPadding }, (loading || (packages.length === 0)) && styles.purchaseButtonDisabled]}
               onPress={handlePurchase}
               disabled={loading || packages.length === 0 || !selectedPackage}
             >
               {loading ? (
                 <ActivityIndicator color={colors.background} />
               ) : packages.length === 0 ? (
-                <Text style={styles.purchaseButtonText}>Loading subscription options...</Text>
+                <Text style={[styles.purchaseButtonText, { fontSize: bodyFontSize }]}>Loading...</Text>
               ) : (
-              <Text style={styles.purchaseButtonText}>
+              <Text style={[styles.purchaseButtonText, { fontSize: bodyFontSize }]}>
                 {(selectedPackage && (selectedPackage.packageType === 'ANNUAL' || selectedPackage.identifier.toLowerCase().includes('annual') || selectedPackage.identifier.toLowerCase().includes('yearly')))
                   ? 'Try Full Protocol For Free'
                   : 'Try Full Protocol'}
@@ -379,9 +423,42 @@ export default function PaywallModal({
             >
               <Text style={styles.restoreText}>Restore purchases</Text>
             </TouchableOpacity>
+
+            {/* Legal Links and Auto-Renewal Disclosure */}
+            <View style={styles.legalSection}>
+              <Text style={styles.autoRenewalText}>
+                Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.
+              </Text>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setLegalModalType('terms');
+                    setLegalModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.legalLink}>Terms of Use</Text>
+                </TouchableOpacity>
+                <Text style={styles.legalLinkSeparator}> • </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setLegalModalType('privacy');
+                    setLegalModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.legalLink}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </View>
+
+      {/* Legal Modal Overlay */}
+      <LegalModal
+        visible={legalModalVisible}
+        onClose={() => setLegalModalVisible(false)}
+        type={legalModalType}
+      />
     </Modal>
   );
 }
@@ -398,7 +475,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    // paddingHorizontal is set dynamically based on screen width
     paddingBottom: spacing.lg,
     justifyContent: 'center',
     minHeight: '100%',
@@ -406,7 +483,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    // padding is set dynamically based on screen width
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
@@ -634,6 +711,36 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textMuted,
     fontSize: 12,
+  },
+  legalSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  autoRenewalText: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    lineHeight: 16,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  legalLink: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontSize: 11,
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 11,
   },
 });
 

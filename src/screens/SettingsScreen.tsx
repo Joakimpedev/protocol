@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Modal, ActivityIndicator } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useResponsive } from '../utils/responsive';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { useDevMode } from '../contexts/DevModeContext';
+import { useOnboarding } from '../contexts/OnboardingContext';
 import PaywallModal from '../components/PaywallModal';
 import {
   getNotificationPreferences,
@@ -20,11 +22,14 @@ import { resetDeferredProducts } from '../services/routineService';
 import ReviewPromptModal from '../components/ReviewPromptModal';
 import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
 import { saveFeedback } from '../services/feedbackService';
+import { deleteUserAccount } from '../services/accountDeletionService';
 
 export default function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuth();
   const { isPremium, subscriptionStatus, refreshSubscriptionStatus } = usePremium();
-  const { isDevModeEnabled, enableDevMode, disableDevMode } = useDevMode();
+  const { isDevModeEnabled, isDebugInfoEnabled, enableDevMode, disableDevMode, setDebugInfoEnabled, resetOnboarding } = useDevMode();
+  const { reset: resetOnboardingContext } = useOnboarding();
+  const responsive = useResponsive();
   const [morningTime, setMorningTime] = useState(DEFAULT_MORNING_TIME);
   const [eveningTime, setEveningTime] = useState(DEFAULT_EVENING_TIME);
   const [savedMorningTime, setSavedMorningTime] = useState(DEFAULT_MORNING_TIME);
@@ -181,6 +186,54 @@ export default function SettingsScreen({ navigation }: any) {
               console.error('Error signing out:', error);
               Alert.alert('Error', 'Failed to sign out');
             }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data. This action cannot be undone.\n\nAll your progress, photos, routines, and friend connections will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              'Confirm Deletion',
+              'Are you absolutely sure? Your account and all data will be permanently deleted.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: async () => {
+                    if (!user) return;
+                    
+                    try {
+                      await deleteUserAccount(user.uid);
+                      // Logout will happen automatically when auth state changes
+                      await logout();
+                      Alert.alert(
+                        'Account Deleted',
+                        'Your account has been permanently deleted.',
+                        [{ text: 'OK' }]
+                      );
+                    } catch (error: any) {
+                      console.error('Error deleting account:', error);
+                      Alert.alert(
+                        'Error',
+                        error.message || 'Failed to delete account. Please try again or contact support.'
+                      );
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -540,7 +593,7 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
       <Text style={styles.heading}>Settings</Text>
 
       {/* Notification Times Section */}
@@ -646,6 +699,28 @@ export default function SettingsScreen({ navigation }: any) {
               ios_backgroundColor={colors.border}
             />
           </View>
+          <View style={styles.settingRow}>
+            <View style={styles.settingRowContent}>
+              <Text style={styles.settingLabel}>Show Debug Info</Text>
+              <Text style={styles.settingDescription}>
+                Display device info banner on screens for testing
+              </Text>
+            </View>
+            <Switch
+              value={isDebugInfoEnabled}
+              onValueChange={async (value) => {
+                try {
+                  await setDebugInfoEnabled(value);
+                } catch (error: any) {
+                  console.error('Error toggling debug info:', error);
+                  Alert.alert('Error', error.message || 'Failed to toggle debug info');
+                }
+              }}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.surface}
+              ios_backgroundColor={colors.border}
+            />
+          </View>
           <TouchableOpacity
             style={styles.devButton}
             onPress={handleResetToday}
@@ -671,6 +746,20 @@ export default function SettingsScreen({ navigation }: any) {
             <Text style={styles.devButtonText}>Test Review Prompt</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.devButton}
+            onPress={async () => {
+              try {
+                resetOnboardingContext();
+                await resetOnboarding();
+                Alert.alert('Reset Complete', 'Onboarding reset. You will return to the beginning.');
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to reset onboarding');
+              }
+            }}
+          >
+            <Text style={styles.devButtonText}>Reset to Beginning of Onboarding</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.devButton, styles.disableDevModeButton]}
             onPress={handleDisableDevMode}
           >
@@ -690,6 +779,78 @@ export default function SettingsScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
+      {/* Legal Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <TouchableOpacity
+          style={styles.legalButton}
+          onPress={() => {
+            try {
+              navigation.navigate('PrivacyPolicy');
+            } catch (error) {
+              // If direct navigation fails, use nested navigation to Progress tab
+              try {
+                const rootNavigation = navigation.getParent()?.getParent();
+                if (rootNavigation) {
+                  (rootNavigation as any).navigate('Progress', {
+                    screen: 'PrivacyPolicy',
+                  });
+                }
+              } catch (e) {
+                console.error('Error navigating to PrivacyPolicy:', e);
+              }
+            }
+          }}
+        >
+          <Text style={styles.legalButtonText}>Privacy Policy</Text>
+          <Text style={styles.legalButtonArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.legalButton}
+          onPress={() => {
+            try {
+              navigation.navigate('TermsOfUse');
+            } catch (error) {
+              try {
+                const rootNavigation = navigation.getParent()?.getParent();
+                if (rootNavigation) {
+                  (rootNavigation as any).navigate('Progress', {
+                    screen: 'TermsOfUse',
+                  });
+                }
+              } catch (e) {
+                console.error('Error navigating to TermsOfUse:', e);
+              }
+            }
+          }}
+        >
+          <Text style={styles.legalButtonText}>Terms of Use</Text>
+          <Text style={styles.legalButtonArrow}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.legalButton}
+          onPress={() => {
+            try {
+              navigation.navigate('FAQ');
+            } catch (error) {
+              try {
+                const rootNavigation = navigation.getParent()?.getParent();
+                if (rootNavigation) {
+                  (rootNavigation as any).navigate('Progress', {
+                    screen: 'FAQ',
+                  });
+                }
+              } catch (e) {
+                console.error('Error navigating to FAQ:', e);
+              }
+            }
+          }}
+        >
+          <Text style={styles.legalButtonText}>Support & FAQ</Text>
+          <Text style={styles.legalButtonArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Account Management Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
@@ -705,6 +866,15 @@ export default function SettingsScreen({ navigation }: any) {
         >
           <Text style={styles.logoutButtonText}>Sign out</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={handleDeleteAccount}
+        >
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+        </TouchableOpacity>
+        <Text style={styles.deleteAccountWarning}>
+          Deleting your account will permanently remove all your data. This cannot be undone.
+        </Text>
       </View>
 
       {/* Paywall Modal */}
@@ -867,7 +1037,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing.lg,
+    // paddingHorizontal is set dynamically
+    paddingVertical: spacing.lg,
     paddingTop: spacing.xl,
   },
   heading: {
@@ -995,6 +1166,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.error,
   },
+  deleteAccountButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 4,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  deleteAccountButtonText: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.error,
+  },
+  deleteAccountWarning: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   devButton: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -1041,8 +1233,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 4,
-    padding: spacing.xl,
-    width: '80%',
+    padding: spacing.lg,
+    width: '90%',
     maxWidth: 400,
   },
   modalTitle: {
@@ -1099,6 +1291,26 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.text,
+  },
+  legalButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  legalButtonText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  legalButtonArrow: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 16,
+    color: colors.textMuted,
   },
   modalDescription: {
     ...typography.bodySmall,

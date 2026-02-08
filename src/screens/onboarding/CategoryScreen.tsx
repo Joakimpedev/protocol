@@ -1,40 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
-import { CATEGORIES, MAX_CATEGORIES } from '../../constants/categories';
+import { useDevMode } from '../../contexts/DevModeContext';
+import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
+import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
+import { CATEGORIES } from '../../constants/categories';
 
 export default function CategoryScreen({ navigation }: any) {
-  const { data, updateData } = useOnboarding();
-  const [selected, setSelected] = useState<string[]>(data.selectedCategories || []);
+  useOnboardingTracking(ONBOARDING_SCREENS.CATEGORY);
+  const { data, updateData, reset } = useOnboarding();
+  const { isDevModeEnabled } = useDevMode();
+  const [selected, setSelected] = useState<string[]>(
+    (data.selectedProblems?.length ? data.selectedProblems : data.selectedCategories) || []
+  );
+  const hasPreselected = useRef(false);
+  const aiCategoriesKey = data.aiCategories?.join(',') ?? '';
 
-  // Pre-check AI-detected categories on mount
   useEffect(() => {
-    if (data.aiCategories && data.aiCategories.length > 0) {
-      // Pre-select AI categories, but respect max limit
-      const preSelected = data.aiCategories.slice(0, MAX_CATEGORIES);
+    if (data.aiCategories?.length && !hasPreselected.current) {
+      hasPreselected.current = true;
+      const preSelected = data.aiCategories.filter((id) => CATEGORIES.some((c) => c.id === id));
       setSelected(preSelected);
-      updateData({ selectedCategories: preSelected });
+      updateData({ selectedProblems: preSelected, selectedCategories: preSelected });
     }
-  }, []);
+  }, [aiCategoriesKey]);
 
   const toggleCategory = (categoryId: string) => {
-    if (selected.includes(categoryId)) {
-      // Deselect
-      const newSelected = selected.filter((id) => id !== categoryId);
-      setSelected(newSelected);
-      updateData({ selectedCategories: newSelected });
-    } else {
-      // Check max limit
-      if (selected.length >= MAX_CATEGORIES) {
-        Alert.alert('Maximum reached', 'Pick your top 3');
-        return;
-      }
-      // Select
-      const newSelected = [...selected, categoryId];
-      setSelected(newSelected);
-      updateData({ selectedCategories: newSelected });
-    }
+    const newSelected = selected.includes(categoryId)
+      ? selected.filter((id) => id !== categoryId)
+      : [...selected, categoryId];
+    setSelected(newSelected);
+    updateData({
+      selectedProblems: newSelected,
+      selectedCategories: newSelected,
+    });
   };
 
   const handleContinue = () => {
@@ -42,7 +43,8 @@ export default function CategoryScreen({ navigation }: any) {
       Alert.alert('Select at least one', 'Choose what you want to improve');
       return;
     }
-    navigation.navigate('Questions');
+    updateData({ selectedProblems: selected, selectedCategories: selected });
+    navigation.navigate('Severity');
   };
 
   // Check if both oily and dry are selected (combination skin)
@@ -78,14 +80,14 @@ export default function CategoryScreen({ navigation }: any) {
             Oily + Dry = Combination skin type
           </Text>
         )}
-
-        <TouchableOpacity
+        <OnboardingDevMenu />
+        <AnimatedButton
           style={[styles.button, selected.length === 0 && styles.buttonDisabled]}
           onPress={handleContinue}
           disabled={selected.length === 0}
         >
           <Text style={styles.buttonText}>Continue</Text>
-        </TouchableOpacity>
+        </AnimatedButton>
       </View>
     </View>
   );

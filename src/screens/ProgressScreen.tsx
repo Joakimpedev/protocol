@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, FlatList, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { usePostHog } from 'posthog-react-native';
 import { colors, typography, spacing } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
@@ -32,6 +33,7 @@ export default function ProgressScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const { isDevModeEnabled } = useDevMode();
+  const posthog = usePostHog();
   const insets = useSafeAreaInsets();
   const [signupDate, setSignupDate] = useState<string | null>(null);
   const [photoDay, setPhotoDay] = useState<string | null>(null);
@@ -51,11 +53,24 @@ export default function ProgressScreen({ navigation }: any) {
     }
   }, [user]);
 
+  // Track screen view when component mounts
+  useEffect(() => {
+    if (posthog) {
+      posthog.capture('progress_screen_viewed');
+      console.log('[PostHog] Tracked ProgressScreen view (on mount)');
+    }
+  }, [posthog]);
+
   // Reload photos when screen comes into focus (after taking a photo)
   useFocusEffect(
     React.useCallback(() => {
+      // Track screen view on focus
+      if (posthog) {
+        posthog.capture('progress_screen_viewed');
+        console.log('[PostHog] Tracked ProgressScreen view (on focus)');
+      }
       loadPhotos();
-    }, [])
+    }, [posthog])
   );
 
   const loadUserData = async () => {

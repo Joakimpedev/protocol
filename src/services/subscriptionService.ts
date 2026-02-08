@@ -126,6 +126,33 @@ export function isRevenueCatInitialized(): boolean {
 }
 
 /**
+ * Log in RevenueCat with a user ID (e.g. after anonymous init).
+ * Call this when user signs in and RevenueCat was already initialized with 'anonymous'.
+ */
+export async function logInRevenueCat(userId: string): Promise<void> {
+  if (!isInitialized) return;
+  try {
+    await Purchases.logIn(userId);
+    console.log('[RevenueCat] Logged in user:', userId);
+  } catch (error: any) {
+    console.warn('[RevenueCat] logIn failed:', error?.message || error);
+  }
+}
+
+/**
+ * Find the annual/yearly package from an offering.
+ */
+export function getAnnualPackageFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering?.availablePackages?.length) return null;
+  return offering.availablePackages.find(
+    (pkg) =>
+      pkg.packageType === 'ANNUAL' ||
+      pkg.identifier.toLowerCase().includes('annual') ||
+      pkg.identifier.toLowerCase().includes('yearly')
+  ) ?? null;
+}
+
+/**
  * Get current subscription status from RevenueCat
  */
 export async function getSubscriptionStatus(): Promise<SubscriptionStatus> {
@@ -296,9 +323,13 @@ export async function purchasePackage(pkg: PurchasesPackage): Promise<{ success:
 }
 
 /**
- * Restore previous purchases (for users who reinstalled app)
+ * Restore previous purchases (for users who reinstalled or use a new device).
+ * Apple ties the subscription to the user's Apple ID; restore fetches it and links to the current app user.
+ *
+ * @param userId - Optional. If provided (e.g. from TrialPaywall), subscription is synced to this user's Firestore doc.
+ *                 Call logInRevenueCat(userId) before this so RevenueCat links the restored receipt to this user.
  */
-export async function restorePurchases(): Promise<{ success: boolean; isPremium: boolean }> {
+export async function restorePurchases(userId?: string): Promise<{ success: boolean; isPremium: boolean }> {
   if (!isInitialized) {
     return { success: false, isPremium: false };
   }
@@ -306,10 +337,11 @@ export async function restorePurchases(): Promise<{ success: boolean; isPremium:
   try {
     const customerInfo = await Purchases.restorePurchases();
     const status = parseCustomerInfo(customerInfo);
-    
-    // Sync subscription status to Firestore
-    await syncSubscriptionToFirestore(status);
-    
+
+    if (userId) {
+      await syncSubscriptionToFirestore(status, userId);
+    }
+
     return { success: true, isPremium: status.isPremium };
   } catch (error) {
     console.error('Error restoring purchases:', error);
@@ -318,19 +350,18 @@ export async function restorePurchases(): Promise<{ success: boolean; isPremium:
 }
 
 /**
- * Sync subscription status to Firestore for easy access
+ * Sync subscription status to Firestore for easy access.
+ * Uses setDoc with merge so it works even when the user doc doesn't exist yet (e.g. after restore on reinstall).
  */
 export async function syncSubscriptionToFirestore(status: SubscriptionStatus, userId?: string): Promise<void> {
   try {
-    // If userId not provided, try to get from RevenueCat (requires initialization)
-    // For now, this should be called with userId from AuthContext
     if (!userId) {
       console.warn('Cannot sync subscription to Firestore: userId not provided');
       return;
     }
 
     const userRef = doc(db, 'users', userId);
-    const subscriptionData: any = {
+    const subscriptionData: Record<string, unknown> = {
       isPremium: status.isPremium,
       subscriptionExpirationDate: status.expirationDate?.toISOString() || null,
       subscriptionCancellationDate: status.cancellationDate?.toISOString() || null,
@@ -339,7 +370,7 @@ export async function syncSubscriptionToFirestore(status: SubscriptionStatus, us
       subscriptionUpdatedAt: new Date().toISOString(),
     };
 
-    await updateDoc(userRef, subscriptionData);
+    await setDoc(userRef, subscriptionData, { merge: true });
   } catch (error) {
     console.error('Error syncing subscription to Firestore:', error);
   }

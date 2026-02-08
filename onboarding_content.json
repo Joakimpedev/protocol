@@ -1,0 +1,1531 @@
+{
+  "problems": {
+    "acne": {
+      "priority": 1,
+      "requires_products": true,
+      "routine_time_minutes": 12,
+      "severity_question": {
+        "question": "How bad is your acne right now?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Few breakouts, mostly clear"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Regular breakouts, some scarring"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Constant breakouts, significant scarring"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Most acne isn't random.",
+        "stat_line": "89% of cases are caused by:",
+        "causes": [
+          "Oil buildup in pores",
+          "Dead skin cell accumulation",
+          "Bacterial overgrowth"
+        ],
+        "closing_line": "All fixable with the right routine."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "completely_clear",
+            "label": "Completely clear skin"
+          },
+          {
+            "value": "80_percent",
+            "label": "80% improvement, occasional breakout"
+          },
+          {
+            "value": "controlled",
+            "label": "Controlled and manageable"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild acne see results in:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Skin starts adjusting to actives"
+            },
+            {
+              "week": 3,
+              "description": "New breakouts slowing noticeably"
+            },
+            {
+              "week": 6,
+              "description": "Mostly clear, occasional spot"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate acne see results in:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Skin starts adjusting"
+            },
+            {
+              "week": 3,
+              "description": "New breakouts slowing"
+            },
+            {
+              "week": 6,
+              "description": "Noticeable clearing"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe acne see results in:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Purging begins (normal)"
+            },
+            {
+              "week": 3,
+              "description": "Inflammation reducing"
+            },
+            {
+              "week": 6,
+              "description": "Significant improvement visible"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why skincare aisles don't work.",
+        "explanation": "Generic products treat symptoms.\nNot YOUR specific combination.",
+        "your_routine_needs": [
+          "Right ingredients for your skin type",
+          "Correct order and timing",
+          "Consistency tracking"
+        ]
+      },
+      "reassurance_ending": "You will look back in 6 weeks, and see how much your acne has changed.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still trying random products",
+          "Still checking your skin in every mirror",
+          "Still avoiding photos"
+        ],
+        "with_protocol": [
+          "Clear improvement by week 6",
+          "Routine is second nature",
+          "Actually seeing progress"
+        ]
+      },
+      "data_stat": "78% of users with acne report visible skin improvements by week 6.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Try random products from TikTok",
+            "protocol": "Custom routine for YOUR severity + skin type"
+          },
+          {
+            "typical": "Apply everything at once, no order",
+            "protocol": "Morning + evening with exact timing"
+          },
+          {
+            "typical": "Don't track consistency",
+            "protocol": "Analytics show where you're slacking"
+          },
+          {
+            "typical": "Can't tell if it's working",
+            "protocol": "Weekly photos prove progress"
+          }
+        ]
+      }
+    },
+    "jawline": {
+      "priority": 2,
+      "requires_products": false,
+      "routine_time_minutes": 10,
+      "severity_question": {
+        "question": "Current jawline state?",
+        "options": [
+          {
+            "value": "weak",
+            "label": "Weak/recessed jaw"
+          },
+          {
+            "value": "double_chin",
+            "label": "Double chin / undefined"
+          },
+          {
+            "value": "asymmetrical",
+            "label": "Asymmetrical"
+          },
+          {
+            "value": "want_definition",
+            "label": "Just want more definition"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Jawline definition is mostly muscle.",
+        "stat_line": "The main factors:",
+        "causes": [
+          "Underdeveloped masseter muscles",
+          "Poor tongue posture (forward head)",
+          "Weak hyoid support"
+        ],
+        "closing_line": "All trainable with consistency, and the right protocol."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "sharp_definition",
+            "label": "Sharp, visible jawline"
+          },
+          {
+            "value": "noticeable",
+            "label": "Noticeable improvement"
+          },
+          {
+            "value": "subtle",
+            "label": "Subtle but real change"
+          },
+          {
+            "value": "foundation",
+            "label": "Just build the foundation"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "weak": {
+          "intro": "Guys working on jaw definition see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Jaw muscles adjusting to mewing"
+            },
+            {
+              "week": 3,
+              "description": "Muscles feel firmer to touch"
+            },
+            {
+              "week": 6,
+              "description": "Subtle definition appearing"
+            },
+            {
+              "week": 20,
+              "description": "Jawline noticeably sharper. Changes clear in photos"
+            }
+          ]
+        },
+        "double_chin": {
+          "intro": "Here is a realistic timeline:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Tongue posture building"
+            },
+            {
+              "week": 3,
+              "description": "Under-chin area tightening"
+            },
+            {
+              "week": 6,
+              "description": "Visible reduction in profile"
+            },
+            {
+              "week": 20,
+              "description": "Significant reduction. Profile transformation visible"
+            }
+          ]
+        },
+        "asymmetrical": {
+          "intro": "Guys correcting asymmetry see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Awareness of imbalances"
+            },
+            {
+              "week": 3,
+              "description": "Weaker side strengthening"
+            },
+            {
+              "week": 6,
+              "description": "More balanced appearance"
+            },
+            {
+              "week": 20,
+              "description": "Symmetry significantly improved. Face looks balanced"
+            }
+          ]
+        },
+        "want_definition": {
+          "intro": "Adding definition doen't take much time:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Muscles engaging properly"
+            },
+            {
+              "week": 3,
+              "description": "Jaw feels tighter"
+            },
+            {
+              "week": 6,
+              "description": "Others start noticing"
+            },
+            {
+              "week": 20,
+              "description": "Sharp definition established. Major visible change"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why basic tips alone doesn't work.",
+        "explanation": "You need structure.\nNo progression or consistency tracking.",
+        "your_routine_needs": [
+          "Progressive resistance training",
+          "Daily mewing reminders",
+          "Posture correction exercises"
+        ]
+      },
+      "reassurance_ending": "You will look back in 6 weeks, and see how much your jawline has changed.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still trying random jaw exercises",
+          "Still looking weak in profile photos",
+          "Still no visible definition"
+        ],
+        "with_protocol": [
+          "Jaw muscles developing visibly",
+          "Posture becomes natural",
+          "Definition others notice"
+        ]
+      },
+      "data_stat": "78% of users with jawline issues report visible jaw changes by week 8.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Random jaw exercises from YouTube",
+            "protocol": "Progressive plan for YOUR goal"
+          },
+          {
+            "typical": "No structure or progression",
+            "protocol": "Daily routine with exact timing"
+          },
+          {
+            "typical": "Forget to mew consistently",
+            "protocol": "Analytics track your consistency"
+          },
+          {
+            "typical": "Can't see subtle changes",
+            "protocol": "Weekly photos show definition changes"
+          }
+        ]
+      }
+    },
+    "facial_hair": {
+      "priority": 3,
+      "requires_products": true,
+      "routine_time_minutes": 5,
+      "severity_question": {
+        "question": "How do you want to improve your beard?",
+        "options": [
+          {
+            "value": "fill_patches",
+            "label": "Fill in patchy areas"
+          },
+          {
+            "value": "faster_growth",
+            "label": "Faster growth overall"
+          },
+          {
+            "value": "thicker",
+            "label": "Thicker/fuller beard"
+          },
+          {
+            "value": "starting",
+            "label": "Just starting to grow"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Everyone can grow a beard.",
+        "stat_line": "Bad growth usually comes from:",
+        "causes": [
+          "Dormant hair follicles",
+          "Poor blood circulation to face",
+          "Follicles not receiving growth signals"
+        ],
+        "closing_line": "The right protocol will stimulate the folicles."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 6 months?",
+        "options": [
+          {
+            "value": "full_coverage",
+            "label": "Full coverage, no patches"
+          },
+          {
+            "value": "significant",
+            "label": "Significantly fuller"
+          },
+          {
+            "value": "noticeable",
+            "label": "Noticeable new growth"
+          },
+          {
+            "value": "foundation",
+            "label": "Build the foundation"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "fill_patches": {
+          "intro": "Filling patches doesn't take that long:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Follicles responding to treatment"
+            },
+            {
+              "week": 8,
+              "description": "Vellus hairs appearing"
+            },
+            {
+              "week": 16,
+              "description": "Hairs darkening and thickening"
+            },
+            {
+              "week": 30,
+              "description": "Terminal hairs filling in. Density building significantly"
+            }
+          ]
+        },
+        "faster_growth": {
+          "intro": "Here's a realistic timeline:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Blood flow increasing"
+            },
+            {
+              "week": 8,
+              "description": "Growth rate improving"
+            },
+            {
+              "week": 16,
+              "description": "Noticeably faster coverage"
+            },
+            {
+              "week": 30,
+              "description": "Full beard growing much faster. Coverage accelerating"
+            }
+          ]
+        },
+        "thicker": {
+          "intro": "It's quicker than you think:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Follicles activating"
+            },
+            {
+              "week": 8,
+              "description": "New vellus growth"
+            },
+            {
+              "week": 16,
+              "description": "Density increasing visibly"
+            },
+            {
+              "week": 30,
+              "description": "Beard noticeably thicker. New follicles established"
+            }
+          ]
+        },
+        "starting": {
+          "intro": "Here's a realistic timeline:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Treatment beginning"
+            },
+            {
+              "week": 8,
+              "description": "First signs of peach fuzz"
+            },
+            {
+              "week": 16,
+              "description": "Visible hair development"
+            },
+            {
+              "week": 30,
+              "description": "Solid coverage forming. Real beard taking shape"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why beard oils alone don't work.",
+        "explanation": "Oils moisturize existing hair.\nThey don't activate dormant follicles.",
+        "your_routine_needs": [
+          "Follicle stimulation (minoxidil)",
+          "Blood flow increase (massage)",
+          "Consistent daily application"
+        ]
+      },
+      "reassurance_ending": "You will look back in 16 weeks, and see how much your beard has filled in.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still patchy and uneven",
+          "Still waiting for genetics",
+          "Still avoiding growing it out"
+        ],
+        "with_protocol": [
+          "Patches filling in steadily",
+          "New growth every week",
+          "Actually developing coverage"
+        ]
+      },
+      "data_stat": "78% of users with beard issues report new hair growth by week 12.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Random products that don't work",
+            "protocol": "Proven formula for YOUR growth goal"
+          },
+          {
+            "typical": "Inconsistent application",
+            "protocol": "2x daily routine with exact timing"
+          },
+          {
+            "typical": "Give up after 2 weeks",
+            "protocol": "Analytics keep you accountable"
+          },
+          {
+            "typical": "Can't track new growth",
+            "protocol": "Weekly photos show filling progress"
+          }
+        ]
+      }
+    },
+    "oily_skin": {
+      "priority": 4,
+      "requires_products": true,
+      "routine_time_minutes": 8,
+      "severity_question": {
+        "question": "How oily is your skin?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Shiny by afternoon"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Shiny within hours"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Constantly greasy"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Oily skin is overproduction.",
+        "stat_line": "The main culprits:",
+        "causes": [
+          "Overactive sebaceous glands",
+          "Hormonal triggers",
+          "Stripping the skin (makes it worse)"
+        ],
+        "closing_line": "Dont try to remove it. Use the right routine to regulate it."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "balanced",
+            "label": "Completely balanced, no shine"
+          },
+          {
+            "value": "controlled",
+            "label": "Controlled, manageable"
+          },
+          {
+            "value": "improved",
+            "label": "Noticeably improved"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Here is a realistic timeline:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Skin adjusting to balance"
+            },
+            {
+              "week": 3,
+              "description": "Midday shine reducing"
+            },
+            {
+              "week": 6,
+              "description": "Controlled oil production"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate oiliness see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Oil production balancing"
+            },
+            {
+              "week": 3,
+              "description": "Less frequent blotting needed"
+            },
+            {
+              "week": 6,
+              "description": "Pores appearing smaller"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe oiliness see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Glands starting to regulate"
+            },
+            {
+              "week": 3,
+              "description": "Noticeable reduction in grease"
+            },
+            {
+              "week": 6,
+              "description": "Consistent oil control"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why oil-free products make it worse.",
+        "explanation": "Stripping oil triggers more production.\nYour skin overcompensates.",
+        "your_routine_needs": [
+          "Sebum regulation (niacinamide)",
+          "Pore clearing (BHA)",
+          "Lightweight hydration"
+        ]
+      },
+      "reassurance_ending": "You will look back in 6 weeks, and see how much your oil production has normalized.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still blotting your face constantly",
+          "Still shiny in every photo",
+          "Still trying harsh products"
+        ],
+        "with_protocol": [
+          "Oil controlled at the source",
+          "Skin feels balanced",
+          "No more constant shine"
+        ]
+      },
+      "data_stat": "81% of users report reduced oil production by week 4.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Harsh oil-free products",
+            "protocol": "Balanced routine for YOUR skin"
+          },
+          {
+            "typical": "Over-wash to strip oil",
+            "protocol": "Morning + evening regulation system"
+          },
+          {
+            "typical": "No consistency tracking",
+            "protocol": "Analytics show improvement patterns"
+          },
+          {
+            "typical": "Don't see if it's balancing",
+            "protocol": "Weekly photos track oil reduction"
+          }
+        ]
+      }
+    },
+    "dry_skin": {
+      "priority": 5,
+      "requires_products": true,
+      "routine_time_minutes": 8,
+      "severity_question": {
+        "question": "How dry is your skin?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Tight after washing"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Flaking, rough patches"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Constantly tight and cracked"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Dry skin is a broken barrier.",
+        "stat_line": "Usually caused by:",
+        "causes": [
+          "Compromised moisture barrier",
+          "Water loss through skin",
+          "Lack of hydration retention"
+        ],
+        "closing_line": "Repair and seal the barrier with the right routine."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "hydrated",
+            "label": "Fully hydrated, no tightness"
+          },
+          {
+            "value": "comfortable",
+            "label": "Comfortable and smooth"
+          },
+          {
+            "value": "improved",
+            "label": "Noticeably improved"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild dryness see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Immediate hydration relief"
+            },
+            {
+              "week": 2,
+              "description": "Tightness reducing"
+            },
+            {
+              "week": 4,
+              "description": "Barrier fully repaired"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate dryness see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Skin feels plumper"
+            },
+            {
+              "week": 2,
+              "description": "Flaking disappearing"
+            },
+            {
+              "week": 4,
+              "description": "Sustained hydration"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe dryness see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Barrier repair beginning"
+            },
+            {
+              "week": 2,
+              "description": "Cracking healing"
+            },
+            {
+              "week": 4,
+              "description": "Smooth, resilient skin"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why heavy creams don't work.",
+        "explanation": "They sit on top of skin.\nThey don't fix the barrier underneath.",
+        "your_routine_needs": [
+          "Deep hydration (hyaluronic acid)",
+          "Barrier repair (snail mucin)",
+          "Moisture sealing"
+        ]
+      },
+      "reassurance_ending": "You will look back in 4 weeks, and see how much your skin has healed.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still tight and uncomfortable",
+          "Still flaking and peeling",
+          "Still slathering thick creams"
+        ],
+        "with_protocol": [
+          "Barrier fully repaired",
+          "Skin feels comfortable",
+          "Hydration that lasts"
+        ]
+      },
+      "data_stat": "85% of users see barrier improvement by week 3.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Heavy creams that don't absorb",
+            "protocol": "Layered hydration for YOUR dryness"
+          },
+          {
+            "typical": "Random moisturizer application",
+            "protocol": "Morning + evening barrier repair system"
+          },
+          {
+            "typical": "Don't track moisture levels",
+            "protocol": "Analytics track hydration consistency"
+          },
+          {
+            "typical": "Can't see barrier repair",
+            "protocol": "Weekly photos show skin healing"
+          }
+        ]
+      }
+    },
+    "blackheads": {
+      "priority": 6,
+      "requires_products": true,
+      "routine_time_minutes": 8,
+      "severity_question": {
+        "question": "How bad are your blackheads?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Nose only, few visible"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Nose and chin, noticeable"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Widespread, very visible"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Blackheads are clogged pores.",
+        "stat_line": "They form when:",
+        "causes": [
+          "Sebum and dead cells trapped",
+          "Oxidation turns them black",
+          "Pores stay stretched open"
+        ],
+        "closing_line": "Apply the correct routine to regulate the pores."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "clear",
+            "label": "Completely clear, no blackheads"
+          },
+          {
+            "value": "minimal",
+            "label": "Minimal, barely visible"
+          },
+          {
+            "value": "improved",
+            "label": "Noticeably improved"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild blackheads see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "BHA loosening plugs"
+            },
+            {
+              "week": 3,
+              "description": "Blackheads washing away"
+            },
+            {
+              "week": 6,
+              "description": "Pores appearing smaller"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate blackheads see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Deep pore cleaning starting"
+            },
+            {
+              "week": 3,
+              "description": "Strawberry nose fading"
+            },
+            {
+              "week": 6,
+              "description": "Significantly clearer pores"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe blackheads see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Loosening phase begins"
+            },
+            {
+              "week": 3,
+              "description": "Visible clearing starting"
+            },
+            {
+              "week": 6,
+              "description": "Major improvement visible"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why pore strips don't work.",
+        "explanation": "They rip out surface debris.\nThey don't prevent refilling.",
+        "your_routine_needs": [
+          "Oil-soluble exfoliant (BHA)",
+          "Pore regulation (niacinamide)",
+          "Consistent dissolution"
+        ]
+      },
+      "reassurance_ending": "You will look back in 6 weeks, and see how much your pores have cleared.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still covering nose in photos",
+          "Still using pore strips",
+          "Still seeing strawberry nose"
+        ],
+        "with_protocol": [
+          "Blackheads dissolving naturally",
+          "Pores staying clear",
+          "Smooth, clean skin"
+        ]
+      },
+      "data_stat": "76% of users see blackhead reduction by week 5.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Pore strips that don't prevent refilling",
+            "protocol": "Dissolution routine for YOUR pores"
+          },
+          {
+            "typical": "Random exfoliation",
+            "protocol": "Evening BHA with exact timing"
+          },
+          {
+            "typical": "Don't track pore clearing",
+            "protocol": "Analytics show consistency gaps"
+          },
+          {
+            "typical": "Can't see gradual improvement",
+            "protocol": "Weekly photos prove pore clearing"
+          }
+        ]
+      }
+    },
+    "dark_circles": {
+      "priority": 7,
+      "requires_products": true,
+      "routine_time_minutes": 6,
+      "severity_question": {
+        "question": "How dark are your circles?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Visible when tired"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Always visible"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Very dark, hollow"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Dark circles have multiple causes.",
+        "stat_line": "Typically caused by:",
+        "causes": [
+          "Thin skin showing blood vessels",
+          "Hyperpigmentation buildup",
+          "Poor circulation and fluid retention"
+        ],
+        "closing_line": "Each cause needs targeted treatment."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 6 months?",
+        "options": [
+          {
+            "value": "gone",
+            "label": "Completely gone"
+          },
+          {
+            "value": "minimal",
+            "label": "Minimal, barely visible"
+          },
+          {
+            "value": "improved",
+            "label": "Noticeably lighter"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild dark circles see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Puffiness reducing immediately"
+            },
+            {
+              "week": 4,
+              "description": "Circulation improving"
+            },
+            {
+              "week": 12,
+              "description": "Noticeably lighter"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate dark circles see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Fluid retention decreasing"
+            },
+            {
+              "week": 4,
+              "description": "Tired look improving"
+            },
+            {
+              "week": 12,
+              "description": "Visible lightening"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe dark circles see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Circulation boost starting"
+            },
+            {
+              "week": 4,
+              "description": "Skin strengthening"
+            },
+            {
+              "week": 12,
+              "description": "Gradual lightening"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why concealers don't fix it.",
+        "explanation": "They cover the symptom.\nThey don't treat the cause.",
+        "your_routine_needs": [
+          "Circulation boost (caffeine)",
+          "Pigment reduction (vitamin C)",
+          "Skin thickening (retinol)"
+        ]
+      },
+      "reassurance_ending": "You will look back in 12 weeks, and see how much your under-eye area has improved.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still looking tired constantly",
+          "Still covering with concealer",
+          "Still accepting genetics"
+        ],
+        "with_protocol": [
+          "Under-eye area brightening",
+          "Tired look disappearing",
+          "Actual structural improvement"
+        ]
+      },
+      "data_stat": "64% of users see dark circle improvement by week 8.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Concealers that just cover",
+            "protocol": "Treatment plan for YOUR cause"
+          },
+          {
+            "typical": "Random eye creams",
+            "protocol": "Morning + evening under-eye system"
+          },
+          {
+            "typical": "Don't track consistency",
+            "protocol": "Analytics ensure daily application"
+          },
+          {
+            "typical": "Can't see lightening progress",
+            "protocol": "Weekly photos track improvement"
+          }
+        ]
+      }
+    },
+    "skin_texture": {
+      "priority": 8,
+      "requires_products": true,
+      "routine_time_minutes": 10,
+      "severity_question": {
+        "question": "How rough is your skin texture?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Slightly rough to touch"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Noticeably bumpy"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Very rough, uneven"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Rough texture is dead cell buildup.",
+        "stat_line": "Rough texture comes from:",
+        "causes": [
+          "Slow cell turnover rate",
+          "Dead cells not shedding",
+          "Surface remains dull and rough"
+        ],
+        "closing_line": "Use the proper routine to accelerate turnover."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 3 months?",
+        "options": [
+          {
+            "value": "glass_skin",
+            "label": "Glass-smooth, perfect"
+          },
+          {
+            "value": "smooth",
+            "label": "Smooth to touch"
+          },
+          {
+            "value": "improved",
+            "label": "Noticeably smoother"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild texture issues see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Exfoliation beginning"
+            },
+            {
+              "week": 4,
+              "description": "Surface smoothing out"
+            },
+            {
+              "week": 8,
+              "description": "Noticeably smoother"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate texture issues see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Retinization starting (may peel)"
+            },
+            {
+              "week": 4,
+              "description": "New skin emerging"
+            },
+            {
+              "week": 8,
+              "description": "Texture refined significantly"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe texture issues see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Peeling phase (normal)"
+            },
+            {
+              "week": 4,
+              "description": "Rough layers shedding"
+            },
+            {
+              "week": 8,
+              "description": "Major smoothing visible"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why scrubs make it worse.",
+        "explanation": "Physical exfoliation damages skin.\nIt doesn't fix the underlying turnover.",
+        "your_routine_needs": [
+          "Chemical exfoliation (AHA)",
+          "Cell turnover boost (retinol)",
+          "Barrier support (hydration)"
+        ]
+      },
+      "reassurance_ending": "You will look back in 8 weeks, and see how much your skin has smoothed out.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still rough to the touch",
+          "Still dull and uneven",
+          "Still using harsh scrubs"
+        ],
+        "with_protocol": [
+          "Skin becoming glass-smooth",
+          "Light reflecting evenly",
+          "Texture fully refined"
+        ]
+      },
+      "data_stat": "79% of users see texture improvement by week 6.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Harsh scrubs that damage",
+            "protocol": "Chemical exfoliation for YOUR texture"
+          },
+          {
+            "typical": "Over-exfoliate randomly",
+            "protocol": "Evening routine with wait times"
+          },
+          {
+            "typical": "Don't track smoothing",
+            "protocol": "Analytics show routine adherence"
+          },
+          {
+            "typical": "Can't see texture refinement",
+            "protocol": "Weekly photos prove smoothing"
+          }
+        ]
+      }
+    },
+    "hyperpigmentation": {
+      "priority": 9,
+      "requires_products": true,
+      "routine_time_minutes": 10,
+      "severity_question": {
+        "question": "How dark are your spots?",
+        "options": [
+          {
+            "value": "mild",
+            "label": "Mild - Few light spots"
+          },
+          {
+            "value": "moderate",
+            "label": "Moderate - Multiple visible spots"
+          },
+          {
+            "value": "severe",
+            "label": "Severe - Dark, widespread spots"
+          }
+        ]
+      },
+      "education_real_cause": {
+        "title": "Dark spots are melanin overproduction.",
+        "stat_line": "Spots form when:",
+        "causes": [
+          "Post-acne inflammation",
+          "Sun damage triggering melanin",
+          "Pigment trapped in skin layers"
+        ],
+        "closing_line": "Use the proper routine to fade pigment and prevent new formation."
+      },
+      "goal_setting": {
+        "question": "Where do you believe you can be in 6 months?",
+        "options": [
+          {
+            "value": "even_tone",
+            "label": "Completely even tone"
+          },
+          {
+            "value": "minimal",
+            "label": "Minimal, barely visible"
+          },
+          {
+            "value": "faded",
+            "label": "Significantly faded"
+          },
+          {
+            "value": "better",
+            "label": "Just better than now"
+          }
+        ]
+      },
+      "timeline_stats": {
+        "mild": {
+          "intro": "Guys with mild hyperpigmentation see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Pigment inhibition starting"
+            },
+            {
+              "week": 8,
+              "description": "Spots beginning to fade"
+            },
+            {
+              "week": 12,
+              "description": "Significantly lighter"
+            }
+          ]
+        },
+        "moderate": {
+          "intro": "Guys with moderate hyperpigmentation see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Exfoliation bringing pigment up"
+            },
+            {
+              "week": 8,
+              "description": "Fading begins"
+            },
+            {
+              "week": 12,
+              "description": "Noticeable clearing"
+            }
+          ]
+        },
+        "severe": {
+          "intro": "Guys with severe hyperpigmentation see:",
+          "milestones": [
+            {
+              "week": 1,
+              "description": "Spots may darken first (normal)"
+            },
+            {
+              "week": 8,
+              "description": "Edges starting to blur"
+            },
+            {
+              "week": 12,
+              "description": "Gradual lightening"
+            }
+          ]
+        }
+      },
+      "why_others_failed": {
+        "title": "Why brightening creams don't work.",
+        "explanation": "They treat surface only.\nThey don't inhibit melanin production.",
+        "your_routine_needs": [
+          "Melanin inhibition (vitamin C)",
+          "Pigment exfoliation (AHA, retinol)",
+          "Sun protection (prevent new spots)"
+        ]
+      },
+      "reassurance_ending": "You will look back in 12 weeks, and see how much your tone has evened out.",
+      "negative_consequences": {
+        "without_protocol": [
+          "Still seeing dark spots",
+          "Still uneven skin tone",
+          "Still trying random creams"
+        ],
+        "with_protocol": [
+          "Spots fading steadily",
+          "Tone evening out",
+          "Clear, radiant skin"
+        ]
+      },
+      "data_stat": "71% of users see pigmentation fading by week 10.",
+      "why_protocol_works": {
+        "comparisons": [
+          {
+            "typical": "Brightening creams that don't work",
+            "protocol": "Fading system for YOUR spots"
+          },
+          {
+            "typical": "Random vitamin C application",
+            "protocol": "Morning + evening with exact order"
+          },
+          {
+            "typical": "Don't track fading",
+            "protocol": "Analytics monitor consistency"
+          },
+          {
+            "typical": "Can't see spot reduction",
+            "protocol": "Weekly photos show tone evening"
+          }
+        ]
+      }
+    }
+  },
+  "followup_questions": {
+    "skincare_skin_type": {
+      "conditions": ["acne", "blackheads", "skin_texture", "hyperpigmentation"],
+      "skip_if_selected": ["oily_skin", "dry_skin"],
+      "question": "Your skin type?",
+      "options": [
+        {
+          "value": "oily",
+          "label": "Oily - Shiny, large pores"
+        },
+        {
+          "value": "dry",
+          "label": "Dry - Tight, flaky"
+        },
+        {
+          "value": "combination",
+          "label": "Combination - Both"
+        },
+        {
+          "value": "normal",
+          "label": "Normal - Balanced"
+        }
+      ]
+    },
+    "dark_circles_cause": {
+      "conditions": ["dark_circles"],
+      "question": "What causes your dark circles?",
+      "options": [
+        {
+          "value": "genetics",
+          "label": "Genetics / naturally dark"
+        },
+        {
+          "value": "sleep",
+          "label": "Lack of sleep"
+        },
+        {
+          "value": "allergies",
+          "label": "Allergies / sinus issues"
+        },
+        {
+          "value": "unsure",
+          "label": "Not sure"
+        }
+      ]
+    }
+  },
+  "impact_options": [
+    {
+      "id": "avoiding_photos",
+      "label": "Avoiding photos",
+      "for_negative_path": "Still avoiding photos"
+    },
+    {
+      "id": "less_confident",
+      "label": "Less confident in social situations",
+      "for_negative_path": "Still feeling self-conscious"
+    },
+    {
+      "id": "avoiding_dating",
+      "label": "Avoiding dating",
+      "for_negative_path": "Still avoiding putting yourself out there"
+    },
+    {
+      "id": "constantly_thinking",
+      "label": "Constantly thinking about it",
+      "for_negative_path": "Still obsessing over it daily"
+    },
+    {
+      "id": "affects_mood",
+      "label": "Affects my mood daily",
+      "for_negative_path": "Still letting it control your mood"
+    }
+  ],
+  "wow_users": [
+    {
+      "id": "ethan_22_acne",
+      "name": "Ethan",
+      "age": 22,
+      "quote": "Insane change after only a little over 2 months",
+      "problems": ["acne"],
+      "severity": "moderate",
+      "impacts": ["avoiding_dating", "affects_mood", "constantly_thinking"],
+      "before_photo": "ethan_acne_before.jpg",
+      "after_photo": "ethan_acne_after.jpg",
+      "weeks_elapsed": 10
+    },
+    {
+      "id": "saeid_19_jawline",
+      "name": "Saeid",
+      "age": 19,
+      "quote": "8 months in. The change is actually insane. People don't recognize me in old photos.",
+      "problems": ["jawline"],
+      "severity": "weak",
+      "impacts": ["less_confident", "avoiding_photos"],
+      "before_photo": "saeid_jawline_before.jpg",
+      "after_photo": "saeid_jawline_after.jpg",
+      "weeks_elapsed": 32
+    },
+    {
+      "id": "alex_20_facial_hair",
+      "name": "Alex",
+      "age": 20,
+      "quote": "10 months. Went from patchy to full coverage. Completely worth the patience.",
+      "problems": ["facial_hair"],
+      "severity": "fill_patches",
+      "impacts": ["less_confident", "avoiding_dating"],
+      "before_photo": "alex_beard_before.jpg",
+      "after_photo": "alex_beard_after.jpg",
+      "weeks_elapsed": 44
+    }
+  ]
+}

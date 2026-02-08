@@ -12,7 +12,9 @@ import {
   syncSubscriptionToFirestore,
   SubscriptionStatus,
   initializeRevenueCat,
+  logInRevenueCat,
   isRevenueCatConfigured,
+  isRevenueCatInitialized,
 } from '../services/subscriptionService';
 import { getDevMode } from '../services/devModeService';
 
@@ -41,26 +43,29 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   // Check if we're in dev mode (__DEV__ is a React Native global)
   const isDevMode = typeof __DEV__ !== 'undefined' && __DEV__;
 
-  // Initialize RevenueCat when user is available (skip in dev mode)
+  // Initialize RevenueCat when user is available, or log in if already initialized (e.g. anonymous at app start)
   useEffect(() => {
     if (user && !isDevMode) {
-      console.log('[PremiumContext] Initializing RevenueCat for user:', user.uid);
-      initializeRevenueCat(user.uid)
-        .then(() => {
-          console.log('[PremiumContext] RevenueCat initialization completed, refreshing subscription status');
-          // After initialization, refresh subscription status
-          refreshSubscriptionStatus();
-        })
-        .catch((error: any) => {
-          console.error('[PremiumContext] Failed to initialize RevenueCat:', error);
-          console.error('[PremiumContext] Error details:', {
-            message: error?.message,
-            name: error?.name,
-            stack: error?.stack,
+      if (isRevenueCatInitialized()) {
+        console.log('[PremiumContext] RevenueCat already initialized, logging in user:', user.uid);
+        logInRevenueCat(user.uid).then(() => refreshSubscriptionStatus());
+      } else {
+        console.log('[PremiumContext] Initializing RevenueCat for user:', user.uid);
+        initializeRevenueCat(user.uid)
+          .then(() => {
+            console.log('[PremiumContext] RevenueCat initialization completed, refreshing subscription status');
+            refreshSubscriptionStatus();
+          })
+          .catch((error: any) => {
+            console.error('[PremiumContext] Failed to initialize RevenueCat:', error);
+            console.error('[PremiumContext] Error details:', {
+              message: error?.message,
+              name: error?.name,
+              stack: error?.stack,
+            });
+            refreshSubscriptionStatus();
           });
-          // Still refresh status from Firestore as fallback
-          refreshSubscriptionStatus();
-        });
+      }
     } else if (user && isDevMode) {
       console.log('[PremiumContext] Skipping RevenueCat initialization (dev mode)');
       // In dev mode, check Firestore first to respect dev premium switch

@@ -1,0 +1,156 @@
+import { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { AnimatedButton } from '../../components/AnimatedButton';
+import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
+import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useDevMode } from '../../contexts/DevModeContext';
+import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
+import { getPage9FollowUp } from '../../utils/onboardingUtils';
+import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
+
+const DIVIDER = '━━━━━━━━━━━━━━━━━━━━━━━━';
+
+export default function ConditionalFollowUpScreen({ navigation }: any) {
+  useOnboardingTracking(ONBOARDING_SCREENS.CONDITIONAL_FOLLOW_UP);
+  const { data, updateData, primaryProblem, content, reset } = useOnboarding();
+  const { isDevModeEnabled } = useDevMode();
+  const followUp = getPage9FollowUp(data.selectedProblems ?? [], primaryProblem, content);
+  const [selected, setSelected] = useState<string | null>(
+    followUp?.storeAs === 'skinType' ? (data.skinType ?? null) : (data.followupAnswer ?? null)
+  );
+
+  const handleContinue = () => {
+    if (!selected || !followUp) return;
+    if (followUp.storeAs === 'skinType') {
+      updateData({ skinType: selected as 'oily' | 'dry' | 'combination' | 'normal' });
+    } else {
+      updateData({ followupAnswer: selected });
+    }
+    navigation.navigate('TimeCommitment');
+  };
+
+  if (!followUp) {
+    return null;
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.contentSection}>
+        <Text style={styles.heading}>Quick questions.</Text>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>{DIVIDER}</Text>
+        <Text style={styles.questionLabel}>{followUp.question}</Text>
+        <View style={styles.optionsList}>
+          {followUp.options.map((opt) => {
+            const isSelected = selected === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.option, isSelected && styles.optionSelected]}
+                onPress={() => setSelected(opt.value)}
+              >
+                <Text style={styles.radio}>{isSelected ? '●' : '○'}</Text>
+                <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.bottomSection}>
+        <OnboardingDevMenu />
+        <AnimatedButton
+          style={[styles.button, !selected && styles.buttonDisabled]}
+          onPress={handleContinue}
+          disabled={!selected}
+        >
+          <Text style={styles.buttonText}>Continue</Text>
+        </AnimatedButton>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+    justifyContent: 'space-between',
+  },
+  contentSection: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingTop: spacing.xl,
+  },
+  heading: {
+    ...typography.headingSmall,
+    marginBottom: spacing.md,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  dividerText: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: spacing.lg,
+  },
+  questionLabel: {
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  optionsList: {
+    marginTop: spacing.sm,
+  },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    minHeight: 44,
+  },
+  optionSelected: {
+    backgroundColor: colors.surface,
+  },
+  radio: {
+    fontFamily: MONOSPACE_FONT,
+    fontSize: 18,
+    marginRight: spacing.md,
+    color: colors.text,
+  },
+  optionLabel: {
+    ...typography.body,
+    flex: 1,
+    color: colors.textSecondary,
+  },
+  optionLabelSelected: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  bottomSection: {
+    marginTop: spacing.md,
+  },
+  button: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  buttonText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+});

@@ -17,13 +17,16 @@ import {
   ScrollView,
   Image,
   PanResponder,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius, MONOSPACE_FONT } from '../constants/theme';
 import { usePremium } from '../contexts/PremiumContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useResponsive } from '../utils/responsive';
+import LegalModal from './LegalModal';
 import {
   getOfferings,
   purchasePackage,
@@ -31,8 +34,6 @@ import {
 } from '../services/subscriptionService';
 import { PurchasesPackage } from 'react-native-purchases';
 import { getPhotoForWeek, loadAllPhotos, ProgressPhoto } from '../services/photoService';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Table color controls - adjust these to change the Full Protocol column colors
 const TABLE_FULL_PROTOCOL_HEADER_BG = '#00B800'; // Green background for "Full Protocol" header
@@ -50,7 +51,13 @@ export default function SliderPaywallModal({
 }: SliderPaywallModalProps) {
   const { user } = useAuth();
   const { refreshSubscriptionStatus } = usePremium();
+  const posthog = usePostHog();
   const navigation = useNavigation();
+  const responsive = useResponsive();
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  
+  // Responsive values
+  const containerPadding = responsive.isNarrow ? spacing.md : spacing.lg;
   const [loading, setLoading] = useState(false);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
@@ -59,6 +66,8 @@ export default function SliderPaywallModal({
   const [loadingData, setLoadingData] = useState(true);
   const [sliderPosition, setSliderPosition] = useState<number>(0.5); // 0 to 1, where 0.5 is center
   const [isSliderActive, setIsSliderActive] = useState(false); // Track if slider is being dragged
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'faq'>('privacy');
   const insets = useSafeAreaInsets();
   
   // Slider refs and state
@@ -73,8 +82,14 @@ export default function SliderPaywallModal({
     if (visible) {
       loadOfferings();
       loadPhotos();
+      // Track paywall viewed event
+      if (posthog) {
+        posthog.capture('paywall_viewed', {
+          trigger: 'slider_comparison',
+        });
+      }
     }
-  }, [visible]);
+  }, [visible, posthog]);
 
   const loadPhotos = async () => {
     if (!user) return;
@@ -190,6 +205,22 @@ export default function SliderPaywallModal({
       const result = await purchasePackage(selectedPackage);
       
       if (result.success) {
+        // Track purchase completed event
+        if (posthog && selectedPackage) {
+          const packageIdentifier = selectedPackage.identifier.toLowerCase();
+          const packageType = selectedPackage.packageType;
+          let plan = 'monthly';
+          if (packageIdentifier.includes('annual') || packageIdentifier.includes('yearly') || packageType === 'ANNUAL') {
+            plan = 'annual';
+          }
+          const price = selectedPackage.product.priceString || selectedPackage.product.localizedPriceString || '0';
+          
+          posthog.capture('purchase_completed', {
+            plan: plan,
+            price: price,
+          });
+        }
+        
         // Refresh subscription status
         await refreshSubscriptionStatus();
         
@@ -266,12 +297,15 @@ export default function SliderPaywallModal({
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + spacing.xl }
+            { 
+              paddingTop: insets.top + spacing.lg,
+              paddingHorizontal: responsive.safeHorizontalPadding,
+            }
           ]}
           showsVerticalScrollIndicator={false}
           scrollEnabled={!isSliderActive}
         >
-          <View style={styles.container}>
+          <View style={[styles.container, { padding: containerPadding }]}>
             {/* Title Section */}
             <View style={styles.titleSection}>
               <Text style={styles.mainTitle}>Unlock Full Protocol</Text>
@@ -552,9 +586,42 @@ export default function SliderPaywallModal({
             >
               <Text style={styles.restoreText}>Restore purchases</Text>
             </TouchableOpacity>
+
+            {/* Legal Links and Auto-Renewal Disclosure */}
+            <View style={styles.legalSection}>
+              <Text style={styles.autoRenewalText}>
+                Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.
+              </Text>
+              <View style={styles.legalLinks}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setLegalModalType('terms');
+                    setLegalModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.legalLink}>Terms of Use</Text>
+                </TouchableOpacity>
+                <Text style={styles.legalLinkSeparator}> • </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setLegalModalType('privacy');
+                    setLegalModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.legalLink}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </ScrollView>
       </View>
+
+      {/* Legal Modal Overlay */}
+      <LegalModal
+        visible={legalModalVisible}
+        onClose={() => setLegalModalVisible(false)}
+        type={legalModalType}
+      />
     </Modal>
   );
 }
@@ -571,7 +638,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    // paddingHorizontal is set dynamically
     paddingBottom: spacing.lg,
     justifyContent: 'center',
     minHeight: '100%',
@@ -579,7 +646,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
-    padding: spacing.lg,
+    // padding is set dynamically
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
@@ -935,6 +1002,36 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textMuted,
     fontSize: 12,
+  },
+  legalSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  autoRenewalText: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    lineHeight: 16,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  legalLink: {
+    ...typography.bodySmall,
+    color: colors.textSecondary,
+    fontSize: 11,
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    ...typography.bodySmall,
+    color: colors.textMuted,
+    fontSize: 11,
   },
 });
 

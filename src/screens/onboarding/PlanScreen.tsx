@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { usePostHog } from 'posthog-react-native';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useDevMode } from '../../contexts/DevModeContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useResponsive, useDeviceDebugInfo } from '../../utils/responsive';
 const guideBlocks = require('../../data/guide_blocks.json');
 
 interface Problem {
@@ -47,6 +50,10 @@ export default function PlanScreen({ navigation }: any) {
 
   const { data } = useOnboarding();
   const { user } = useAuth();
+  const { isDebugInfoEnabled } = useDevMode();
+  const posthog = usePostHog();
+  const responsive = useResponsive();
+  const debugInfo = useDeviceDebugInfo();
   const [ingredientStates, setIngredientStates] = useState<Record<string, ItemState>>({});
   const [exerciseStates, setExerciseStates] = useState<Record<string, ItemState>>({});
   const [loading, setLoading] = useState(false);
@@ -330,6 +337,11 @@ export default function PlanScreen({ navigation }: any) {
         routineStartDate: new Date().toISOString(),
       });
 
+      // Track onboarding completed event
+      if (posthog) {
+        posthog.capture('onboarding_completed');
+      }
+
       // Initialize notifications
       const { initializeUserNotifications } = require('../services/notificationService');
       await initializeUserNotifications(user.uid);
@@ -365,27 +377,27 @@ export default function PlanScreen({ navigation }: any) {
 
     if (state.state === 'added' || state.state === 'not_received') {
       return (
-        <View key={ingredient.ingredient_id} style={styles.ingredientCard}>
-          <Text style={styles.ingredientName}>{ingredient.display_name}</Text>
-          <Text style={styles.ingredientDescription}>{ingredient.short_description}</Text>
+        <View key={ingredient.ingredient_id} style={[styles.ingredientCard, { padding: responsive.sz(16) }]}>
+          <Text style={[styles.ingredientName, { fontSize: responsive.font(18) }]}>{ingredient.display_name}</Text>
+          <Text style={[styles.ingredientDescription, { fontSize: responsive.font(16) }]}>{ingredient.short_description}</Text>
           <View style={styles.examplesContainer}>
-            <Text style={styles.examplesLabel}>Example brands:</Text>
+            <Text style={[styles.examplesLabel, { fontSize: responsive.font(12) }]}>Example brands:</Text>
             {ingredient.example_brands.map((brand, idx) => (
-              <Text key={idx} style={styles.exampleText}>• {brand}</Text>
+              <Text key={idx} style={[styles.exampleText, { fontSize: responsive.font(14) }]}>• {brand}</Text>
             ))}
           </View>
           {state.state === 'added' ? (
-            <View style={styles.addedContainer}>
-              <Text style={styles.addedText}>✓ Added: {state.productName}</Text>
+            <View style={[styles.addedContainer, { marginTop: responsive.sz(8) }]}>
+              <Text style={[styles.addedText, { fontSize: responsive.font(16) }]}>✓ Added: {state.productName}</Text>
               <TouchableOpacity onPress={() => handleIngredientChange(ingredient.ingredient_id)}>
-                <Text style={styles.changeText}>Change</Text>
+                <Text style={[styles.changeText, { fontSize: responsive.font(16) }]}>Change</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.notReceivedContainer}>
-              <Text style={styles.notReceivedText}>⏳ Waiting for delivery: {state.productName}</Text>
+            <View style={[styles.notReceivedContainer, { marginTop: responsive.sz(8) }]}>
+              <Text style={[styles.notReceivedText, { fontSize: responsive.font(16) }]}>⏳ Waiting for delivery: {state.productName}</Text>
               <TouchableOpacity onPress={() => handleIngredientChange(ingredient.ingredient_id)}>
-                <Text style={styles.changeText}>Change</Text>
+                <Text style={[styles.changeText, { fontSize: responsive.font(16) }]}>Change</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -395,19 +407,19 @@ export default function PlanScreen({ navigation }: any) {
 
     if (state.state === 'skipped') {
       return (
-        <View key={ingredient.ingredient_id} style={styles.ingredientCard}>
-          <Text style={styles.ingredientName}>{ingredient.display_name}</Text>
-          <Text style={styles.ingredientDescription}>{ingredient.short_description}</Text>
+        <View key={ingredient.ingredient_id} style={[styles.ingredientCard, { padding: responsive.sz(16) }]}>
+          <Text style={[styles.ingredientName, { fontSize: responsive.font(18) }]}>{ingredient.display_name}</Text>
+          <Text style={[styles.ingredientDescription, { fontSize: responsive.font(16) }]}>{ingredient.short_description}</Text>
           <View style={styles.examplesContainer}>
-            <Text style={styles.examplesLabel}>Example brands:</Text>
+            <Text style={[styles.examplesLabel, { fontSize: responsive.font(12) }]}>Example brands:</Text>
             {ingredient.example_brands.map((brand, idx) => (
-              <Text key={idx} style={styles.exampleText}>• {brand}</Text>
+              <Text key={idx} style={[styles.exampleText, { fontSize: responsive.font(14) }]}>• {brand}</Text>
             ))}
           </View>
-          <View style={styles.addedContainer}>
-            <Text style={styles.notReceivedText}>Skipped</Text>
+          <View style={[styles.addedContainer, { marginTop: responsive.sz(8) }]}>
+            <Text style={[styles.notReceivedText, { fontSize: responsive.font(16) }]}>Skipped</Text>
             <TouchableOpacity onPress={() => handleIngredientChange(ingredient.ingredient_id)}>
-              <Text style={styles.changeText}>Change</Text>
+              <Text style={[styles.changeText, { fontSize: responsive.font(16) }]}>Change</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -415,48 +427,49 @@ export default function PlanScreen({ navigation }: any) {
     }
 
     return (
-      <View key={ingredient.ingredient_id} style={styles.ingredientCard}>
-        <Text style={styles.ingredientName}>{ingredient.display_name}</Text>
-        <Text style={styles.ingredientDescription}>{ingredient.short_description}</Text>
+      <View key={ingredient.ingredient_id} style={[styles.ingredientCard, { padding: responsive.sz(16) }]}>
+        <Text style={[styles.ingredientName, { fontSize: responsive.font(18) }]}>{ingredient.display_name}</Text>
+        <Text style={[styles.ingredientDescription, { fontSize: responsive.font(16) }]}>{ingredient.short_description}</Text>
         <View style={styles.examplesContainer}>
-          <Text style={styles.examplesLabel}>Example brands:</Text>
+          <Text style={[styles.examplesLabel, { fontSize: responsive.font(12) }]}>Example brands:</Text>
           {ingredient.example_brands.map((brand, idx) => (
-            <Text key={idx} style={styles.exampleText}>• {brand}</Text>
+            <Text key={idx} style={[styles.exampleText, { fontSize: responsive.font(14) }]}>• {brand}</Text>
           ))}
         </View>
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { marginTop: responsive.sz(8) }]}>
           <TextInput
-            style={styles.productInput}
+            style={[styles.productInput, { padding: responsive.sz(16), fontSize: responsive.font(16) }]}
             placeholder="What is name of the product you got?"
             placeholderTextColor={colors.textMuted}
             value={state.productName}
             onChangeText={(text) => handleProductNameChange(ingredient.ingredient_id, text)}
           />
           <TouchableOpacity
-            style={styles.checkbox}
+            style={[styles.checkbox, { marginTop: responsive.sz(8) }]}
             onPress={() => handleToggleWaiting(ingredient.ingredient_id)}
           >
-            <Text style={styles.checkboxText}>
+            <Text style={[styles.checkboxText, { fontSize: responsive.font(16) }]}>
               {state.waitingForDelivery ? '☑' : '☐'} Will buy / waiting for delivery
             </Text>
           </TouchableOpacity>
-          <View style={styles.actionButtons}>
+          <View style={[styles.actionButtons, { marginTop: responsive.sz(8), gap: responsive.sz(8) }]}>
             <TouchableOpacity
               style={[
                 styles.actionButton,
                 styles.addButton,
+                { padding: responsive.sz(16), minHeight: responsive.sz(44) },
                 !state.productName?.trim() && styles.buttonDisabled,
               ]}
               onPress={() => handleIngredientAdd(ingredient.ingredient_id)}
               disabled={!state.productName?.trim()}
             >
-              <Text style={styles.actionButtonText}>Add to routine</Text>
+              <Text style={[styles.actionButtonText, { fontSize: responsive.font(16) }]}>Add to routine</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, styles.skipButton]}
+              style={[styles.actionButton, styles.skipButton, { padding: responsive.sz(16), minHeight: responsive.sz(44) }]}
               onPress={() => handleIngredientSkip(ingredient.ingredient_id)}
             >
-              <Text style={styles.actionButtonText}>Skip</Text>
+              <Text style={[styles.actionButtonText, { fontSize: responsive.font(16) }]}>Skip</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -524,17 +537,35 @@ export default function PlanScreen({ navigation }: any) {
 
   const problemNamesText = formatProblemNames(selectedProblems);
 
+  // Responsive padding that adapts to narrow screens (iPad compatibility mode)
+  const dynamicPadding = responsive.safeHorizontalPadding;
+
   // Styles with access to TOP_PADDING_EXTRA
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
+    debugBanner: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: '#ff0000',
+      padding: spacing.xs,
+      zIndex: 9999,
+    },
+    debugText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontFamily: MONOSPACE_FONT,
+    },
     scrollView: {
       flex: 1,
     },
     scrollContent: {
-      padding: spacing.lg,
+      // paddingHorizontal is set dynamically
+      paddingVertical: spacing.lg,
       paddingTop: spacing.xxl + spacing.xxl + spacing.xxl + TOP_PADDING_EXTRA, // Adjust TOP_PADDING_EXTRA constant above to change
     },
     heading: {
@@ -616,31 +647,39 @@ export default function PlanScreen({ navigation }: any) {
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 4,
-      padding: spacing.md,
+      // padding is set dynamically via inline style
       marginBottom: spacing.md,
     },
     ingredientName: {
-      ...typography.headingSmall,
+      fontFamily: MONOSPACE_FONT,
+      fontWeight: '600',
       marginBottom: spacing.xs,
+      // fontSize is set dynamically via inline style
     },
     ingredientDescription: {
-      ...typography.body,
+      fontFamily: 'System',
       color: colors.textSecondary,
       marginBottom: spacing.sm,
       lineHeight: 20,
+      // fontSize is set dynamically via inline style
     },
     examplesContainer: {
       marginTop: spacing.sm,
       marginBottom: spacing.sm,
     },
     examplesLabel: {
-      ...typography.label,
+      fontFamily: 'System',
+      fontWeight: '500',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
       marginBottom: spacing.xs,
+      // fontSize is set dynamically via inline style
     },
     exampleText: {
-      ...typography.bodySmall,
+      fontFamily: 'System',
       color: colors.textSecondary,
       marginBottom: spacing.xs,
+      // fontSize is set dynamically via inline style
     },
     inputContainer: {
       marginTop: spacing.md,
@@ -649,29 +688,31 @@ export default function PlanScreen({ navigation }: any) {
       borderTopColor: colors.border,
     },
     productInput: {
-      ...typography.body,
+      fontFamily: 'System',
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 4,
-      padding: spacing.md,
+      // padding and fontSize are set dynamically via inline style
       color: colors.text,
       marginBottom: spacing.sm,
     },
     checkbox: {
+      // marginTop is set dynamically via inline style
       marginBottom: spacing.sm,
     },
     checkboxText: {
-      ...typography.bodySmall,
+      fontFamily: 'System',
       color: colors.textSecondary,
+      // fontSize is set dynamically via inline style
     },
     actionButtons: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      // gap is set dynamically via inline style
     },
     actionButton: {
       flex: 1,
-      padding: spacing.md,
+      // padding and minHeight are set dynamically via inline style
       alignItems: 'center',
       borderRadius: 4,
       borderWidth: 1,
@@ -688,61 +729,69 @@ export default function PlanScreen({ navigation }: any) {
       opacity: 0.5,
     },
     actionButtonText: {
-      ...typography.body,
+      fontFamily: 'System',
       fontWeight: '600',
+      // fontSize is set dynamically via inline style
     },
     addedContainer: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: spacing.md,
+      // marginTop is set dynamically via inline style
       paddingTop: spacing.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
     addedText: {
-      ...typography.body,
+      fontFamily: 'System',
       color: colors.accent,
+      // fontSize is set dynamically via inline style
     },
     changeText: {
-      ...typography.bodySmall,
+      fontFamily: 'System',
       color: colors.textSecondary,
       textDecorationLine: 'underline',
+      // fontSize is set dynamically via inline style
     },
     notReceivedContainer: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginTop: spacing.md,
+      // marginTop is set dynamically via inline style
       paddingTop: spacing.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
     notReceivedText: {
-      ...typography.body,
+      fontFamily: 'System',
       color: colors.textSecondary,
+      // fontSize is set dynamically via inline style
     },
     exerciseCard: {
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 4,
-      padding: spacing.md,
+      // padding is set dynamically via inline style
       marginBottom: spacing.md,
     },
     exerciseName: {
-      ...typography.headingSmall,
+      fontFamily: MONOSPACE_FONT,
+      fontWeight: '600',
       marginBottom: spacing.xs,
+      // fontSize is set dynamically via inline style
     },
     exerciseDescription: {
-      ...typography.body,
+      fontFamily: 'System',
       color: colors.textSecondary,
       marginBottom: spacing.xs,
       lineHeight: 20,
+      // fontSize is set dynamically via inline style
     },
     exerciseDuration: {
-      ...typography.bodySmall,
+      fontFamily: 'System',
       color: colors.textSecondary,
+      // fontSize is set dynamically via inline style
       marginBottom: spacing.md,
     },
     progressText: {
@@ -780,21 +829,39 @@ export default function PlanScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.heading}>
+      {/* Debug Info Banner - Only shown when enabled in dev mode */}
+      {isDebugInfoEnabled && (
+        <View style={styles.debugBanner}>
+          <Text style={styles.debugText}>
+            {debugInfo.deviceInfo} | Narrow: {responsive.isNarrow ? 'YES' : 'NO'} | Pad: {dynamicPadding}px | Scale: {Math.round(responsive.scaleFactor * 100)}%
+          </Text>
+        </View>
+      )}
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: dynamicPadding }]}
+      >
+        <View style={[
+          { 
+            maxWidth: responsive.contentMaxWidth, 
+            alignSelf: responsive.contentAlign,
+            width: '100%',
+          }
+        ]}>
+        <Text style={[styles.heading, { fontSize: responsive.font(32) }]}>
           Here's your{'\n'}custom plan{'\n'}
         </Text>
 
         {/* Custom protocol intro */}
         {problemNamesText && (
-          <Text style={styles.protocolIntro}>
+          <Text style={[styles.protocolIntro, { fontSize: responsive.font(16) }]}>
             You are about to start a protocol focused on {problemNamesText}.
           </Text>
         )}
 
         {/* Info intro text */}
         {selectedProblems.length > 0 && (
-          <Text style={styles.infoIntro}>
+          <Text style={[styles.infoIntro, { fontSize: responsive.font(16) }]}>
             If you follow this protocol, you will see results. Below is some info on the cause of these problems, and how to combat them.
             {'\n'}{'\n'}</Text>
         )}
@@ -802,7 +869,7 @@ export default function PlanScreen({ navigation }: any) {
         {/* Problem Sections */}
         {selectedProblems.length > 0 && (
           <>
-            <Text style={styles.problemsTitle}>Your main problems</Text>
+            <Text style={[styles.problemsTitle, { fontSize: responsive.font(24) }]}>Your main problems</Text>
             <View style={styles.section}>
               {selectedProblems.map((problem: Problem) => renderProblemSection(problem))}
             </View>
@@ -813,8 +880,8 @@ export default function PlanScreen({ navigation }: any) {
         {/* Products Section */}
         {selectedIngredients.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Here's your shopping list</Text>
-            <Text style={styles.introText}>{guideBlocks.static_text.shopping_intro}</Text>
+            <Text style={[styles.sectionTitle, { fontSize: responsive.font(18) }]}>Here's your shopping list</Text>
+            <Text style={[styles.introText, { fontSize: responsive.font(16) }]}>{guideBlocks.static_text.shopping_intro}</Text>
             {selectedIngredients.map((ingredient) => renderIngredientCard(ingredient))}
             <View style={styles.divider} />
           </>
@@ -823,33 +890,34 @@ export default function PlanScreen({ navigation }: any) {
         {/* Exercises Section */}
         {selectedExercises.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Exercises</Text>
-            <Text style={styles.introText}>{guideBlocks.static_text.exercises_intro}</Text>
+            <Text style={[styles.sectionTitle, { fontSize: responsive.font(18) }]}>Exercises</Text>
+            <Text style={[styles.introText, { fontSize: responsive.font(16) }]}>{guideBlocks.static_text.exercises_intro}</Text>
             {selectedExercises.map((exercise) => renderExerciseCard(exercise))}
             <View style={styles.divider} />
           </>
         )}
 
         {/* Progress */}
-        <Text style={styles.progressText}>
+        <Text style={[styles.progressText, { fontSize: responsive.font(14) }]}>
           Progress: {decided}/{total} items decided
         </Text>
+        </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { padding: responsive.sz(24) }]}>
         <TouchableOpacity
-          style={[styles.startButton, (!canStart || loading) && styles.startButtonDisabled]}
+          style={[styles.startButton, { padding: responsive.sz(16) }, (!canStart || loading) && styles.startButtonDisabled]}
           onPress={handleStartRoutine}
           disabled={!canStart || loading}
         >
           {loading ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text style={styles.startButtonText}>Start Routine</Text>
+            <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start Routine</Text>
           )}
         </TouchableOpacity>
         {!canStart && (
-          <Text style={styles.startHint}>(activates when all decided)</Text>
+          <Text style={[styles.startHint, { fontSize: responsive.font(12) }]}>(activates when all decided)</Text>
         )}
       </View>
     </View>
