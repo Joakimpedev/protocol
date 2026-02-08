@@ -52,6 +52,10 @@ export default function WOWMomentScreen({ navigation }: any) {
   const { isDevModeEnabled } = useDevMode();
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const introAnim = useRef(new Animated.Value(0)).current;
+  const struggledAnim = useRef(new Animated.Value(0)).current;
+  const justLikeYouAnim = useRef(new Animated.Value(0)).current;
+  const followedAnim = useRef(new Animated.Value(0)).current;
 
   const wowUsers = (content as any).wow_users ?? [];
   const impactOptions: Array<{ id: string; label: string }> = (content as any).impact_options ?? [];
@@ -61,13 +65,28 @@ export default function WOWMomentScreen({ navigation }: any) {
     ? wowUsers.find((u: { problems: string[] }) => (u.problems || []).includes(primaryProblem))
     : null;
 
+  const ANIM_DUR = 900;
+  const ANIM_DELAY = 440;
+
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+    if (!matchedUser) {
+      Animated.timing(fadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
+      return;
+    }
+    introAnim.setValue(0);
+    struggledAnim.setValue(0);
+    justLikeYouAnim.setValue(0);
+    followedAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(introAnim, { toValue: 1, duration: ANIM_DUR, useNativeDriver: true }),
+      Animated.delay(ANIM_DELAY),
+      Animated.timing(struggledAnim, { toValue: 1, duration: ANIM_DUR, useNativeDriver: true }),
+      Animated.delay(ANIM_DELAY),
+      Animated.timing(justLikeYouAnim, { toValue: 1, duration: ANIM_DUR, useNativeDriver: true }),
+      Animated.delay(ANIM_DELAY),
+      Animated.timing(followedAnim, { toValue: 1, duration: ANIM_DUR, useNativeDriver: true }),
+    ]).start();
+  }, [matchedUser != null]);
 
   const handleContinue = () => {
     navigation.navigate('Commitment');
@@ -89,13 +108,13 @@ export default function WOWMomentScreen({ navigation }: any) {
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingTop: spacing.xl + insets.top }]}
+          contentContainerStyle={[styles.scrollContent, styles.scrollContentCentered, { paddingTop: spacing.xl + insets.top }]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.heading}>This is {name}, {age}.</Text>
-          <View style={styles.dividerLine} />
-
-          <Animated.View style={[styles.wowContent, { opacity: fadeAnim }]}>
+          <Animated.View style={{ opacity: introAnim }}>
+            <Text style={styles.heading}>
+              This is <Text style={styles.headingName}>{name}</Text>, {age}.
+            </Text>
             <View style={styles.wowImagesRow}>
               {beforeSrc != null && (
                 <View style={styles.wowImageWrap}>
@@ -114,14 +133,23 @@ export default function WOWMomentScreen({ navigation }: any) {
                 </View>
               )}
             </View>
+          </Animated.View>
 
+          <Animated.View style={[styles.wowContent, { opacity: struggledAnim }]}>
             <Text style={styles.struggledWith}>{name} struggled with:</Text>
             <Text style={styles.bullet}>• {mainProblemLabel}</Text>
             {secondBullet != null && (
               <Text style={styles.bullet}>• {secondBullet}</Text>
             )}
-            <Text style={styles.justLikeYou}>Just like you.</Text>
+          </Animated.View>
 
+          <Animated.View style={{ opacity: justLikeYouAnim }}>
+            <Text style={styles.justLikeYou}>
+              Just like <Text style={styles.justLikeYouYou}>you.</Text>
+            </Text>
+          </Animated.View>
+
+          <Animated.View style={{ opacity: followedAnim }}>
             <Text style={styles.followedLine}>
               {name} followed Protocol for {weeksElapsed} weeks.
             </Text>
@@ -130,9 +158,11 @@ export default function WOWMomentScreen({ navigation }: any) {
 
         <View style={styles.bottomSection}>
           <OnboardingDevMenu />
-          <AnimatedButton style={styles.button} onPress={handleContinue}>
-            <Text style={styles.buttonText}>Continue</Text>
-          </AnimatedButton>
+          <Animated.View style={{ opacity: followedAnim }}>
+            <AnimatedButton style={styles.button} onPress={handleContinue}>
+              <Text style={styles.buttonText}>Continue</Text>
+            </AnimatedButton>
+          </Animated.View>
         </View>
       </View>
     );
@@ -202,23 +232,26 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
+  scrollContentCentered: {
+    alignItems: 'center',
+  },
   heading: {
     ...typography.heading,
-    marginBottom: spacing.md,
-  },
-  dividerLine: {
-    height: 1,
-    backgroundColor: colors.border,
     marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  headingName: {
+    color: colors.accent,
   },
   wowContent: {
-    marginTop: spacing.sm,
+    marginTop: 0,
+    alignSelf: 'stretch',
   },
   wowImagesRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   wowImageWrap: {
     width: '47%',
@@ -274,15 +307,22 @@ const styles = StyleSheet.create({
   },
   justLikeYou: {
     ...typography.body,
+    fontSize: 20,
     fontWeight: '600',
     color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  justLikeYouYou: {
+    color: colors.accent,
+    fontWeight: '600',
   },
   followedLine: {
     ...typography.body,
     fontSize: 15,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   fallbackContent: {
     marginTop: spacing.sm,

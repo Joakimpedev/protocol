@@ -304,17 +304,6 @@ export default function ShoppingScreen({ navigation }: any) {
   const currentIngredient = selectedIngredients[currentCardIndex];
   const progressText = `${currentCardIndex + 1}/${totalCards}`;
 
-  // Get timing text for ingredient
-  const getTimingText = (ingredient: Ingredient): string => {
-    if (!ingredient.timing_options || ingredient.timing_options.length === 0) {
-      return 'routine';
-    }
-    if (ingredient.timing_options.length === 1) {
-      return `${ingredient.timing_options[0]} routine`;
-    }
-    return 'routine';
-  };
-
   const handleIHaveThis = (ingredientId: string) => {
     setCurrentIngredientId(ingredientId);
     setProductNameInput('');
@@ -368,8 +357,6 @@ export default function ShoppingScreen({ navigation }: any) {
     );
   }
 
-  const timingText = getTimingText(currentIngredient);
-
   console.log('[ShoppingScreen] RENDERING UI - currentCard:', currentCardIndex + 1, 'of', totalCards);
 
   return (
@@ -398,8 +385,6 @@ export default function ShoppingScreen({ navigation }: any) {
           <Text style={[styles.ingredientName, { fontSize: responsive.font(18) }]}>{currentIngredient.display_name.toUpperCase()}</Text>
           
           <Text style={[styles.ingredientDescription, { fontSize: responsive.font(16) }]}>{currentIngredient.short_description}</Text>
-          
-          <Text style={[styles.timingText, { fontSize: responsive.font(16) }]}>Used in your {timingText}.</Text>
 
           <View style={styles.examplesContainer}>
             <Text style={[styles.examplesLabel, { fontSize: responsive.font(12) }]}>Examples:</Text>
@@ -544,13 +529,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.sm,
     lineHeight: 22,
-    // fontSize is set dynamically
-  },
-  timingText: {
-    fontFamily: 'System',
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    fontStyle: 'italic',
     // fontSize is set dynamically
   },
   examplesContainer: {

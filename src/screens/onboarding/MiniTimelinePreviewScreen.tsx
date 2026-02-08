@@ -47,15 +47,15 @@ export default function MiniTimelinePreviewScreen({ navigation }: any) {
   const startAnim = useRef(new Animated.Value(0)).current;
   const milestoneAnims = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
   const lineAnims = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
-  const closingTextAnim = useRef(new Animated.Value(0)).current;
-  const buttonAnim = useRef(new Animated.Value(0)).current;
+  const consistencyAnim = useRef(new Animated.Value(0)).current;
+  const readyAndButtonAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     startAnim.setValue(0);
     milestoneAnims.forEach((a) => a.setValue(0));
     lineAnims.forEach((a) => a.setValue(0));
-    closingTextAnim.setValue(0);
-    buttonAnim.setValue(0);
+    consistencyAnim.setValue(0);
+    readyAndButtonAnim.setValue(0);
 
     Animated.timing(startAnim, { toValue: 1, duration: ANIM_DURATION, useNativeDriver: true }).start(() => {
       firstThree.forEach((_, index) => {
@@ -69,16 +69,15 @@ export default function MiniTimelinePreviewScreen({ navigation }: any) {
             Animated.timing(lineAnim, { toValue: 1, duration: ANIM_DURATION, useNativeDriver: true }),
           ]),
         ]).start(() => {
-          // After last milestone, fade in closing text
+          // After last milestone: first "Consistency is everything" on its own, then "Ready to..." + button together
           if (index === firstThree.length - 1) {
             Animated.sequence([
               Animated.delay(200),
-              Animated.timing(closingTextAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+              Animated.timing(consistencyAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
             ]).start(() => {
-              // After preparation text, fade in button
               Animated.sequence([
-                Animated.delay(600),
-                Animated.timing(buttonAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+                Animated.delay(300),
+                Animated.timing(readyAndButtonAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
               ]).start();
             });
           }
@@ -165,11 +164,11 @@ export default function MiniTimelinePreviewScreen({ navigation }: any) {
           );
         })}
 
-        <Animated.Text style={[styles.closingLine, { opacity: closingTextAnim }]}>
+        <Animated.Text style={[styles.closingLine, { opacity: consistencyAnim }]}>
           Consistency is everything.
         </Animated.Text>
 
-        <Animated.View style={[styles.preparationSection, { opacity: closingTextAnim }]}>
+        <Animated.View style={[styles.preparationSection, { opacity: readyAndButtonAnim }]}>
           <Text style={styles.preparationText}>
             Ready to see your full personalized protocol?
           </Text>
@@ -178,7 +177,7 @@ export default function MiniTimelinePreviewScreen({ navigation }: any) {
 
       <View style={styles.bottomSection}>
         <OnboardingDevMenu />
-        <Animated.View style={{ opacity: buttonAnim }}>
+        <Animated.View style={{ opacity: readyAndButtonAnim }}>
           <AnimatedButton style={styles.button} onPress={handleContinue}>
             <Text style={styles.buttonText}>Generate Protocol</Text>
           </AnimatedButton>
@@ -295,10 +294,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   preparationSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    marginTop: spacing.lg,
   },
   preparationText: {
     ...typography.body,
@@ -307,7 +303,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 26,
-    paddingTop: spacing.lg,
   },
   bottomSection: {
     paddingTop: spacing.md,

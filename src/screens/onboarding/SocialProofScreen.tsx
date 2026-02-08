@@ -21,18 +21,18 @@ const TESTIMONIALS = [
     afterImage: require('../../../assets/images/markus_dry_after.jpg'),
   },
   {
-    name: 'Jake',
-    age: 29,
-    problems: ['Acne', 'Hyperpigmentation'],
-    beforeImage: require('../../../assets/images/jake_acne_before.jpg'),
-    afterImage: require('../../../assets/images/jake_acne_after.jpg'),
-  },
-  {
     name: 'Dev',
     age: 21,
     problems: ['Undefined jawline'],
     beforeImage: require('../../../assets/images/dev_jawline_before.jpg'),
     afterImage: require('../../../assets/images/dev_jawline_after.jpg'),
+  },
+  {
+    name: 'Jake',
+    age: 29,
+    problems: ['Acne', 'Hyperpigmentation'],
+    beforeImage: require('../../../assets/images/jake_acne_before.jpg'),
+    afterImage: require('../../../assets/images/jake_acne_after.jpg'),
   },
 ];
 
