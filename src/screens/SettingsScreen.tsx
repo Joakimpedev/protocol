@@ -27,7 +27,7 @@ import { deleteUserAccount } from '../services/accountDeletionService';
 export default function SettingsScreen({ navigation }: any) {
   const { user, logout } = useAuth();
   const { isPremium, subscriptionStatus, refreshSubscriptionStatus } = usePremium();
-  const { isDevModeEnabled, isDebugInfoEnabled, enableDevMode, disableDevMode, setDebugInfoEnabled, resetOnboarding } = useDevMode();
+  const { isDevModeEnabled, isDebugInfoEnabled, hideDevToolsInOnboarding, enableDevMode, disableDevMode, setDebugInfoEnabled, setHideDevToolsInOnboarding, resetOnboarding } = useDevMode();
   const { reset: resetOnboardingContext } = useOnboarding();
   const responsive = useResponsive();
   const [morningTime, setMorningTime] = useState(DEFAULT_MORNING_TIME);
@@ -721,6 +721,28 @@ export default function SettingsScreen({ navigation }: any) {
               ios_backgroundColor={colors.border}
             />
           </View>
+          <View style={styles.settingRow}>
+            <View style={styles.settingRowContent}>
+              <Text style={styles.settingLabel}>Hide dev tools in onboarding</Text>
+              <Text style={styles.settingDescription}>
+                Onboarding looks like production (no dev menu). You still bypass payment at the end.
+              </Text>
+            </View>
+            <Switch
+              value={hideDevToolsInOnboarding}
+              onValueChange={async (value) => {
+                try {
+                  await setHideDevToolsInOnboarding(value);
+                } catch (error: any) {
+                  console.error('Error toggling hide dev tools in onboarding:', error);
+                  Alert.alert('Error', error.message || 'Failed to update');
+                }
+              }}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor={colors.surface}
+              ios_backgroundColor={colors.border}
+            />
+          </View>
           <TouchableOpacity
             style={styles.devButton}
             onPress={handleResetToday}
@@ -751,7 +773,6 @@ export default function SettingsScreen({ navigation }: any) {
               try {
                 resetOnboardingContext();
                 await resetOnboarding();
-                Alert.alert('Reset Complete', 'Onboarding reset. You will return to the beginning.');
               } catch (error: any) {
                 Alert.alert('Error', error.message || 'Failed to reset onboarding');
               }

@@ -377,15 +377,15 @@ export async function scheduleWeeklyPhotoReminder(userId: string): Promise<void>
       return;
     }
     
-    // Map day name to weekday number (Sunday = 0, Monday = 1, etc.)
+    // Map day name to weekday number (expo-notifications expects 1-7: 1 = Sunday, 7 = Saturday)
     const dayMap: { [key: string]: number } = {
-      'sunday': 0,
-      'monday': 1,
-      'tuesday': 2,
-      'wednesday': 3,
-      'thursday': 4,
-      'friday': 5,
-      'saturday': 6,
+      'sunday': 1,
+      'monday': 2,
+      'tuesday': 3,
+      'wednesday': 4,
+      'thursday': 5,
+      'friday': 6,
+      'saturday': 7,
     };
     
     const weekday = dayMap[photoDay.toLowerCase()];
@@ -394,7 +394,6 @@ export async function scheduleWeeklyPhotoReminder(userId: string): Promise<void>
     }
     
     // Schedule weekly notification (10 AM on the photo day)
-    // Use WEEKLY trigger which repeats every week on that day
     await Notifications.scheduleNotificationAsync({
       identifier: 'weekly-photo',
       content: {
@@ -786,15 +785,15 @@ export async function scheduleHardestDayNotification(userId: string): Promise<vo
       return;
     }
 
-    // Map day name to weekday number (Sunday = 0, Monday = 1, etc.)
+    // Map day name to weekday number (expo-notifications expects 1-7: 1 = Sunday, 7 = Saturday)
     const dayMap: { [key: string]: number } = {
-      'sunday': 0,
-      'monday': 1,
-      'tuesday': 2,
-      'wednesday': 3,
-      'thursday': 4,
-      'friday': 5,
-      'saturday': 6,
+      'sunday': 1,
+      'monday': 2,
+      'tuesday': 3,
+      'wednesday': 4,
+      'thursday': 5,
+      'friday': 6,
+      'saturday': 7,
     };
     
     const weekday = dayMap[insights.hardestDay.day.toLowerCase()];

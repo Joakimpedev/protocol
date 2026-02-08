@@ -86,8 +86,6 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   heading: {
     fontFamily: MONOSPACE_FONT,

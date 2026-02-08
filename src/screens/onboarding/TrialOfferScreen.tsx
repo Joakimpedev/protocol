@@ -53,7 +53,7 @@ export default function TrialOfferScreen({ navigation }: any) {
   useOnboardingTracking(ONBOARDING_SCREENS.TRIAL_OFFER);
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const [trialPriceLabel, setTrialPriceLabel] = useState<string>('0'); // formatted "0" in user currency once loaded
+  const [trialPriceLabel, setTrialPriceLabel] = useState<string>('$0.00 USD'); // placeholder until RevenueCat loads; then formatted in user currency
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -144,8 +144,6 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   badgeWrapper: {
     position: 'relative',

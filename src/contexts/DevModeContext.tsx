@@ -14,17 +14,21 @@ import {
   setForceOnboarding as setForceOnboardingStorage,
   getForceShowApp,
   setForceShowApp as setForceShowAppStorage,
+  getHideDevToolsInOnboarding,
+  setHideDevToolsInOnboarding as setHideDevToolsInOnboardingStorage,
 } from '../services/devModeService';
 
 interface DevModeContextType {
   isDevModeEnabled: boolean;
   isDebugInfoEnabled: boolean;
+  hideDevToolsInOnboarding: boolean;
   forceShowOnboarding: boolean;
   forceShowApp: boolean;
   isLoading: boolean;
   enableDevMode: () => Promise<void>;
   disableDevMode: () => Promise<void>;
   setDebugInfoEnabled: (enabled: boolean) => Promise<void>;
+  setHideDevToolsInOnboarding: (enabled: boolean) => Promise<void>;
   resetOnboarding: () => Promise<void>;
   goToHomepage: () => Promise<void>;
   clearForceFlags: () => Promise<void>;
@@ -35,6 +39,7 @@ const DevModeContext = createContext<DevModeContextType | undefined>(undefined);
 export function DevModeProvider({ children }: { children: ReactNode }) {
   const [isDevModeEnabled, setIsDevModeEnabled] = useState(false);
   const [isDebugInfoEnabled, setIsDebugInfoEnabled] = useState(false);
+  const [hideDevToolsInOnboarding, setHideDevToolsInOnboardingState] = useState(false);
   const [forceShowOnboarding, setForceShowOnboarding] = useState(false);
   const [forceShowApp, setForceShowApp] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,14 +50,16 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
 
   const loadDevMode = async () => {
     try {
-      const [devMode, debugInfo, forceOnboard, forceApp] = await Promise.all([
+      const [devMode, debugInfo, hideInOnboarding, forceOnboard, forceApp] = await Promise.all([
         getDevMode(),
         getDebugInfoEnabled(),
+        getHideDevToolsInOnboarding(),
         getForceOnboarding(),
         getForceShowApp(),
       ]);
       setIsDevModeEnabled(devMode);
       setIsDebugInfoEnabled(debugInfo);
+      setHideDevToolsInOnboardingState(hideInOnboarding);
       setForceShowOnboarding(forceOnboard);
       setForceShowApp(forceApp);
     } catch (error) {
@@ -98,6 +105,16 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleSetHideDevToolsInOnboarding = async (enabled: boolean) => {
+    try {
+      await setHideDevToolsInOnboardingStorage(enabled);
+      setHideDevToolsInOnboardingState(enabled);
+    } catch (error) {
+      console.error('Error setting hide dev tools in onboarding:', error);
+      throw error;
+    }
+  };
+
   const resetOnboarding = async () => {
     try {
       await setForceOnboardingStorage(true);
@@ -138,12 +155,14 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
       value={{
         isDevModeEnabled,
         isDebugInfoEnabled,
+        hideDevToolsInOnboarding,
         forceShowOnboarding,
         forceShowApp,
         isLoading,
         enableDevMode,
         disableDevMode,
         setDebugInfoEnabled: handleSetDebugInfoEnabled,
+        setHideDevToolsInOnboarding: handleSetHideDevToolsInOnboarding,
         resetOnboarding,
         goToHomepage,
         clearForceFlags,

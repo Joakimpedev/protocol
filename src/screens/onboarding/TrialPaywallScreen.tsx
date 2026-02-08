@@ -13,6 +13,7 @@ import LegalModal from '../../components/LegalModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useDevMode } from '../../contexts/DevModeContext';
 import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePremium } from '../../contexts/PremiumContext';
@@ -80,6 +81,7 @@ function getTrialSteps(problems: string[]) {
 export default function TrialPaywallScreen({ navigation }: any) {
   useOnboardingTracking(ONBOARDING_SCREENS.TRIAL_PAYWALL);
   const posthog = usePostHog();
+  const { isDevModeEnabled, clearForceFlags } = useDevMode();
   const { data, setOnboardingComplete } = useOnboarding();
   const { user, signInAnonymous } = useAuth();
   const { refreshSubscriptionStatus } = usePremium();
@@ -129,13 +131,6 @@ export default function TrialPaywallScreen({ navigation }: any) {
 
   const handleTryForFree = async () => {
     if (finishing) return;
-    if (!yearlyPackage) {
-      Alert.alert(
-        'Not Ready',
-        'Subscription options are still loading. Please try again in a moment.'
-      );
-      return;
-    }
     setFinishing(true);
     try {
       let uid = user?.uid;
@@ -168,6 +163,25 @@ export default function TrialPaywallScreen({ navigation }: any) {
         await updateDoc(userRef, routinePayload);
       } else {
         await setDoc(userRef, routinePayload);
+      }
+
+      if (isDevModeEnabled) {
+        const { initializeUserNotifications } = require('../../services/notificationService');
+        await initializeUserNotifications(uid!);
+        await clearOnboardingProgress();
+        await clearForceFlags();
+        setOnboardingComplete(true);
+        setFinishing(false);
+        return;
+      }
+
+      if (!yearlyPackage) {
+        Alert.alert(
+          'Not Ready',
+          'Subscription options are still loading. Please try again in a moment.'
+        );
+        setFinishing(false);
+        return;
       }
 
       const result = await purchasePackage(yearlyPackage);
@@ -383,8 +397,6 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   ctaButton: {
     backgroundColor: colors.accent,

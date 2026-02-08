@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
+import * as StoreReview from 'expo-store-review';
 import { AnimatedButton } from '../../components/AnimatedButton';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
@@ -59,7 +60,17 @@ export default function ReassuranceBeforeShoppingScreen({ navigation }: any) {
   console.log('[ReassuranceBeforeShopping] isOnlyJawline:', isOnlyJawline);
   console.log('[ReassuranceBeforeShopping] needsProducts:', needsProducts);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // Request in-app review after reassurance moment
+    try {
+      if (await StoreReview.isAvailableAsync()) {
+        await StoreReview.requestReview();
+      }
+    } catch (error) {
+      console.log('[ReassuranceBeforeShopping] Review request failed:', error);
+    }
+
+    // Continue with navigation
     if (needsProducts) {
       console.log('[ReassuranceBeforeShopping] Navigating to ProductsPrimer');
       navigation.navigate('ProductsPrimer');
@@ -154,8 +165,6 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   button: {
     backgroundColor: colors.surface,

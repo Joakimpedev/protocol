@@ -627,8 +627,6 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   button: {
     backgroundColor: colors.surface,

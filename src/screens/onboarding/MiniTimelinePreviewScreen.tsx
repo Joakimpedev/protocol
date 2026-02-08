@@ -307,11 +307,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 26,
+    paddingTop: spacing.lg,
   },
   bottomSection: {
     paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   button: {
     backgroundColor: colors.accent,

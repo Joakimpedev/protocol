@@ -801,8 +801,6 @@ export default function PlanScreen({ navigation }: any) {
     },
     footer: {
       padding: spacing.lg,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
     },
     startButton: {
       backgroundColor: colors.surface,

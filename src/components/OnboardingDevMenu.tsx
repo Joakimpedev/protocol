@@ -20,11 +20,13 @@ import { useOnboarding } from '../contexts/OnboardingContext';
  */
 export function OnboardingDevMenu() {
   const navigation = useNavigation<any>();
-  const { isDevModeEnabled } = useDevMode();
+  const { isDevModeEnabled, hideDevToolsInOnboarding } = useDevMode();
   const { reset } = useOnboarding();
   const [menuVisible, setMenuVisible] = useState(false);
 
   const canGoBack = navigation.canGoBack();
+
+  if (!isDevModeEnabled || hideDevToolsInOnboarding) return null;
 
   const goPrevious = () => {
     setMenuVisible(false);
@@ -48,8 +50,6 @@ export function OnboardingDevMenu() {
       navigation.navigate('TrialOffer');
     }
   };
-
-  if (!isDevModeEnabled) return null;
 
   return (
     <>

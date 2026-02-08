@@ -10,6 +10,7 @@ const DEV_MODE_KEY = '@protocol:devMode';
 const DEBUG_INFO_KEY = '@protocol:debugInfo';
 const FORCE_ONBOARDING_KEY = '@protocol:forceOnboarding';
 const FORCE_SHOW_APP_KEY = '@protocol:forceShowApp';
+const HIDE_DEV_TOOLS_IN_ONBOARDING_KEY = '@protocol:hideDevToolsInOnboarding';
 
 export async function getDevMode(): Promise<boolean> {
   try {
@@ -76,11 +77,32 @@ export async function getForceShowApp(): Promise<boolean> {
     console.error('Error getting force show app:', error);
     return false;
   }
-}export async function setForceShowApp(value: boolean): Promise<void> {
+}
+
+export async function setForceShowApp(value: boolean): Promise<void> {
   try {
     await AsyncStorage.setItem(FORCE_SHOW_APP_KEY, value ? 'true' : 'false');
   } catch (error) {
     console.error('Error setting force show app:', error);
+    throw error;
+  }
+}
+
+export async function getHideDevToolsInOnboarding(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(HIDE_DEV_TOOLS_IN_ONBOARDING_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error getting hide dev tools in onboarding:', error);
+    return false;
+  }
+}
+
+export async function setHideDevToolsInOnboarding(value: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(HIDE_DEV_TOOLS_IN_ONBOARDING_KEY, value ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error setting hide dev tools in onboarding:', error);
     throw error;
   }
 }
