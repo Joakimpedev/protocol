@@ -111,6 +111,7 @@ export default function TrialPaywallScreen({ navigation }: any) {
 
   // Referral system state
   const [referralModalVisible, setReferralModalVisible] = useState(false);
+  const [referralModalMode, setReferralModalMode] = useState<'share' | 'enter'>('share');
   const [userReferralCode, setUserReferralCode] = useState('');
   const [waitingForFriend, setWaitingForFriend] = useState(false);
   const [hasReferralCredit, setHasReferralCredit] = useState(false);
@@ -547,22 +548,37 @@ export default function TrialPaywallScreen({ navigation }: any) {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Invite Friend button / completed state */}
+        {/* Referral buttons - two touching buttons */}
         {hasReferralCredit ? (
           <View style={[styles.inviteButton, styles.inviteButtonCompleted]}>
             <Text style={styles.inviteButtonText}>Friend invite completed</Text>
             <Text style={styles.inviteButtonSubtext}>7-day trial unlocked</Text>
           </View>
         ) : (
-          <TouchableOpacity
-            style={styles.inviteButton}
-            onPress={() => setReferralModalVisible(true)}
-          >
-            <Text style={styles.inviteButtonText}>Invite 1 Friend</Text>
-            <Text style={styles.inviteButtonSubtext}>
-              Both get <Text style={styles.inviteButtonSubtextGreen}>7 days free</Text>
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.referralButtonsContainer}>
+            <TouchableOpacity
+              style={styles.inviteButtonLeft}
+              onPress={() => {
+                setReferralModalMode('share');
+                setReferralModalVisible(true);
+              }}
+            >
+              <Text style={styles.inviteButtonText}>Invite a Friend</Text>
+              <Text style={styles.inviteButtonSubtext}>
+                Both get <Text style={styles.inviteButtonSubtextGreen}>7 days free</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.gotCodeButton}
+              onPress={() => {
+                setReferralModalMode('enter');
+                setReferralModalVisible(true);
+              }}
+            >
+              <Text style={styles.gotCodeButtonText}>Got a code?</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         <View style={styles.footerLinks}>
@@ -594,6 +610,7 @@ export default function TrialPaywallScreen({ navigation }: any) {
         onCheckStatus={handleCheckStatus}
         waitingForFriend={waitingForFriend}
         hasUsedCode={hasUsedReferralCode}
+        initialMode={referralModalMode}
       />
     </View>
   );
@@ -744,6 +761,37 @@ const styles = StyleSheet.create({
   inviteButtonSubtextGreen: {
     color: colors.accent,
     fontWeight: '600',
+  },
+  referralButtonsContainer: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  inviteButtonLeft: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1.5,
+    borderRightColor: colors.accent,
+  },
+  gotCodeButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gotCodeButtonText: {
+    ...typography.body,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
   },
   creditBadge: {
     backgroundColor: colors.surface,

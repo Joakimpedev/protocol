@@ -7,7 +7,7 @@
  * - "Check Status" button to see if eligible for free trial
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ interface ReferralModalProps {
   onCheckStatus: () => Promise<{ eligible: boolean; message: string }>;
   waitingForFriend?: boolean;
   hasUsedCode?: boolean;
+  initialMode?: 'share' | 'enter';
 }
 
 export default function ReferralModal({
@@ -41,11 +42,19 @@ export default function ReferralModal({
   onCheckStatus,
   waitingForFriend = false,
   hasUsedCode = false,
+  initialMode = 'share',
 }: ReferralModalProps) {
-  const [viewMode, setViewMode] = useState<'share' | 'enter'>('share');
+  const [viewMode, setViewMode] = useState<'share' | 'enter'>(initialMode);
   const [inputCode, setInputCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  // Sync viewMode with initialMode when modal opens
+  useEffect(() => {
+    if (visible) {
+      setViewMode(initialMode);
+    }
+  }, [visible, initialMode]);
 
   const handleShare = async () => {
     try {
@@ -139,21 +148,9 @@ export default function ReferralModal({
               <View style={styles.handle} />
             </View>
 
-          {/* Action buttons row */}
-          <View style={styles.actionRow}>
-            {/* Left button: Toggle between "Got a code?" and "Share code" */}
-            <TouchableOpacity
-              style={[styles.actionButton, hasUsedCode && styles.actionButtonDisabled]}
-              onPress={toggleViewMode}
-              disabled={hasUsedCode}
-            >
-              <Text style={styles.actionButtonText}>
-                {viewMode === 'share' ? 'Got a code?' : 'Share code with friend'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Right button: Check Status (only in share mode) */}
-            {viewMode === 'share' && (
+          {/* Action buttons row - only show Check Status in share mode */}
+          {viewMode === 'share' && (
+            <View style={styles.actionRow}>
               <TouchableOpacity
                 style={[styles.actionButton, checking && styles.actionButtonDisabled]}
                 onPress={handleCheckStatus}
@@ -163,8 +160,8 @@ export default function ReferralModal({
                   {checking ? 'Checking...' : 'Check Status'}
                 </Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* Already used badge */}
           {hasUsedCode && (
