@@ -19,7 +19,8 @@
       "bundleIdentifier": "com.protocol.galdr",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserTrackingUsageDescription": "We use tracking to measure ad performance and provide you with a better experience."
       }
     },
     "android": {

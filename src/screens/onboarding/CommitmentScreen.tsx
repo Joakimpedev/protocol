@@ -95,9 +95,9 @@ export default function CommitmentScreen({ navigation }: any) {
     // is inside the stack that lives under the "OnboardingFlow" screen).
     const parent = navigation.getParent();
     if (parent) {
-      parent.navigate('OnboardingFlow', { screen: 'TrialOffer' });
+      parent.navigate('OnboardingFlow', { screen: 'TrialPaywall' });
     } else {
-      navigation.push('TrialOffer');
+      navigation.push('TrialPaywall');
     }
   };
 

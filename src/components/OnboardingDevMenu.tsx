@@ -20,7 +20,7 @@ import { useOnboarding } from '../contexts/OnboardingContext';
  */
 export function OnboardingDevMenu() {
   const navigation = useNavigation<any>();
-  const { isDevModeEnabled, hideDevToolsInOnboarding } = useDevMode();
+  const { isDevModeEnabled, hideDevToolsInOnboarding, simulateFriendUsedReferral, setSimulateFriendUsedReferral } = useDevMode();
   const { reset } = useOnboarding();
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -45,10 +45,14 @@ export function OnboardingDevMenu() {
     setMenuVisible(false);
     const parent = navigation.getParent();
     if (parent) {
-      parent.navigate('OnboardingFlow', { screen: 'TrialOffer' });
+      parent.navigate('OnboardingFlow', { screen: 'TrialPaywall' });
     } else {
-      navigation.navigate('TrialOffer');
+      navigation.navigate('TrialPaywall');
     }
+  };
+
+  const toggleSimulateFriendUsedReferral = () => {
+    setSimulateFriendUsedReferral(!simulateFriendUsedReferral);
   };
 
   return (
@@ -86,6 +90,11 @@ export function OnboardingDevMenu() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={goToPaywallStart}>
               <Text style={styles.menuItemText}>Go to start of paywall</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={toggleSimulateFriendUsedReferral}>
+              <Text style={styles.menuItemText}>
+                Simulate friend used my code: {simulateFriendUsedReferral ? 'ON' : 'OFF'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItemCancel} onPress={() => setMenuVisible(false)}>
               <Text style={styles.menuItemTextCancel}>Cancel</Text>

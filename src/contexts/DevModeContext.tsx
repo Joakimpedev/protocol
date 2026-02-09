@@ -16,6 +16,8 @@ import {
   setForceShowApp as setForceShowAppStorage,
   getHideDevToolsInOnboarding,
   setHideDevToolsInOnboarding as setHideDevToolsInOnboardingStorage,
+  getSimulateFriendUsedReferral,
+  setSimulateFriendUsedReferral as setSimulateFriendUsedReferralStorage,
 } from '../services/devModeService';
 
 interface DevModeContextType {
@@ -24,11 +26,13 @@ interface DevModeContextType {
   hideDevToolsInOnboarding: boolean;
   forceShowOnboarding: boolean;
   forceShowApp: boolean;
+  simulateFriendUsedReferral: boolean;
   isLoading: boolean;
   enableDevMode: () => Promise<void>;
   disableDevMode: () => Promise<void>;
   setDebugInfoEnabled: (enabled: boolean) => Promise<void>;
   setHideDevToolsInOnboarding: (enabled: boolean) => Promise<void>;
+  setSimulateFriendUsedReferral: (enabled: boolean) => Promise<void>;
   resetOnboarding: () => Promise<void>;
   goToHomepage: () => Promise<void>;
   clearForceFlags: () => Promise<void>;
@@ -42,6 +46,7 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
   const [hideDevToolsInOnboarding, setHideDevToolsInOnboardingState] = useState(false);
   const [forceShowOnboarding, setForceShowOnboarding] = useState(false);
   const [forceShowApp, setForceShowApp] = useState(false);
+  const [simulateFriendUsedReferral, setSimulateFriendUsedReferralState] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -50,18 +55,20 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
 
   const loadDevMode = async () => {
     try {
-      const [devMode, debugInfo, hideInOnboarding, forceOnboard, forceApp] = await Promise.all([
+      const [devMode, debugInfo, hideInOnboarding, forceOnboard, forceApp, simulateReferral] = await Promise.all([
         getDevMode(),
         getDebugInfoEnabled(),
         getHideDevToolsInOnboarding(),
         getForceOnboarding(),
         getForceShowApp(),
+        getSimulateFriendUsedReferral(),
       ]);
       setIsDevModeEnabled(devMode);
       setIsDebugInfoEnabled(debugInfo);
       setHideDevToolsInOnboardingState(hideInOnboarding);
       setForceShowOnboarding(forceOnboard);
       setForceShowApp(forceApp);
+      setSimulateFriendUsedReferralState(simulateReferral);
     } catch (error) {
       console.error('Error loading dev mode:', error);
     } finally {
@@ -115,6 +122,16 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleSetSimulateFriendUsedReferral = async (enabled: boolean) => {
+    try {
+      await setSimulateFriendUsedReferralStorage(enabled);
+      setSimulateFriendUsedReferralState(enabled);
+    } catch (error) {
+      console.error('Error setting simulate friend used referral:', error);
+      throw error;
+    }
+  };
+
   const resetOnboarding = async () => {
     try {
       await setForceOnboardingStorage(true);
@@ -151,18 +168,20 @@ export function DevModeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DevModeContext.Provider
+    <    DevModeContext.Provider
       value={{
         isDevModeEnabled,
         isDebugInfoEnabled,
         hideDevToolsInOnboarding,
         forceShowOnboarding,
         forceShowApp,
+        simulateFriendUsedReferral,
         isLoading,
         enableDevMode,
         disableDevMode,
         setDebugInfoEnabled: handleSetDebugInfoEnabled,
         setHideDevToolsInOnboarding: handleSetHideDevToolsInOnboarding,
+        setSimulateFriendUsedReferral: handleSetSimulateFriendUsedReferral,
         resetOnboarding,
         goToHomepage,
         clearForceFlags,

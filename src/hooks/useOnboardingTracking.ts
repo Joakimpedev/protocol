@@ -12,7 +12,18 @@ import type { OnboardingData } from '../contexts/OnboardingContext';
 /** PostHog event names (use these when querying from a server). */
 export const POSTHOG_EVENTS = {
   ONBOARDING_SCREEN_VIEWED: 'protocol_onboarding_screen_viewed',
-  TRIAL_STARTED: 'protocol_trial_started',
+  /** Fired when user completes weekly purchase without referral (paid trial, no 7-day free). */
+  WEEKLY_PURCHASE: 'protocol_weekly_purchase',
+  /** Fired when user starts 7-day free trial via referral. Use property referral_source to distinguish. */
+  FREE_TRIAL_STARTED: 'protocol_free_trial_started',
+} as const;
+
+/** For FREE_TRIAL_STARTED: how they got the free trial. */
+export const REFERRAL_SOURCE = {
+  /** User entered a friend's code (they were referred). */
+  ENTERED_FRIEND_CODE: 'entered_friend_code',
+  /** Someone used this user's code and started trial (referrer side). */
+  FRIEND_USED_MY_CODE: 'friend_used_my_code',
 } as const;
 
 /** Screen IDs for the `screen` property (snake_case). */

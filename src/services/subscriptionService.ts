@@ -25,6 +25,8 @@ const REVENUECAT_API_KEY = Platform.select({
 export const PRODUCT_IDS = {
   MONTHLY: 'com.protocol.galdr.monthly',
   ANNUAL: 'com.protocol.galdr.yearly',
+  WEEKLY: 'protocol_weekly',
+  WEEKLY_TRIAL: 'protocol_weekly_trial',
 };
 
 export interface SubscriptionStatus {
@@ -150,6 +152,33 @@ export function getAnnualPackageFromOffering(offering: PurchasesOffering | null)
       pkg.identifier.toLowerCase().includes('annual') ||
       pkg.identifier.toLowerCase().includes('yearly')
   ) ?? null;
+}
+
+/**
+ * Get weekly package based on whether user has referral credit
+ * @param withTrial - true if user should get trial (via referral), false for immediate payment
+ */
+export function getWeeklyPackageFromOffering(
+  offering: PurchasesOffering | null,
+  withTrial: boolean
+): PurchasesPackage | null {
+  if (!offering?.availablePackages?.length) return null;
+
+  // Search by package identifier (not product ID)
+  const targetPackageId = withTrial ? 'weekly_trial' : '$rc_weekly';
+
+  // Find package by identifier
+  const pkg = offering.availablePackages.find(
+    (p) => p.identifier === targetPackageId
+  );
+
+  if (pkg) {
+    console.log(`[RevenueCat] Found ${withTrial ? 'trial' : 'no-trial'} weekly package:`, pkg.identifier, '→', pkg.product.identifier);
+    return pkg;
+  }
+
+  console.warn(`[RevenueCat] Could not find weekly package with identifier: ${targetPackageId}`);
+  return null;
 }
 
 /**

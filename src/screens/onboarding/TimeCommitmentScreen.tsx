@@ -6,6 +6,7 @@ import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useDevMode } from '../../contexts/DevModeContext';
 import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
 import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
+import { requestTrackingPermission } from '../../services/tiktok';
 
 const DIVIDER = '━━━━━━━━━━━━━━━━━━━━━━━━';
 
@@ -21,9 +22,17 @@ export default function TimeCommitmentScreen({ navigation }: any) {
   const { isDevModeEnabled } = useDevMode();
   const [selected, setSelected] = useState<string | null>(data.timeCommitment ?? null);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selected) return;
     updateData({ timeCommitment: selected });
+
+    // Request ATT permission for TikTok tracking (iOS only, non-blocking)
+    try {
+      await requestTrackingPermission();
+    } catch (error) {
+      console.warn('[TimeCommitment] ATT request failed (non-critical):', error);
+    }
+
     navigation.navigate('MiniTimelinePreview');
   };
 

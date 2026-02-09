@@ -9,9 +9,10 @@ All event names use the **`protocol_`** prefix. Use the exact strings below when
 | Event name (exact string) | When it fires |
 |---------------------------|---------------|
 | `protocol_onboarding_screen_viewed` | User lands on any onboarding screen (fires on focus for each of the 23 screens). |
-| `protocol_trial_started` | User completes trial purchase on the TrialPaywall screen. |
+| `protocol_weekly_purchase` | User completes **weekly** purchase on the TrialPaywall **without** using the 7-day free trial (no referral). They pay from the start. |
+| `protocol_free_trial_started` | User starts the **7-day free trial** via referral. Fires when they complete the flow and had referral credit (either they entered a friend’s code, or someone used their code and started trial). Use property `referral_source` to distinguish. |
 
-**Trial converted** is not sent from the app; use RevenueCat → PostHog for that.
+**Trial converted** (renewal/cancel) is not sent from the app; use RevenueCat → PostHog for that.
 
 ---
 
@@ -28,7 +29,7 @@ Use these exact property names when reading events from the API or building quer
 | `skin_type` | string | No (omitted if not set) | One of: `oily`, `dry`, `combination`, `normal`. |
 | `impacts` | string[] | No (omitted if empty) | Impact option IDs they selected. |
 
-### For `protocol_trial_started`
+### For `protocol_weekly_purchase`
 
 | Property name (exact) | Type | Always present? | Description |
 |------------------------|------|------------------|-------------|
@@ -36,7 +37,18 @@ Use these exact property names when reading events from the API or building quer
 | `skin_type` | string | No (omitted if not set) | Same as above. |
 | `impacts` | string[] | No (omitted if empty) | Same as above. |
 
-(No `screen` property on `protocol_trial_started`.)
+(No `screen` property on `protocol_weekly_purchase`.)
+
+### For `protocol_free_trial_started`
+
+| Property name (exact) | Type | Always present? | Description |
+|------------------------|------|------------------|-------------|
+| `referral_source` | string | **Yes** | How they got the free trial. One of: `entered_friend_code` (user entered a friend’s referral code), `friend_used_my_code` (someone used this user’s code and started trial). |
+| `selected_problems` | string[] | No (omitted if empty) | Same as above. |
+| `skin_type` | string | No (omitted if not set) | Same as above. |
+| `impacts` | string[] | No (omitted if empty) | Same as above. |
+
+(No `screen` property on `protocol_free_trial_started`.)
 
 ---
 
@@ -76,10 +88,12 @@ The `screen` property is always one of these exact strings:
 
 **Event names:**
 - `protocol_onboarding_screen_viewed`
-- `protocol_trial_started`
+- `protocol_weekly_purchase`
+- `protocol_free_trial_started`
 
 **Property names:**
 - `screen` (string; only on `protocol_onboarding_screen_viewed`)
+- `referral_source` (string; only on `protocol_free_trial_started`; values: `entered_friend_code`, `friend_used_my_code`)
 - `selected_problems` (string[])
 - `skin_type` (string)
 - `impacts` (string[])

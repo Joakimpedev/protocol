@@ -11,6 +11,7 @@ const DEBUG_INFO_KEY = '@protocol:debugInfo';
 const FORCE_ONBOARDING_KEY = '@protocol:forceOnboarding';
 const FORCE_SHOW_APP_KEY = '@protocol:forceShowApp';
 const HIDE_DEV_TOOLS_IN_ONBOARDING_KEY = '@protocol:hideDevToolsInOnboarding';
+const SIMULATE_FRIEND_USED_REFERRAL_KEY = '@protocol:simulateFriendUsedReferral';
 
 export async function getDevMode(): Promise<boolean> {
   try {
@@ -103,6 +104,25 @@ export async function setHideDevToolsInOnboarding(value: boolean): Promise<void>
     await AsyncStorage.setItem(HIDE_DEV_TOOLS_IN_ONBOARDING_KEY, value ? 'true' : 'false');
   } catch (error) {
     console.error('Error setting hide dev tools in onboarding:', error);
+    throw error;
+  }
+}
+
+export async function getSimulateFriendUsedReferral(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(SIMULATE_FRIEND_USED_REFERRAL_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error getting simulate friend used referral:', error);
+    return false;
+  }
+}
+
+export async function setSimulateFriendUsedReferral(value: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(SIMULATE_FRIEND_USED_REFERRAL_KEY, value ? 'true' : 'false');
+  } catch (error) {
+    console.error('Error setting simulate friend used referral:', error);
     throw error;
   }
 }
