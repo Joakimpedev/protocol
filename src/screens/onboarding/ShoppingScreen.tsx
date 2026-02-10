@@ -266,8 +266,7 @@ export default function ShoppingScreen({ navigation }: any) {
 
       if (isDevModeEnabled) await clearForceFlags();
 
-      const { initializeUserNotifications } = require('../../services/notificationService');
-      await initializeUserNotifications(user.uid);
+      // Notification initialization moved to first homescreen load (TodayScreen)
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to start routine');
       setLoading(false);

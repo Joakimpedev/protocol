@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
@@ -15,6 +16,8 @@ import {
 } from '../services/exerciseService';
 import { getUserPreferences } from '../services/userPreferencesService';
 import { useResponsive, useDeviceDebugInfo } from '../utils/responsive';
+
+const NOTIFICATIONS_REQUESTED_KEY = '@protocol_notifications_requested';
 
 // Adjust top padding here - increase this number to move content lower
 const TOP_PADDING = 120;
@@ -145,7 +148,19 @@ export default function TodayScreen({ navigation }: any) {
         setTodayScore(todayScoreValue);
         setExerciseCompletionCount(exerciseCount);
         setShowGlobalComparison(preferences.showGlobalComparison);
-        
+
+        // Request notifications on first homescreen load (after onboarding)
+        try {
+          const hasRequestedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_REQUESTED_KEY);
+          if (!hasRequestedNotifications) {
+            const { initializeUserNotifications } = require('../services/notificationService');
+            await initializeUserNotifications(user.uid);
+            await AsyncStorage.setItem(NOTIFICATIONS_REQUESTED_KEY, 'true');
+          }
+        } catch (error) {
+          console.error('Error initializing notifications:', error);
+        }
+
         // Check for re-engagement notifications
         const { checkAndSendReEngagement, checkAndRescheduleWeeklySummary } = require('../services/notificationService');
         checkAndSendReEngagement(user.uid).catch(console.error);

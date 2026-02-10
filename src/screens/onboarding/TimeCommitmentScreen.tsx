@@ -6,7 +6,7 @@ import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useDevMode } from '../../contexts/DevModeContext';
 import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
 import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
-import { requestTrackingPermission } from '../../services/tiktok';
+import { requestTrackingPermission, initTikTok } from '../../services/tiktok';
 
 const DIVIDER = '━━━━━━━━━━━━━━━━━━━━━━━━';
 
@@ -26,9 +26,14 @@ export default function TimeCommitmentScreen({ navigation }: any) {
     if (!selected) return;
     updateData({ timeCommitment: selected });
 
-    // Request ATT permission for TikTok tracking (iOS only, non-blocking)
+    // Request ATT permission FIRST, then initialize TikTok SDK if granted (iOS only, non-blocking)
     try {
-      await requestTrackingPermission();
+      const granted = await requestTrackingPermission();
+
+      // Initialize TikTok SDK only after ATT permission request
+      if (granted) {
+        await initTikTok();
+      }
     } catch (error) {
       console.warn('[TimeCommitment] ATT request failed (non-critical):', error);
     }

@@ -342,9 +342,7 @@ export default function PlanScreen({ navigation }: any) {
         posthog.capture('onboarding_completed');
       }
 
-      // Initialize notifications
-      const { initializeUserNotifications } = require('../services/notificationService');
-      await initializeUserNotifications(user.uid);
+      // Notification initialization moved to first homescreen load (TodayScreen)
 
       // RootNavigator listens to Firestore changes and will automatically
       // switch to AppNavigator when routineStarted becomes true

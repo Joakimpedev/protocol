@@ -356,8 +356,7 @@ export default function TrialPaywallScreen({ navigation }: any) {
       }
 
       if (isDevModeEnabled) {
-        const { initializeUserNotifications } = require('../../services/notificationService');
-        await initializeUserNotifications(uid!);
+        // Notification initialization moved to first homescreen load (TodayScreen)
         await clearOnboardingProgress();
         await clearForceFlags();
         setOnboardingComplete(true);
@@ -407,8 +406,7 @@ export default function TrialPaywallScreen({ navigation }: any) {
         }
 
         await refreshSubscriptionStatus();
-        const { initializeUserNotifications } = require('../../services/notificationService');
-        await initializeUserNotifications(uid!);
+        // Notification initialization moved to first homescreen load (TodayScreen)
         await clearOnboardingProgress();
         setOnboardingComplete(true);
       } else {
@@ -463,8 +461,7 @@ export default function TrialPaywallScreen({ navigation }: any) {
             await setDoc(userRef, routinePayload);
           }
           await refreshSubscriptionStatus();
-          const { initializeUserNotifications } = require('../../services/notificationService');
-          await initializeUserNotifications(uid!);
+          // Notification initialization moved to first homescreen load (TodayScreen)
           await clearOnboardingProgress();
           setOnboardingComplete(true);
         } else {

@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PostHogProvider, usePostHog } from 'posthog-react-native';
 import { posthogConfig } from './src/config/posthog';
 import { initializeRevenueCat } from './src/services/subscriptionService';
-import { initTikTok, trackEvent } from './src/services/tiktok';
+import { trackEvent } from './src/services/tiktok';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { OnboardingProvider } from './src/contexts/OnboardingContext';
 import { PremiumProvider } from './src/contexts/PremiumContext';
@@ -39,16 +39,7 @@ function AppContent() {
         }
       }
 
-      // Initialize TikTok SDK
-      try {
-        if (initTikTok && typeof initTikTok === "function") {
-          initTikTok().catch((error: any) => {
-            console.warn("[App] TikTok initialization failed (non-critical):", error?.message);
-          });
-        }
-      } catch (error) {
-        console.error("[App] Error initializing TikTok SDK:", error);
-      }
+      // TikTok SDK initialization moved to onboarding (after ATT permission request)
     };
 
     initAnalytics();
