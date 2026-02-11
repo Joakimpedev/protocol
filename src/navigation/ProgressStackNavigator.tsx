@@ -16,6 +16,9 @@ import FeedbackScreen from '../screens/FeedbackScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import FAQScreen from '../screens/FAQScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
+import MarketingBuilderScreen from '../screens/MarketingBuilderScreen';
+import MarketingDisplayScreen from '../screens/MarketingDisplayScreen';
+import MarketingDisplayAltScreen from '../screens/MarketingDisplayAltScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -179,13 +182,42 @@ export default function ProgressStackNavigator() {
           headerBackTitle: 'Progress',
         })}
       />
-      <Stack.Screen 
-        name="Feedback" 
+      <Stack.Screen
+        name="Feedback"
         component={FeedbackScreen}
         options={({ navigation }) => ({
           headerShown: false,
           presentation: 'modal',
         })}
+      />
+      <Stack.Screen
+        name="MarketingBuilder"
+        component={MarketingBuilderScreen}
+        options={({ navigation }) => ({
+          headerShown: true,
+          headerStyle: {
+            backgroundColor: colors.background,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          },
+          headerTintColor: colors.text,
+          headerTitle: '',
+          headerBackTitle: 'Progress',
+        })}
+      />
+      <Stack.Screen
+        name="MarketingDisplay"
+        component={MarketingDisplayScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="MarketingDisplayAlt"
+        component={MarketingDisplayAltScreen}
+        options={{
+          headerShown: false,
+        }}
       />
     </Stack.Navigator>
   );

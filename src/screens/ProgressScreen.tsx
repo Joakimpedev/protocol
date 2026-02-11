@@ -509,6 +509,12 @@ export default function ProgressScreen({ navigation }: any) {
           <TouchableOpacity style={styles.devToolButton} onPress={handleTestReviewPrompt}>
             <Text style={styles.devToolButtonText}>Test Review Prompt</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.devToolButton, styles.marketingButton]}
+            onPress={() => navigation.navigate('MarketingBuilder')}
+          >
+            <Text style={styles.devToolButtonText}>Marketing Builder</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -747,5 +753,9 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: '#000000',
     fontWeight: '600',
+  },
+  marketingButton: {
+    backgroundColor: colors.surfaceGreen,
+    borderColor: colors.borderGreen,
   },
 });
