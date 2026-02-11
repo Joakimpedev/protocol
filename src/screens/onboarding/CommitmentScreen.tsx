@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, ActivityIndicator } from 'react-native';
 import { AnimatedButton } from '../../components/AnimatedButton';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, MONOSPACE_FONT } from '../../constants/theme';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { OnboardingDevMenu } from '../../components/OnboardingDevMenu';
 import { useOnboardingTracking, ONBOARDING_SCREENS } from '../../hooks/useOnboardingTracking';
 
@@ -12,9 +13,11 @@ const HOLD_DURATION = 1500; // 1.5 seconds
 export default function CommitmentScreen({ navigation }: any) {
   useOnboardingTracking(ONBOARDING_SCREENS.COMMITMENT);
   const { primaryProblem, content, reset } = useOnboarding();
+  const { user, signInAnonymous } = useAuth();
   const [committed, setCommitted] = useState(false);
   const [isHolding, setIsHolding] = useState(false);
   const [buttonWidth, setButtonWidth] = useState(0);
+  const [continuing, setContinuing] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const holdProgress = useRef(new Animated.Value(0)).current;
@@ -90,14 +93,33 @@ export default function CommitmentScreen({ navigation }: any) {
     }).start();
   };
 
-  const handleContinue = () => {
-    // Use parent navigator so we target the nested onboarding stack (CommitmentScreen
-    // is inside the stack that lives under the "OnboardingFlow" screen).
-    const parent = navigation.getParent();
-    if (parent) {
-      parent.navigate('OnboardingFlow', { screen: 'TrialPaywall' });
-    } else {
-      navigation.push('TrialPaywall');
+  const handleContinue = async () => {
+    if (continuing) return;
+    setContinuing(true);
+    try {
+      // Create anonymous user BEFORE navigating to paywall. This prevents RootNavigator
+      // from unmounting OnboardingNavigator when user transitions null→user (which would
+      // kick the user back to Welcome).
+      if (!user?.uid) {
+        await signInAnonymous();
+      }
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.navigate('OnboardingFlow', { screen: 'TrialPaywall' });
+      } else {
+        navigation.push('TrialPaywall');
+      }
+    } catch (e) {
+      console.warn('[Commitment] Failed to sign in before paywall:', e);
+      // Still try to navigate
+      const parent = navigation.getParent();
+      if (parent) {
+        parent.navigate('OnboardingFlow', { screen: 'TrialPaywall' });
+      } else {
+        navigation.push('TrialPaywall');
+      }
+    } finally {
+      setContinuing(false);
     }
   };
 
@@ -152,8 +174,12 @@ export default function CommitmentScreen({ navigation }: any) {
 
           {committed && (
             <Animated.View style={{ opacity: fadeAnim }}>
-              <AnimatedButton style={styles.continueButton} onPress={handleContinue}>
-                <Text style={styles.continueButtonText}>Continue</Text>
+              <AnimatedButton style={styles.continueButton} onPress={handleContinue} disabled={continuing}>
+                {continuing ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Text style={styles.continueButtonText}>Continue</Text>
+                )}
               </AnimatedButton>
             </Animated.View>
           )}

@@ -327,36 +327,33 @@ export default function TrialPaywallScreen({ navigation }: any) {
       const photoDay = signupDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       const { ingredientSelections, exerciseSelections } = buildRoutineFromOnboarding(data);
       const userRef = doc(db, 'users', uid!);
-      const existing = await getDoc(userRef);
 
-      // Check if user entered a referral code
+      // Check if user entered a referral code (needed for routinePayload)
       const userDoc = await getDoc(userRef);
       const hasReferredBy = userDoc.exists() && userDoc.data().referredBy;
 
-      const routinePayload = {
-        concerns: data.selectedCategories || data.selectedProblems || [],
-        routineStarted: true,
-        routineStartDate: signupDate.toISOString(),
-        ingredientSelections,
-        exerciseSelections,
-        signupDate: signupDate.toISOString(),
-        photoDay,
-        createdAt: signupDate.toISOString(),
-        ...(data.skinType && { skinType: data.skinType }),
-        ...(data.budget && { budget: data.budget }),
-        ...(data.timeCommitment && { timeAvailability: data.timeCommitment }),
-        // Mark that they've used a referral code (if applicable)
-        ...(hasReferredBy && { hasUsedReferralCode: true }),
-      };
-
-      if (existing.exists()) {
-        await updateDoc(userRef, routinePayload);
-      } else {
-        await setDoc(userRef, routinePayload);
-      }
-
       if (isDevModeEnabled) {
-        // Notification initialization moved to first homescreen load (TodayScreen)
+        // Dev mode: write routine and complete without purchase
+        const existing = await getDoc(userRef);
+        const routinePayload = {
+          concerns: data.selectedCategories || data.selectedProblems || [],
+          routineStarted: true,
+          routineStartDate: signupDate.toISOString(),
+          ingredientSelections,
+          exerciseSelections,
+          signupDate: signupDate.toISOString(),
+          photoDay,
+          createdAt: signupDate.toISOString(),
+          ...(data.skinType && { skinType: data.skinType }),
+          ...(data.budget && { budget: data.budget }),
+          ...(data.timeCommitment && { timeAvailability: data.timeCommitment }),
+          ...(hasReferredBy && { hasUsedReferralCode: true }),
+        };
+        if (existing.exists()) {
+          await updateDoc(userRef, routinePayload);
+        } else {
+          await setDoc(userRef, routinePayload);
+        }
         await clearOnboardingProgress();
         await clearForceFlags();
         setOnboardingComplete(true);
@@ -375,6 +372,27 @@ export default function TrialPaywallScreen({ navigation }: any) {
 
       const result = await purchasePackage(weeklyPackage);
       if (result.success) {
+        // Only write routine to Firestore AFTER purchase is confirmed
+        const existing = await getDoc(userRef);
+        const routinePayload = {
+          concerns: data.selectedCategories || data.selectedProblems || [],
+          routineStarted: true,
+          routineStartDate: signupDate.toISOString(),
+          ingredientSelections,
+          exerciseSelections,
+          signupDate: signupDate.toISOString(),
+          photoDay,
+          createdAt: signupDate.toISOString(),
+          ...(data.skinType && { skinType: data.skinType }),
+          ...(data.budget && { budget: data.budget }),
+          ...(data.timeCommitment && { timeAvailability: data.timeCommitment }),
+          ...(hasReferredBy && { hasUsedReferralCode: true }),
+        };
+        if (existing.exists()) {
+          await updateDoc(userRef, routinePayload);
+        } else {
+          await setDoc(userRef, routinePayload);
+        }
         if (posthog) {
           const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
           if (hadReferralCredit) {

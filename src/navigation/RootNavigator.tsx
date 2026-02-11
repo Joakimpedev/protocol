@@ -27,7 +27,9 @@ export default function RootNavigator() {
   const responseListener = useRef<any>(null);
   const prevShowOnboardingRef = useRef<boolean | null>(null);
 
-  const isReady = !loading && !(user && checkingRoutine);
+  // When we were already showing onboarding and user changes (e.g. anonymous sign-in),
+  // keep isReady=true to avoid unmounting OnboardingNavigator (prevents kickback to Welcome)
+  const isReady = !loading && (!(user && checkingRoutine) || prevShowOnboardingRef.current === true);
   const showOnboarding = isReady
     ? (forceShowOnboarding ? true : forceShowApp ? false : onboardingComplete ? false : !user || (user && !hasRoutine))
     : null;
