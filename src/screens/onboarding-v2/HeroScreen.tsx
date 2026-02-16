@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
+import { initTikTok } from '../../services/tiktok';
 import GradientButton from '../../components/v2/GradientButton';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useOnboardingTracking } from '../../hooks/useOnboardingTracking';
@@ -27,12 +28,19 @@ export default function HeroScreen({ navigation }: any) {
   const [videoReady, setVideoReady] = useState(false);
   const videoFade = useRef(new Animated.Value(0)).current;
 
-  // Request ATT early on mount (iOS only)
+  // Request ATT early on mount, then initialize TikTok SDK (iOS only)
   useEffect(() => {
     if (Platform.OS === 'ios') {
-      requestTrackingPermissionsAsync().catch((err) =>
-        console.warn('[HeroScreen] ATT request error:', err)
-      );
+      (async () => {
+        try {
+          const { status } = await requestTrackingPermissionsAsync();
+          console.log('[HeroScreen] ATT status:', status);
+          // Initialize TikTok SDK after ATT so it can capture IDFA if granted
+          await initTikTok();
+        } catch (err) {
+          console.warn('[HeroScreen] ATT/TikTok init error:', err);
+        }
+      })();
     }
   }, []);
 

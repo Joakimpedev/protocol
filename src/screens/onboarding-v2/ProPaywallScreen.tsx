@@ -24,6 +24,7 @@ import { usePremium } from '../../contexts/PremiumContext';
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { clearOnboardingProgress } from '../../utils/onboardingStorage';
+import { formatPrice } from '../../utils/priceUtils';
 import {
   getOfferings,
   getWeeklyPackageFromOffering,
@@ -35,7 +36,7 @@ import {
 import { PurchasesPackage } from 'react-native-purchases';
 import { buildOnboardingProperties, POSTHOG_EVENTS, useOnboardingTracking } from '../../hooks/useOnboardingTracking';
 import { usePostHog } from 'posthog-react-native';
-import { trackTrialStarted as trackTikTokTrialStarted } from '../../services/tiktok';
+import { trackTrialStarted as trackTikTokTrialStarted, trackWeeklyPurchase as trackTikTokWeeklyPurchase, identifyUser as identifyTikTokUser, trackCompleteRegistration as trackTikTokRegistration } from '../../services/tiktok';
 import { markFriendStartedTrial } from '../../services/referralService';
 import { buildRoutineFromOnboarding } from '../../utils/buildRoutineFromOnboarding';
 import { useDevMode } from '../../contexts/DevModeContext';
@@ -503,7 +504,16 @@ export default function ProPaywallScreen({ navigation, route }: any) {
           const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
           posthog.capture(selectedPlan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: selectedPlan });
         }
-        try { await trackTikTokTrialStarted(); } catch {}
+        // TikTok: identify user, track correct event per plan, send value
+        try { await identifyTikTokUser(uid!); } catch {}
+        try { await trackTikTokRegistration('apple', uid); } catch {}
+        const price = pkg.product?.price;
+        const currency = pkg.product?.currencyCode;
+        if (selectedPlan === 'weekly') {
+          try { await trackTikTokWeeklyPurchase(price, currency); } catch {}
+        } else {
+          try { await trackTikTokTrialStarted(price, currency); } catch {}
+        }
         try { await markFriendStartedTrial(uid!); } catch {}
         await refreshSubscriptionStatus(); await clearOnboardingProgress();
         navigation.navigate('V2FaceRating');
@@ -625,8 +635,8 @@ export default function ProPaywallScreen({ navigation, route }: any) {
               <View style={styles.pricingPriceCol}>
                 <Text style={styles.pricingAmountHighlight}>
                   {/* Calculate approximate weekly from annual */}
-                  {annualPackage?.product?.price
-                    ? `$${(annualPackage.product.price / 52).toFixed(2)}`
+                  {annualPackage?.product?.price && annualPackage?.product?.currencyCode
+                    ? formatPrice(annualPackage.product.price / 52, annualPackage.product.currencyCode)
                     : '$0.58'}
                 </Text>
                 <Text style={styles.pricingPeriod}>per week</Text>

@@ -19,6 +19,7 @@ import GradientButton from '../../components/v2/GradientButton';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useAuth } from '../../contexts/AuthContext';
 import { joinRoom } from '../../services/referralService';
+import { identifyUser as identifyTikTokUser, trackRoomJoined as trackTikTokRoomJoined } from '../../services/tiktok';
 import { useOnboardingTracking } from '../../hooks/useOnboardingTracking';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -66,6 +67,8 @@ export default function FriendCodeScreen({ navigation }: any) {
 
       const result = await joinRoom(code.toUpperCase(), uid, name.trim());
       if (result.success) {
+        try { await identifyTikTokUser(uid); } catch {}
+        try { await trackTikTokRoomJoined(); } catch {}
         navigation.navigate('V2FakeAnalysis');
       } else {
         setError(result.error || 'Invalid code');

@@ -168,18 +168,43 @@ export async function trackSignedIn(method: "apple" | "email"): Promise<void> {
 }
 
 /**
- * Track trial started (main conversion event)
+ * Track trial started (main conversion event for annual plan with free trial)
  * This is the key optimization event for TikTok ads
  */
-export async function trackTrialStarted(): Promise<void> {
-  await trackEvent("TrialStarted", {});
+export async function trackTrialStarted(value?: number, currency?: string): Promise<void> {
+  await trackEvent("TrialStarted", {
+    ...(value != null && { value }),
+    ...(currency && { currency }),
+    content_type: "annual_trial",
+  });
+}
+
+/**
+ * Track weekly subscription purchase (no trial)
+ */
+export async function trackWeeklyPurchase(value?: number, currency?: string): Promise<void> {
+  await trackEvent("Subscribe", {
+    ...(value != null && { value }),
+    ...(currency && { currency }),
+    content_type: "weekly",
+  });
 }
 
 /**
  * Track premium purchase (for existing users upgrading)
  */
-export async function trackPurchased(): Promise<void> {
-  await trackEvent("PurchasedPremium", {});
+export async function trackPurchased(value?: number, currency?: string): Promise<void> {
+  await trackEvent("PurchasedPremium", {
+    ...(value != null && { value }),
+    ...(currency && { currency }),
+  });
+}
+
+/**
+ * Track referral room join (friend code entered)
+ */
+export async function trackRoomJoined(): Promise<void> {
+  await trackEvent("RoomJoined", { content_type: "referral" });
 }
 
 /**
