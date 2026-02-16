@@ -19,6 +19,16 @@ export interface OnboardingFlowState {
   commitment: string | null;
   shoppingSelections: Record<string, string>;
   currentPage: number;
+  // V2 onboarding fields
+  gender?: 'male' | 'female' | 'non-binary';
+  selfieUri?: string;
+  sideUri?: string;
+  selfRating?: number;
+  referralCodeEntered?: string;
+  /** V2 broad concern categories (e.g. 'Skin Quality', 'Facial Structure') */
+  selectedConcerns?: string[];
+  /** Skin sub-concerns when 'Skin Quality' is selected (e.g. 'acne', 'dry_skin') */
+  skinSubConcerns?: string[];
 }
 
 export interface OnboardingData extends Partial<OnboardingFlowState> {

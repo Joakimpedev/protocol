@@ -1,7 +1,12 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 export default function TermsOfUseScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -68,7 +73,7 @@ export default function TermsOfUseScreen({ navigation }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionNumber}>6</Text>
           <Text style={styles.sectionTitle}>Subscriptions and Payments</Text>
-          
+
           <Text style={styles.subsectionTitle}>Billing</Text>
           <View style={styles.list}>
             <Text style={styles.listItem}>• Subscriptions are billed through Apple's App Store</Text>
@@ -240,109 +245,110 @@ export default function TermsOfUseScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  heading: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 28,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  lastUpdated: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionNumber: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  sectionTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  subsectionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  bodyMuted: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-  },
-  list: {
-    marginLeft: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  listItem: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  warningBox: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  warningText: {
-    ...typography.body,
-    color: colors.warning,
-    fontWeight: '500',
-  },
-  legalBox: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  legalText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  contactEmail: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  bottomPadding: {
-    height: spacing.xxl,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: theme.spacing.lg,
+    },
+    heading: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 28,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    lastUpdated: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xl,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionNumber: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xs,
+    },
+    sectionTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    subsectionTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 24,
+    },
+    bodyMuted: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.md,
+    },
+    list: {
+      marginLeft: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+    },
+    listItem: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    warningBox: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.warning,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    warningText: {
+      ...theme.typography.body,
+      color: theme.colors.warning,
+      fontWeight: '500',
+    },
+    legalBox: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    legalText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      lineHeight: 18,
+    },
+    contactEmail: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      color: theme.colors.text,
+      marginTop: theme.spacing.sm,
+    },
+    bottomPadding: {
+      height: theme.spacing.xxl,
+    },
+  });
+}

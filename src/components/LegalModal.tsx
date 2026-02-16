@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -12,6 +13,8 @@ interface LegalModalProps {
 }
 
 export default function LegalModal({ visible, onClose, type }: LegalModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
 
   const getTitle = () => {
@@ -30,11 +33,11 @@ export default function LegalModal({ visible, onClose, type }: LegalModalProps) 
   const getContent = () => {
     switch (type) {
       case 'privacy':
-        return <PrivacyPolicyContent />;
+        return <PrivacyPolicyContent styles={styles} />;
       case 'terms':
-        return <TermsOfUseContent />;
+        return <TermsOfUseContent styles={styles} />;
       case 'faq':
-        return <FAQContent />;
+        return <FAQContent styles={styles} />;
       default:
         return null;
     }
@@ -48,9 +51,9 @@ export default function LegalModal({ visible, onClose, type }: LegalModalProps) 
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.container, { 
-          marginTop: insets.top + spacing.lg, 
-          marginBottom: insets.bottom + spacing.lg,
+        <View style={[styles.container, {
+          marginTop: insets.top + theme.spacing.lg,
+          marginBottom: insets.bottom + theme.spacing.lg,
           height: SCREEN_HEIGHT * 0.85,
         }]}>
           {/* Header */}
@@ -62,8 +65,8 @@ export default function LegalModal({ visible, onClose, type }: LegalModalProps) 
           </View>
 
           {/* Content */}
-          <ScrollView 
-            style={styles.scrollView} 
+          <ScrollView
+            style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={true}
           >
@@ -75,7 +78,7 @@ export default function LegalModal({ visible, onClose, type }: LegalModalProps) 
   );
 }
 
-function PrivacyPolicyContent() {
+function PrivacyPolicyContent({ styles }: { styles: ReturnType<typeof getStyles> }) {
   return (
     <>
       <Text style={styles.lastUpdated}>Last Updated: January 2026</Text>
@@ -89,7 +92,7 @@ function PrivacyPolicyContent() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data We Collect</Text>
-        
+
         <Text style={styles.subsectionTitle}>Account Information</Text>
         <View style={styles.list}>
           <Text style={styles.listItem}>• Email address (required for account creation)</Text>
@@ -123,7 +126,7 @@ function PrivacyPolicyContent() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Data We Do NOT Collect</Text>
-        
+
         <Text style={styles.subsectionTitle}>Progress Photos</Text>
         <Text style={styles.body}>
           Your progress photos are stored locally on your device only. They are never uploaded to our servers or any cloud service. If you delete the app, your photos are permanently deleted.
@@ -204,7 +207,7 @@ function PrivacyPolicyContent() {
   );
 }
 
-function TermsOfUseContent() {
+function TermsOfUseContent({ styles }: { styles: ReturnType<typeof getStyles> }) {
   return (
     <>
       <Text style={styles.lastUpdated}>Last Updated: January 2026</Text>
@@ -269,7 +272,7 @@ function TermsOfUseContent() {
       <View style={styles.section}>
         <Text style={styles.sectionNumber}>6</Text>
         <Text style={styles.sectionTitle}>Subscriptions and Payments</Text>
-        
+
         <Text style={styles.subsectionTitle}>Billing</Text>
         <View style={styles.list}>
           <Text style={styles.listItem}>• Subscriptions are billed through Apple's App Store</Text>
@@ -438,7 +441,7 @@ function TermsOfUseContent() {
   );
 }
 
-function FAQContent() {
+function FAQContent({ styles }: { styles: ReturnType<typeof getStyles> }) {
   return (
     <>
       <Text style={styles.subtitle}>Common questions answered</Text>
@@ -509,186 +512,186 @@ function FAQContent() {
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  container: {
-    backgroundColor: colors.background,
-    borderRadius: 4,
-    width: '95%',
-    maxWidth: 500,
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  title: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: colors.text,
-    fontWeight: '300',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-  },
-  lastUpdated: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-  },
-  subtitle: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionNumber: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 12,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-  sectionTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  subsectionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  bodyMuted: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-  },
-  list: {
-    marginLeft: spacing.sm,
-  },
-  listItem: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  warningBox: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  warningText: {
-    ...typography.body,
-    color: colors.warning,
-    fontWeight: '500',
-  },
-  legalBox: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  legalText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  contactEmail: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  contactCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  contactLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-  },
-  contactHint: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-  },
-  faqItem: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  question: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  answer: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  feedbackCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-  },
-});
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    container: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      width: '95%',
+      maxWidth: 500,
+      maxHeight: '90%',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    title: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: 20,
+      color: theme.colors.text,
+      fontWeight: '300',
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: theme.spacing.lg,
+    },
+    lastUpdated: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xl,
+    },
+    subtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xl,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionNumber: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xs,
+    },
+    sectionTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    subsectionTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 24,
+    },
+    bodyMuted: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.md,
+    },
+    list: {
+      marginLeft: theme.spacing.sm,
+    },
+    listItem: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    warningBox: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.warning,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    warningText: {
+      ...theme.typography.body,
+      color: theme.colors.warning,
+      fontWeight: '500',
+    },
+    legalBox: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    legalText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 12,
+      color: theme.colors.textSecondary,
+      lineHeight: 18,
+    },
+    contactEmail: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      color: theme.colors.text,
+      marginTop: theme.spacing.sm,
+    },
+    contactCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    contactLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.sm,
+    },
+    contactHint: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+    },
+    faqItem: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    question: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    answer: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+    },
+    feedbackCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+    },
+  });
+}

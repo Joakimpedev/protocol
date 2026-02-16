@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Modal, Alert } from 'react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -11,6 +12,8 @@ interface NamePromptModalProps {
 }
 
 export default function NamePromptModal({ visible, userId, onNameSet }: NamePromptModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -55,7 +58,7 @@ export default function NamePromptModal({ visible, userId, onNameSet }: NameProm
             value={name}
             onChangeText={setName}
             placeholder="Enter your name"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             autoFocus
             maxLength={50}
             editable={!loading}
@@ -74,53 +77,54 @@ export default function NamePromptModal({ visible, userId, onNameSet }: NameProm
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  modal: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: spacing.lg,
-    width: '95%',
-    maxWidth: 400,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.lg,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+    },
+    modal: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      width: '95%',
+      maxWidth: 400,
+    },
+    title: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    input: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+    },
+    button: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+  });
+}

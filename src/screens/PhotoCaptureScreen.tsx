@@ -1,13 +1,14 @@
 /**
  * Photo Capture Screen
- * 
+ *
  * Camera view with face outline overlay for capturing progress photos
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useDevMode } from '../contexts/DevModeContext';
 import FaceOutlineOverlay from '../components/FaceOutlineOverlay';
 
@@ -21,6 +22,9 @@ interface PhotoCaptureScreenProps {
 }
 
 export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { weekNumber } = route.params;
   const { isDevModeEnabled } = useDevMode();
   const [permission, requestPermission] = useCameraPermissions();
@@ -65,7 +69,7 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
   if (!permission) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -152,7 +156,7 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
           disabled={isCapturing}
         >
           {isCapturing ? (
-            <ActivityIndicator color={colors.background} />
+            <ActivityIndicator color={theme.colors.background} />
           ) : (
             <View style={styles.captureButtonInner} />
           )}
@@ -179,107 +183,108 @@ export default function PhotoCaptureScreen({ route, navigation }: PhotoCaptureSc
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  cameraWrapper: {
-    flex: 1,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  camera: {
-    width: '100%',
-    aspectRatio: 1,
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none', // Allow touches to pass through to camera
-  },
-  footer: {
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  tipText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.text,
-    borderWidth: 4,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  captureButtonDisabled: {
-    opacity: 0.5,
-  },
-  captureButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.text,
-    borderWidth: 2,
-    borderColor: colors.background,
-  },
-  closeButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  closeButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.md,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-  },
-  button: {
-    backgroundColor: colors.text,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 4,
-  },
-  buttonText: {
-    ...typography.body,
-    color: colors.background,
-    fontWeight: '600',
-  },
-  importButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 4,
-    marginBottom: spacing.md,
-  },
-  importButtonText: {
-    ...typography.bodySmall,
-    color: colors.warning,
-    fontWeight: '600',
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    cameraWrapper: {
+      flex: 1,
+      position: 'relative',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+    },
+    camera: {
+      width: '100%',
+      aspectRatio: 1,
+    },
+    overlayContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'none', // Allow touches to pass through to camera
+    },
+    footer: {
+      backgroundColor: theme.colors.background,
+      padding: theme.spacing.lg,
+      paddingBottom: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    tipText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    captureButton: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: theme.colors.text,
+      borderWidth: 4,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    captureButtonDisabled: {
+      opacity: 0.5,
+    },
+    captureButtonInner: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: theme.colors.text,
+      borderWidth: 2,
+      borderColor: theme.colors.background,
+    },
+    closeButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+    },
+    closeButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.md,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.lg,
+    },
+    button: {
+      backgroundColor: theme.colors.text,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+    },
+    buttonText: {
+      ...theme.typography.body,
+      color: theme.colors.background,
+      fontWeight: '600',
+    },
+    importButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.warning,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.md,
+    },
+    importButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.warning,
+      fontWeight: '600',
+    },
+  });
+}

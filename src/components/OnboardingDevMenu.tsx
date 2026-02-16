@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,13 @@ import {
   Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { colors, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes/types';
 import { useDevMode } from '../contexts/DevModeContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { useAuth } from '../contexts/AuthContext';
+import { clearUserRoom } from '../services/referralService';
+import { clearPreloadedAssets } from '../utils/onboardingAssetPreloader';
 
 /**
  * Single dev menu button for onboarding. When pressed, opens a modal with:
@@ -22,7 +26,10 @@ export function OnboardingDevMenu() {
   const navigation = useNavigation<any>();
   const { isDevModeEnabled, hideDevToolsInOnboarding, simulateFriendUsedReferral, setSimulateFriendUsedReferral } = useDevMode();
   const { reset } = useOnboarding();
+  const { user } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
 
   const canGoBack = navigation.canGoBack();
 
@@ -35,9 +42,13 @@ export function OnboardingDevMenu() {
     }
   };
 
-  const goBackToStart = () => {
+  const goBackToStart = async () => {
     setMenuVisible(false);
     reset();
+    clearPreloadedAssets();
+    if (user?.uid) {
+      await clearUserRoom(user.uid).catch(() => {});
+    }
     navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] });
   };
 
@@ -106,67 +117,67 @@ export function OnboardingDevMenu() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   devSection: {
-    paddingTop: spacing.md,
+    paddingTop: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.border,
   },
   devMenuButton: {
-    paddingVertical: spacing.sm,
+    paddingVertical: theme.spacing.sm,
     alignItems: 'center',
   },
   devMenuButtonText: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: theme.colors.textMuted,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
+    padding: theme.spacing.lg,
   },
   menuBox: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 8,
-    paddingVertical: spacing.sm,
+    paddingVertical: theme.spacing.sm,
     minWidth: 220,
   },
   menuTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textMuted,
+    color: theme.colors.textMuted,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
   },
   menuItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
   menuItemText: {
     fontSize: 15,
-    color: colors.text,
+    color: theme.colors.text,
   },
   menuItemDisabled: {
     opacity: 0.5,
   },
   menuItemTextDisabled: {
-    color: colors.textMuted,
+    color: theme.colors.textMuted,
   },
   menuItemCancel: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.sm,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.border,
   },
   menuItemTextCancel: {
     fontSize: 15,
-    color: colors.textMuted,
+    color: theme.colors.textMuted,
     textAlign: 'center',
   },
 });

@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, Switch, TextInput, Modal, ActivityIndicator } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
+import { useThemeControl } from '../hooks/useTheme';
+import { Theme, ThemeKey } from '../constants/themes';
 import { useResponsive } from '../utils/responsive';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
@@ -23,8 +26,16 @@ import ReviewPromptModal from '../components/ReviewPromptModal';
 import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
 import { saveFeedback } from '../services/feedbackService';
 import { deleteUserAccount } from '../services/accountDeletionService';
+import { clearV2Progress } from '../navigation/OnboardingV2Navigator';
+import { clearUserRoom } from '../services/referralService';
+import { clearPreloadedAssets } from '../utils/onboardingAssetPreloader';
 
 export default function SettingsScreen({ navigation }: any) {
+  const theme = useTheme();
+  const { activeThemeKey, setTheme } = useThemeControl();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  const isPro = theme.key === 'pro';
+
   const { user, logout } = useAuth();
   const { isPremium, subscriptionStatus, refreshSubscriptionStatus } = usePremium();
   const { isDevModeEnabled, isDebugInfoEnabled, hideDevToolsInOnboarding, enableDevMode, disableDevMode, setDebugInfoEnabled, setHideDevToolsInOnboarding, resetOnboarding } = useDevMode();
@@ -76,14 +87,14 @@ export default function SettingsScreen({ navigation }: any) {
           getNotificationPreferences(user.uid),
           getUserPreferences(user.uid),
         ]);
-        
+
         setMorningTime(notificationPrefs.morningTime);
         setEveningTime(notificationPrefs.eveningTime);
         setSavedMorningTime(notificationPrefs.morningTime);
         setSavedEveningTime(notificationPrefs.eveningTime);
         setMorningDate(timeStringToDate(notificationPrefs.morningTime));
         setEveningDate(timeStringToDate(notificationPrefs.eveningTime));
-        
+
         setShowGlobalComparison(userPrefs.showGlobalComparison);
       } catch (error) {
         console.error('Error loading preferences:', error);
@@ -97,16 +108,15 @@ export default function SettingsScreen({ navigation }: any) {
     if (!user) return;
 
     const timeString = dateToTimeString(date);
-    
+
     setSaving(true);
     try {
       await updateNotificationPreferences(user.uid, {
         [type === 'morning' ? 'morningTime' : 'eveningTime']: timeString,
       });
-      
-      // Refresh notifications with new times
+
       await refreshNotifications(user.uid);
-      
+
       if (type === 'morning') {
         setMorningTime(timeString);
         setSavedMorningTime(timeString);
@@ -119,7 +129,6 @@ export default function SettingsScreen({ navigation }: any) {
     } catch (error) {
       console.error('Error updating notification time:', error);
       Alert.alert('Error', 'Failed to update notification time');
-      // Revert on error
       if (type === 'morning') {
         setMorningDate(timeStringToDate(savedMorningTime));
       } else {
@@ -140,10 +149,8 @@ export default function SettingsScreen({ navigation }: any) {
 
     if (event.type === 'set' && selectedDate) {
       if (Platform.OS === 'android') {
-        // On Android, save immediately when time is selected
         handleTimeChange(type, selectedDate);
       } else {
-        // On iOS, update the date state (will save when user confirms)
         if (type === 'morning') {
           setMorningDate(selectedDate);
         } else {
@@ -151,7 +158,6 @@ export default function SettingsScreen({ navigation }: any) {
         }
       }
     } else if (event.type === 'dismissed') {
-      // User cancelled - revert to saved time
       if (type === 'morning') {
         setMorningDate(timeStringToDate(savedMorningTime));
       } else {
@@ -202,7 +208,6 @@ export default function SettingsScreen({ navigation }: any) {
           text: 'Delete Account',
           style: 'destructive',
           onPress: () => {
-            // Second confirmation
             Alert.alert(
               'Confirm Deletion',
               'Are you absolutely sure? Your account and all data will be permanently deleted.',
@@ -213,10 +218,9 @@ export default function SettingsScreen({ navigation }: any) {
                   style: 'destructive',
                   onPress: async () => {
                     if (!user) return;
-                    
+
                     try {
                       await deleteUserAccount(user.uid);
-                      // Logout will happen automatically when auth state changes
                       await logout();
                       Alert.alert(
                         'Account Deleted',
@@ -269,13 +273,11 @@ export default function SettingsScreen({ navigation }: any) {
 
     try {
       await setDevPremiumMode(user.uid, value);
-      // Wait a moment for Firestore to update, then refresh subscription status
       await new Promise(resolve => setTimeout(resolve, 100));
       await refreshSubscriptionStatus();
     } catch (error: any) {
       console.error('Error toggling dev premium mode:', error);
       Alert.alert('Error', error.message || 'Failed to toggle premium mode');
-      // Note: Switch will remain in its original state on error since we're not controlling it
     }
   };
 
@@ -333,19 +335,13 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleLeaveReview = async () => {
     if (!user) return;
-    
+
     try {
-      // Update last review prompt date
       await updateLastReviewPromptDate(user.uid);
-      
-      // Request native review dialog
       await requestReview();
-      
-      // Close modal - don't navigate, just show the native review dialog
       setShowReviewModal(false);
     } catch (error) {
       console.error('Error handling review request:', error);
-      // Close modal even if review fails
       setShowReviewModal(false);
     }
   };
@@ -353,11 +349,9 @@ export default function SettingsScreen({ navigation }: any) {
   const handleNotNow = async () => {
     if (!user) {
       setShowReviewModal(false);
-      // Navigate to Feedback screen - try direct first, then nested
       try {
         navigation.navigate('Feedback');
       } catch (error) {
-        // If direct navigation fails, use nested navigation to Progress tab
         try {
           const rootNavigation = navigation.getParent()?.getParent();
           if (rootNavigation) {
@@ -371,20 +365,17 @@ export default function SettingsScreen({ navigation }: any) {
       }
       return;
     }
-    
+
     try {
-      // Update last review prompt date (30 day cooldown)
       await updateLastReviewPromptDate(user.uid);
     } catch (error) {
       console.error('Error updating review prompt date:', error);
     }
-    
+
     setShowReviewModal(false);
-    // Navigate to Feedback screen - try direct first, then nested
     try {
       navigation.navigate('Feedback');
     } catch (error) {
-      // If direct navigation fails, use nested navigation to Progress tab
       try {
         const rootNavigation = navigation.getParent()?.getParent();
         if (rootNavigation) {
@@ -400,16 +391,16 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleGlobalComparisonToggle = async (value: boolean) => {
     if (!user) return;
-    
+
     setShowGlobalComparison(value);
     setSavingPreferences(true);
-    
+
     try {
       await updateUserPreferences(user.uid, { showGlobalComparison: value });
     } catch (error) {
       console.error('Error updating global comparison preference:', error);
       Alert.alert('Error', 'Failed to update preference');
-      setShowGlobalComparison(!value); // Revert on error
+      setShowGlobalComparison(!value);
     } finally {
       setSavingPreferences(false);
     }
@@ -417,17 +408,15 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleVersionPress = () => {
     if (isDevModeEnabled) {
-      // If dev mode is enabled, don't count taps
       return;
     }
-    
+
     const newCount = versionTapCount + 1;
     setVersionTapCount(newCount);
-    
+
     if (newCount >= 7) {
       setVersionTapCount(0);
       setShowCodeInput(true);
-      // Focus input after modal appears
       setTimeout(() => {
         codeInputRef.current?.focus();
       }, 100);
@@ -476,7 +465,7 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleSubmitFeedback = async () => {
     if (!user) return;
-    
+
     if (!feedbackText.trim()) {
       Alert.alert('Error', 'Please enter your feedback');
       return;
@@ -502,40 +491,36 @@ export default function SettingsScreen({ navigation }: any) {
       return 'Free';
     }
 
-    // Determine plan type from product ID
     const productId = subscriptionStatus.productId || '';
     let planType = 'Premium';
-    
+
     if (productId.includes('yearly') || productId.includes('annual')) {
       planType = 'Yearly';
     } else if (productId.includes('monthly')) {
       planType = 'Monthly';
     }
 
-    // Check if expired
     if (subscriptionStatus.expirationDate) {
       const expiration = new Date(subscriptionStatus.expirationDate);
       const now = new Date();
-      
+
       if (expiration < now) {
         return `Expired - ${planType}`;
       }
     }
 
-    // Check if cancelled (but still active until expiration)
     if (subscriptionStatus.cancellationDate && !subscriptionStatus.willRenew) {
       return `Cancelled - ${planType}`;
     }
-    
+
     return `Active - ${planType}`;
   };
 
   const renderTimePicker = (type: 'morning' | 'evening') => {
     const showPicker = type === 'morning' ? showMorningPicker : showEveningPicker;
     const date = type === 'morning' ? morningDate : eveningDate;
-    
+
     if (Platform.OS === 'ios') {
-      // iOS shows inline picker
       if (showPicker) {
         return (
           <View style={styles.pickerContainer}>
@@ -545,7 +530,7 @@ export default function SettingsScreen({ navigation }: any) {
               is24Hour={false}
               display="spinner"
               onChange={(event, selectedDate) => handlePickerChange(event, selectedDate, type)}
-              textColor={colors.text}
+              textColor={theme.colors.text}
               style={styles.picker}
             />
             <View style={styles.pickerActions}>
@@ -576,7 +561,6 @@ export default function SettingsScreen({ navigation }: any) {
       }
       return null;
     } else {
-      // Android shows modal picker
       if (showPicker) {
         return (
           <DateTimePicker
@@ -592,9 +576,68 @@ export default function SettingsScreen({ navigation }: any) {
     }
   };
 
+  const renderThemeToggle = () => {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Appearance</Text>
+        <View style={styles.themeToggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.themeOption,
+              activeThemeKey === 'classic' && styles.themeOptionActive,
+            ]}
+            onPress={() => setTheme('classic')}
+          >
+            <Text style={[
+              styles.themeOptionText,
+              activeThemeKey === 'classic' && styles.themeOptionTextActive,
+            ]}>Classic</Text>
+          </TouchableOpacity>
+          {isPro ? (
+            <TouchableOpacity
+              onPress={() => setTheme('pro')}
+              style={{ flex: 1 }}
+            >
+              <LinearGradient
+                colors={activeThemeKey === 'pro' ? theme.gradients.primary : [theme.colors.surface, theme.colors.surface]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[
+                  styles.themeOption,
+                  activeThemeKey === 'pro' && styles.themeOptionActivePro,
+                ]}
+              >
+                <Text style={[
+                  styles.themeOptionText,
+                  activeThemeKey === 'pro' && styles.themeOptionTextActive,
+                ]}>Pro</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.themeOption,
+                activeThemeKey === 'pro' && styles.themeOptionActive,
+              ]}
+              onPress={() => setTheme('pro')}
+            >
+              <Text style={[
+                styles.themeOptionText,
+                activeThemeKey === 'pro' && styles.themeOptionTextActive,
+              ]}>Pro</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
       <Text style={styles.heading}>Settings</Text>
+
+      {/* Appearance Section - Theme Toggle */}
+      {renderThemeToggle()}
 
       {/* Notification Times Section */}
       <View style={styles.section}>
@@ -606,7 +649,7 @@ export default function SettingsScreen({ navigation }: any) {
         <TouchableOpacity
           style={styles.settingRow}
           onPress={() => {
-            setShowEveningPicker(false); // Close evening picker if open
+            setShowEveningPicker(false);
             setShowMorningPicker(true);
           }}
           activeOpacity={0.7}
@@ -622,7 +665,7 @@ export default function SettingsScreen({ navigation }: any) {
         <TouchableOpacity
           style={styles.settingRow}
           onPress={() => {
-            setShowMorningPicker(false); // Close morning picker if open
+            setShowMorningPicker(false);
             setShowEveningPicker(true);
           }}
           activeOpacity={0.7}
@@ -668,16 +711,16 @@ export default function SettingsScreen({ navigation }: any) {
             <Switch
               value={showGlobalComparison}
               onValueChange={handleGlobalComparisonToggle}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.surface}
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.border}
               disabled={savingPreferences}
             />
           </View>
         </View>
       )}
 
-      {/* Dev Tools Section - Only visible when dev mode is enabled */}
+      {/* Dev Tools Section */}
       {isDevModeEnabled && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Dev Tools</Text>
@@ -694,9 +737,9 @@ export default function SettingsScreen({ navigation }: any) {
             <Switch
               value={isPremium}
               onValueChange={handleToggleDevPremium}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.surface}
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.border}
             />
           </View>
           <View style={styles.settingRow}>
@@ -716,9 +759,9 @@ export default function SettingsScreen({ navigation }: any) {
                   Alert.alert('Error', error.message || 'Failed to toggle debug info');
                 }
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.surface}
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.border}
             />
           </View>
           <View style={styles.settingRow}>
@@ -738,33 +781,21 @@ export default function SettingsScreen({ navigation }: any) {
                   Alert.alert('Error', error.message || 'Failed to update');
                 }
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.surface}
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.border}
             />
           </View>
-          <TouchableOpacity
-            style={styles.devButton}
-            onPress={handleResetToday}
-          >
+          <TouchableOpacity style={styles.devButton} onPress={handleResetToday}>
             <Text style={styles.devButtonText}>Reset Today's Completions</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.devButton}
-            onPress={handleResetSkipAnalytics}
-          >
+          <TouchableOpacity style={styles.devButton} onPress={handleResetSkipAnalytics}>
             <Text style={styles.devButtonText}>Reset Skip Analytics</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.devButton}
-            onPress={handleResetDeferredProducts}
-          >
+          <TouchableOpacity style={styles.devButton} onPress={handleResetDeferredProducts}>
             <Text style={styles.devButtonText}>Reset Deferred Products</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.devButton}
-            onPress={handleTestReviewPrompt}
-          >
+          <TouchableOpacity style={styles.devButton} onPress={handleTestReviewPrompt}>
             <Text style={styles.devButtonText}>Test Review Prompt</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -772,6 +803,11 @@ export default function SettingsScreen({ navigation }: any) {
             onPress={async () => {
               try {
                 resetOnboardingContext();
+                clearPreloadedAssets();
+                await clearV2Progress();
+                if (user?.uid) {
+                  await clearUserRoom(user.uid);
+                }
                 await resetOnboarding();
               } catch (error: any) {
                 Alert.alert('Error', error.message || 'Failed to reset onboarding');
@@ -809,13 +845,10 @@ export default function SettingsScreen({ navigation }: any) {
             try {
               navigation.navigate('PrivacyPolicy');
             } catch (error) {
-              // If direct navigation fails, use nested navigation to Progress tab
               try {
                 const rootNavigation = navigation.getParent()?.getParent();
                 if (rootNavigation) {
-                  (rootNavigation as any).navigate('Progress', {
-                    screen: 'PrivacyPolicy',
-                  });
+                  (rootNavigation as any).navigate('Progress', { screen: 'PrivacyPolicy' });
                 }
               } catch (e) {
                 console.error('Error navigating to PrivacyPolicy:', e);
@@ -835,9 +868,7 @@ export default function SettingsScreen({ navigation }: any) {
               try {
                 const rootNavigation = navigation.getParent()?.getParent();
                 if (rootNavigation) {
-                  (rootNavigation as any).navigate('Progress', {
-                    screen: 'TermsOfUse',
-                  });
+                  (rootNavigation as any).navigate('Progress', { screen: 'TermsOfUse' });
                 }
               } catch (e) {
                 console.error('Error navigating to TermsOfUse:', e);
@@ -857,9 +888,7 @@ export default function SettingsScreen({ navigation }: any) {
               try {
                 const rootNavigation = navigation.getParent()?.getParent();
                 if (rootNavigation) {
-                  (rootNavigation as any).navigate('Progress', {
-                    screen: 'FAQ',
-                  });
+                  (rootNavigation as any).navigate('Progress', { screen: 'FAQ' });
                 }
               } catch (e) {
                 console.error('Error navigating to FAQ:', e);
@@ -881,16 +910,10 @@ export default function SettingsScreen({ navigation }: any) {
             <Text style={styles.settingValue}>{user.email}</Text>
           </View>
         )}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>Sign out</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteAccountButton}
-          onPress={handleDeleteAccount}
-        >
+        <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount}>
           <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
         </TouchableOpacity>
         <Text style={styles.deleteAccountWarning}>
@@ -947,7 +970,7 @@ export default function SettingsScreen({ navigation }: any) {
               value={codeInput}
               onChangeText={setCodeInput}
               placeholder="Enter code"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
               secureTextEntry={false}
@@ -992,7 +1015,7 @@ export default function SettingsScreen({ navigation }: any) {
             <Text style={styles.modalDescription}>
               We'd love to hear your thoughts! Your feedback helps us improve.
             </Text>
-            
+
             <Text style={styles.label}>Email (optional)</Text>
             <Text style={styles.labelDescription}>
               If you'd like a reply, please provide your email
@@ -1002,19 +1025,19 @@ export default function SettingsScreen({ navigation }: any) {
               value={feedbackEmail}
               onChangeText={setFeedbackEmail}
               placeholder="your.email@example.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!savingFeedback}
             />
 
-            <Text style={[styles.label, { marginTop: spacing.md }]}>Feedback *</Text>
+            <Text style={[styles.label, { marginTop: theme.spacing.md }]}>Feedback *</Text>
             <TextInput
               style={[styles.feedbackInput, styles.feedbackTextArea]}
               value={feedbackText}
               onChangeText={setFeedbackText}
               placeholder="Tell us what you think..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.colors.textMuted}
               multiline
               numberOfLines={6}
               textAlignVertical="top"
@@ -1039,7 +1062,7 @@ export default function SettingsScreen({ navigation }: any) {
                 disabled={savingFeedback || !feedbackText.trim()}
               >
                 {savingFeedback ? (
-                  <ActivityIndicator color={colors.text} />
+                  <ActivityIndicator color={theme.colors.text} />
                 ) : (
                   <Text style={[styles.modalButtonText, styles.modalButtonSubmitText]}>Send</Text>
                 )}
@@ -1052,315 +1075,350 @@ export default function SettingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    // paddingHorizontal is set dynamically
-    paddingVertical: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.xl,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.xs,
-  },
-  sectionDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  settingRow: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  settingRowContent: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  settingDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  pickerContainer: {
-    marginTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  picker: {
-    width: '100%',
-    height: 200,
-  },
-  pickerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  pickerButton: {
-    flex: 1,
-    padding: spacing.sm,
-    borderRadius: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  settingLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  settingValue: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  timeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeDisplayText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  editHint: {
-    ...typography.bodySmall,
-    fontSize: 11,
-    color: colors.textMuted,
-    marginLeft: spacing.md,
-  },
-  saveButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  cancelButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  pickerButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  premiumCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-  },
-  premiumStatus: {
-    ...typography.headingSmall,
-    marginBottom: spacing.xs,
-  },
-  premiumDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  logoutButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  logoutButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.error,
-  },
-  deleteAccountButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.error,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  deleteAccountButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.error,
-  },
-  deleteAccountWarning: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  devButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  devButtonActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
-  },
-  devButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.warning,
-  },
-  disableDevModeButton: {
-    borderColor: colors.error,
-    marginTop: spacing.lg,
-  },
-  disableDevModeButtonText: {
-    color: colors.error,
-  },
-  versionContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    marginTop: spacing.xl,
-  },
-  versionText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  codeInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  modalButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  modalButtonCancel: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  modalButtonSubmit: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  modalButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalButtonSubmitText: {
-    color: colors.text,
-  },
-  feedbackButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  feedbackButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  legalButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  legalButtonText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  legalButtonArrow: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    color: colors.textMuted,
-  },
-  modalDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  label: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-  },
-  labelDescription: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  feedbackInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  feedbackTextArea: {
-    minHeight: 120,
-    maxHeight: 200,
-  },
-});
-
+function getStyles(theme: Theme) {
+  const isPro = theme.key === 'pro';
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      paddingVertical: theme.spacing.lg,
+      paddingTop: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.xl,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.xs,
+    },
+    sectionDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+    },
+    // Theme toggle
+    themeToggleContainer: {
+      flexDirection: 'row',
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      padding: 4,
+      gap: 4,
+      marginTop: theme.spacing.sm,
+    },
+    themeOption: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm + 2,
+      paddingHorizontal: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg - 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    themeOptionActive: {
+      backgroundColor: theme.colors.border,
+    },
+    themeOptionActivePro: {
+      // gradient handles this
+    },
+    themeOptionText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.textMuted,
+    },
+    themeOptionTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    // Settings rows
+    settingRow: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    settingRowContent: {
+      flex: 1,
+      marginRight: theme.spacing.md,
+    },
+    settingDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+    },
+    pickerContainer: {
+      marginTop: theme.spacing.md,
+      paddingBottom: theme.spacing.md,
+    },
+    picker: {
+      width: '100%',
+      height: 200,
+    },
+    pickerActions: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+    },
+    pickerButton: {
+      flex: 1,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+    },
+    settingLabel: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.sm,
+    },
+    settingValue: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    timeDisplay: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    timeDisplayText: {
+      fontFamily: isPro ? 'System' : undefined,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    editHint: {
+      ...theme.typography.bodySmall,
+      fontSize: 11,
+      color: theme.colors.textMuted,
+      marginLeft: theme.spacing.md,
+    },
+    saveButton: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+    },
+    cancelButton: {
+      backgroundColor: theme.colors.background,
+      borderColor: theme.colors.border,
+    },
+    pickerButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    premiumCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      ...(isPro ? theme.shadows.card : {}),
+    },
+    premiumStatus: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.xs,
+    },
+    premiumDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+    },
+    logoutButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.error,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    logoutButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.error,
+    },
+    deleteAccountButton: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.error,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    deleteAccountButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.error,
+    },
+    deleteAccountWarning: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.sm,
+      textAlign: 'center',
+      fontStyle: 'italic',
+    },
+    devButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.warning,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    devButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.warning,
+    },
+    disableDevModeButton: {
+      borderColor: theme.colors.error,
+      marginTop: theme.spacing.lg,
+    },
+    disableDevModeButtonText: {
+      color: theme.colors.error,
+    },
+    versionContainer: {
+      alignItems: 'center',
+      paddingVertical: theme.spacing.xl,
+      marginTop: theme.spacing.xl,
+    },
+    versionText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 12,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: theme.colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      width: '90%',
+      maxWidth: 400,
+    },
+    modalTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    codeInput: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+    },
+    modalButton: {
+      flex: 1,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      borderWidth: 1,
+    },
+    modalButtonCancel: {
+      backgroundColor: theme.colors.background,
+      borderColor: theme.colors.border,
+    },
+    modalButtonSubmit: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+    },
+    modalButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    modalButtonSubmitText: {
+      color: theme.colors.text,
+    },
+    feedbackButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+    feedbackButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    legalButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    legalButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    legalButtonArrow: {
+      fontSize: 16,
+      color: theme.colors.textMuted,
+    },
+    modalDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    label: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.xs,
+    },
+    labelDescription: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    },
+    feedbackInput: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    feedbackTextArea: {
+      minHeight: 120,
+      maxHeight: 200,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+  });
+}

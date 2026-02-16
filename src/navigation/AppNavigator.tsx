@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { TouchableOpacity, StyleSheet, View, Text } from 'react-native';
-import { colors, typography } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 import TodayStackNavigator from './TodayStackNavigator';
 import ProtocolStackNavigator from './ProtocolStackNavigator';
 import ProgressStackNavigator from './ProgressStackNavigator';
@@ -180,71 +180,45 @@ const customTabBarButtonStyles = StyleSheet.create({
 
 // Custom Tab Label with Badge
 function TabLabelWithBadge({ label, showBadge, color }: { label: string; showBadge: boolean; color: string }) {
+  const theme = useTheme();
   return (
-    <View style={badgeStyles.labelContainer}>
-      <Text style={[badgeStyles.label, { color }]}>{label}</Text>
+    <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', minWidth: 60, paddingHorizontal: 4 }}>
+      <Text style={[theme.typography.label, { fontSize: 11, textAlign: 'center', color }]}>{label}</Text>
       {showBadge && (
-        <View style={badgeStyles.badge}>
-          <View style={badgeStyles.dot} />
+        <View style={{ position: 'absolute', top: -22, right: 0, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.accent }} />
         </View>
       )}
     </View>
   );
 }
 
-const badgeStyles = StyleSheet.create({
-  labelContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 60,
-    paddingHorizontal: 4,
-  },
-  label: {
-    ...typography.label,
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -22,
-    right: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-  },
-});
-
 export default function AppNavigator() {
+  const theme = useTheme();
   const notifications = useTabNotifications();
 
   return (
     <Tab.Navigator
         screenOptions={{
           headerStyle: {
-            backgroundColor: colors.background,
+            backgroundColor: theme.colors.background,
             borderBottomWidth: 1,
-            borderBottomColor: colors.border,
+            borderBottomColor: theme.colors.border,
           },
-          headerTintColor: colors.text,
+          headerTintColor: theme.colors.text,
           headerTitleStyle: {
-            ...typography.headingSmall,
+            ...theme.typography.headingSmall,
           },
           tabBarStyle: {
-            backgroundColor: colors.background,
+            backgroundColor: theme.colors.tabBarBackground,
             borderTopWidth: 1,
-            borderTopColor: colors.border,
+            borderTopColor: theme.colors.tabBarBorder,
             paddingTop: 30,
             paddingBottom: 30,
             height: 102,
           },
-          tabBarActiveTintColor: colors.text,
-          tabBarInactiveTintColor: colors.textMuted,
+          tabBarActiveTintColor: theme.colors.tabBarActive,
+          tabBarInactiveTintColor: theme.colors.tabBarInactive,
           tabBarItemStyle: {
             justifyContent: 'center',
             alignItems: 'center',
@@ -253,7 +227,7 @@ export default function AppNavigator() {
           },
           tabBarButton: (props: any) => <CustomTabBarButton {...props} />,
           tabBarLabelStyle: {
-            ...typography.label,
+            ...theme.typography.label,
             fontSize: 11,
             marginTop: 4,
             marginBottom: 0,

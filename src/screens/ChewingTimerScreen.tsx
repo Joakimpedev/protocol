@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { Exercise } from '../services/exerciseService';
 import {
@@ -27,6 +28,9 @@ interface ChewingTimerScreenProps {
 }
 
 export default function ChewingTimerScreen({ route, navigation }: ChewingTimerScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { exercise } = route.params;
   const { user } = useAuth();
   const [screen, setScreen] = useState<'pre-timer' | 'timer'>('pre-timer');
@@ -225,7 +229,7 @@ export default function ChewingTimerScreen({ route, navigation }: ChewingTimerSc
           </View>
         )}
         <Text style={styles.timerDisplay}>{formatTime(timeRemaining)}</Text>
-        
+
         <View style={styles.sideTimerContainer}>
           <Text style={styles.sideLabel}>{currentSide === 'left' ? 'Left side' : 'Right side'}</Text>
           <Text style={styles.sideTimerDisplay}>{formatTime(sideTimeRemaining)}</Text>
@@ -256,164 +260,165 @@ export default function ChewingTimerScreen({ route, navigation }: ChewingTimerSc
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    fontSize: 20,
-    marginBottom: spacing.sm,
-  },
-  bodyText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  durationOptions: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  durationButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  durationButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
-  },
-  durationButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  durationButtonTextActive: {
-    color: colors.text,
-    fontWeight: '600',
-  },
-  startButton: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  startButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  timerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  timerDisplay: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 72,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.lg,
-  },
-  sideTimerContainer: {
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  sideLabel: {
-    ...typography.headingSmall,
-    fontSize: 24,
-    marginBottom: spacing.xs,
-    textTransform: 'capitalize',
-    color: colors.text,
-  },
-  sideTimerDisplay: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 48,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  exerciseName: {
-    ...typography.headingSmall,
-    marginBottom: spacing.sm,
-  },
-  instructionText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 24,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  controlButton: {
-    padding: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  endButton: {
-    borderColor: colors.error,
-  },
-  controlButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  devButton: {
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
-  },
-  devButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.accent,
-    fontSize: 12,
-  },
-  instructionsContainer: {
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    width: '100%',
-  },
-  instructionsLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  instructionsText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    fontSize: 13,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.xl,
+      paddingBottom: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+    },
+    section: {
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 20,
+      marginBottom: theme.spacing.sm,
+    },
+    bodyText: {
+      ...theme.typography.body,
+      lineHeight: 24,
+    },
+    durationOptions: {
+      flexDirection: 'row',
+      flexWrap: 'nowrap',
+      gap: theme.spacing.xs,
+      marginTop: theme.spacing.sm,
+    },
+    durationButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    durationButtonActive: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.accent,
+    },
+    durationButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    durationButtonTextActive: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    startButton: {
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      marginTop: theme.spacing.lg,
+    },
+    startButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    timerContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.xl,
+    },
+    timerDisplay: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 72,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+    },
+    sideTimerContainer: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    sideLabel: {
+      ...theme.typography.headingSmall,
+      fontSize: 24,
+      marginBottom: theme.spacing.xs,
+      textTransform: 'capitalize',
+      color: theme.colors.text,
+    },
+    sideTimerDisplay: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 48,
+      fontWeight: '600',
+      color: theme.colors.accent,
+    },
+    exerciseName: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.sm,
+    },
+    instructionText: {
+      ...theme.typography.body,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+      lineHeight: 24,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+      marginTop: theme.spacing.xl,
+    },
+    controlButton: {
+      padding: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.xl,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    endButton: {
+      borderColor: theme.colors.error,
+    },
+    controlButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    devButton: {
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.surface,
+    },
+    devButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.accent,
+      fontSize: 12,
+    },
+    instructionsContainer: {
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      width: '100%',
+    },
+    instructionsLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xs,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    instructionsText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+      fontSize: 13,
+    },
+  });
+}

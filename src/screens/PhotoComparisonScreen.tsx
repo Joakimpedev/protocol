@@ -1,13 +1,14 @@
 /**
  * Photo Comparison Screen
- * 
+ *
  * Side-by-side comparison of Week 0 vs selected week
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, PanResponder, Dimensions } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { usePremium } from '../contexts/PremiumContext';
 import { loadAllPhotos, getPhotoForWeek, ProgressPhoto } from '../services/photoService';
 import SliderPaywallModal from '../components/SliderPaywallModal';
@@ -31,6 +32,9 @@ interface PhotoComparisonScreenProps {
 }
 
 export default function PhotoComparisonScreen({ route, navigation }: PhotoComparisonScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { isPremium } = usePremium();
   const { selectedWeek: initialSelectedWeek } = route.params || {};
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
@@ -52,7 +56,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
   useEffect(() => {
     const selectedWeek = route.params?.selectedWeek;
     const isTopPhoto = route.params?.isTopPhoto;
-    
+
     if (selectedWeek !== undefined) {
       if (isTopPhoto) {
         setTopPhotoWeek(selectedWeek);
@@ -71,7 +75,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
       // Check for new params when screen comes into focus
       const selectedWeek = route.params?.selectedWeek;
       const isTopPhoto = route.params?.isTopPhoto;
-      
+
       if (selectedWeek !== undefined) {
         if (isTopPhoto) {
           setTopPhotoWeek(selectedWeek);
@@ -81,7 +85,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
         // Clear the params to avoid re-triggering
         navigation.setParams({ selectedWeek: undefined, isTopPhoto: undefined });
       }
-      
+
       // Reload photos (but don't reset weeks)
       loadPhotos(false);
     }, [route.params?.selectedWeek, route.params?.isTopPhoto, navigation])
@@ -91,10 +95,10 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
     try {
       const allPhotos = await loadAllPhotos();
       setPhotos(allPhotos);
-      
+
       const week0 = await getPhotoForWeek(0);
       setWeek0Photo(week0);
-      
+
       // Only set initial weeks on first load
       if (isInitialLoad && !hasInitialized) {
         // Set top photo to week 0 if available
@@ -196,12 +200,12 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
             style={[styles.headerButton, layoutMode === 'stacked' && styles.headerButtonActive]}
             onPress={() => setLayoutMode('stacked')}
           >
-            <Image 
-              source={StackedIcon} 
+            <Image
+              source={StackedIcon}
               style={[
-                styles.headerIcon, 
+                styles.headerIcon,
                 layoutMode === 'stacked' && styles.headerIconActive
-              ]} 
+              ]}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -214,9 +218,9 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
               }
             }}
           >
-            <Image 
-              source={SliderIcon} 
-              style={styles.sliderIcon} 
+            <Image
+              source={SliderIcon}
+              style={styles.sliderIcon}
             />
           </TouchableOpacity>
         </View>
@@ -227,7 +231,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -247,7 +251,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
   const renderStackedLayout = () => (
     <View style={styles.photosContainer}>
       {/* Top Photo */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.photoContainer}
         onPress={handleTopPhotoPress}
         activeOpacity={0.9}
@@ -265,7 +269,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
       </TouchableOpacity>
 
       {/* Bottom Photo */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.photoContainer}
         onPress={handleBottomPhotoPress}
         activeOpacity={0.9}
@@ -285,14 +289,14 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
   );
 
   const renderSliderLayout = () => {
-    const containerWidth = SCREEN_WIDTH - (spacing.md * 2);
+    const containerWidth = SCREEN_WIDTH - (theme.spacing.md * 2);
     const sliderX = sliderPosition * containerWidth;
     const leftImageWidth = sliderX;
     const rightImageWidth = containerWidth - sliderX;
 
     return (
       <View style={styles.sliderContainer}>
-        <View 
+        <View
           ref={sliderContainerRef}
           style={styles.sliderWrapper}
           onLayout={(event) => {
@@ -305,40 +309,40 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
           {/* Left Photo (Top Photo) */}
           <View style={[styles.sliderPhotoContainer, { width: containerWidth }]} pointerEvents="none">
             {topPhoto ? (
-              <Image 
-                source={{ uri: topPhoto.uri }} 
-                style={[styles.sliderPhoto, { width: containerWidth }]} 
-                resizeMode="cover" 
+              <Image
+                source={{ uri: topPhoto.uri }}
+                style={[styles.sliderPhoto, { width: containerWidth }]}
+                resizeMode="cover"
               />
             ) : (
               <View style={styles.placeholderContainer}>
                 <Text style={styles.placeholderText}>Tap to select week</Text>
               </View>
             )}
-            <Text style={[styles.photoLabel, { left: spacing.sm }]}>Week {topPhotoWeek}</Text>
+            <Text style={[styles.photoLabel, { left: theme.spacing.sm }]}>Week {topPhotoWeek}</Text>
           </View>
 
           {/* Right Photo (Bottom Photo) - clipped */}
-          <View 
+          <View
             style={[
-              styles.sliderPhotoContainer, 
+              styles.sliderPhotoContainer,
               styles.sliderPhotoRight,
               { width: rightImageWidth }
             ]}
             pointerEvents="none"
           >
             {bottomPhoto ? (
-              <Image 
-                source={{ uri: bottomPhoto.uri }} 
-                style={[styles.sliderPhoto, { width: containerWidth, marginLeft: -leftImageWidth }]} 
-                resizeMode="cover" 
+              <Image
+                source={{ uri: bottomPhoto.uri }}
+                style={[styles.sliderPhoto, { width: containerWidth, marginLeft: -leftImageWidth }]}
+                resizeMode="cover"
               />
             ) : (
               <View style={styles.placeholderContainer}>
                 <Text style={styles.placeholderText}>Tap to select week</Text>
               </View>
             )}
-            <Text style={[styles.photoLabel, { right: spacing.sm, left: 'auto' }]}>Week {bottomPhotoWeek}</Text>
+            <Text style={[styles.photoLabel, { right: theme.spacing.sm, left: 'auto' }]}>Week {bottomPhotoWeek}</Text>
           </View>
 
           {/* Slider Handle */}
@@ -354,7 +358,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
 
         {/* Left Photo Picker Button (Bottom Left) - Just below the images */}
         <TouchableOpacity
-          style={[styles.sliderPickerButton, { top: sliderLayout.y + 15 + sliderLayout.width + spacing.xs }]}
+          style={[styles.sliderPickerButton, { top: sliderLayout.y + 15 + sliderLayout.width + theme.spacing.xs }]}
           onPress={handleTopPhotoPress}
           activeOpacity={0.7}
         >
@@ -365,7 +369,7 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
 
         {/* Right Photo Picker Button (Bottom Right) - Just below the images */}
         <TouchableOpacity
-          style={[styles.sliderPickerButton, styles.sliderPickerButtonRight, { top: sliderLayout.y + 15 + sliderLayout.width + spacing.xs }]}
+          style={[styles.sliderPickerButton, styles.sliderPickerButtonRight, { top: sliderLayout.y + 15 + sliderLayout.width + theme.spacing.xs }]}
           onPress={handleBottomPhotoPress}
           activeOpacity={0.7}
         >
@@ -392,209 +396,210 @@ export default function PhotoComparisonScreen({ route, navigation }: PhotoCompar
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  photosContainer: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  photoContainer: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    maxHeight: '48%',
-    maxWidth: '100%',
-    alignSelf: 'center',
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  photoLabel: {
-    ...typography.label,
-    position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 2,
-    color: '#FFFFFF',
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  heading: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  button: {
-    backgroundColor: colors.text,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  buttonText: {
-    ...typography.body,
-    color: colors.background,
-    fontWeight: '600',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  headerButton: {
-    padding: spacing.xs,
-    borderRadius: 4,
-    backgroundColor: 'transparent',
-  },
-  headerButtonActive: {
-    backgroundColor: '#2a2a2a', // Brighter than surface for better visibility
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  headerIcon: {
-    width: 24,
-    height: 24,
-    // No tintColor - shows original image colors
-  },
-  headerIconActive: {
-    // No tintColor - shows original image colors
-  },
-  sliderIcon: {
-    width: 24,
-    height: 24,
-    // No tintColor - shows original image colors
-  },
-  sliderContainer: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    justifyContent: 'center',
-  },
-  sliderWrapper: {
-    width: '100%',
-    aspectRatio: 1,
-    position: 'relative',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-    // Ensure it can receive touches
-    zIndex: 1,
-  },
-  sliderPhotoContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: '100%',
-    overflow: 'hidden',
-  },
-  sliderPhotoRight: {
-    right: 0,
-    left: 'auto',
-  },
-  sliderPhoto: {
-    height: '100%',
-  },
-  sliderHandle: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  sliderHandleLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: colors.text,
-  },
-  sliderHandleCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.text,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 2,
-  },
-  sliderHandleArrowLeft: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderRightWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderRightColor: colors.background,
-  },
-  sliderHandleArrowRight: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.background,
-  },
-  sliderPickerButton: {
-    position: 'absolute',
-    // Position will be set dynamically based on sliderWrapper position
-    left: spacing.md + spacing.sm,
-    zIndex: 20,
-    minWidth: 80, // Make it easier to tap
-    minHeight: 36, // Minimum touch target size
-  },
-  sliderPickerButtonRight: {
-    left: 'auto',
-    right: spacing.md + spacing.sm,
-  },
-  pickerButtonContent: {
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 36, // Ensure minimum touch target
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pickerButtonText: {
-    ...typography.label,
-    color: '#FFFFFF',
-    fontSize: 13, // Slightly bigger text
-    fontWeight: '600',
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    photosContainer: {
+      flex: 1,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    photoContainer: {
+      flex: 1,
+      aspectRatio: 1,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+      maxHeight: '48%',
+      maxWidth: '100%',
+      alignSelf: 'center',
+    },
+    photo: {
+      width: '100%',
+      height: '100%',
+    },
+    photoLabel: {
+      ...theme.typography.label,
+      position: 'absolute',
+      bottom: theme.spacing.sm,
+      left: theme.spacing.sm,
+      backgroundColor: theme.colors.overlay,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: 2,
+      color: '#FFFFFF',
+    },
+    placeholderContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    placeholderText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    heading: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    button: {
+      backgroundColor: theme.colors.text,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+    },
+    buttonText: {
+      ...theme.typography.body,
+      color: theme.colors.background,
+      fontWeight: '600',
+    },
+    headerButtons: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    headerButton: {
+      padding: theme.spacing.xs,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: 'transparent',
+    },
+    headerButtonActive: {
+      backgroundColor: '#2a2a2a', // Brighter than surface for better visibility
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    headerIcon: {
+      width: 24,
+      height: 24,
+      // No tintColor - shows original image colors
+    },
+    headerIconActive: {
+      // No tintColor - shows original image colors
+    },
+    sliderIcon: {
+      width: 24,
+      height: 24,
+      // No tintColor - shows original image colors
+    },
+    sliderContainer: {
+      flex: 1,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      justifyContent: 'center',
+    },
+    sliderWrapper: {
+      width: '100%',
+      aspectRatio: 1,
+      position: 'relative',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+      // Ensure it can receive touches
+      zIndex: 1,
+    },
+    sliderPhotoContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      height: '100%',
+      overflow: 'hidden',
+    },
+    sliderPhotoRight: {
+      right: 0,
+      left: 'auto',
+    },
+    sliderPhoto: {
+      height: '100%',
+    },
+    sliderHandle: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      width: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    sliderHandleLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: theme.colors.text,
+    },
+    sliderHandleCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: theme.colors.text,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 2,
+    },
+    sliderHandleArrowLeft: {
+      width: 0,
+      height: 0,
+      borderTopWidth: 5,
+      borderBottomWidth: 5,
+      borderRightWidth: 6,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderRightColor: theme.colors.background,
+    },
+    sliderHandleArrowRight: {
+      width: 0,
+      height: 0,
+      borderTopWidth: 5,
+      borderBottomWidth: 5,
+      borderLeftWidth: 6,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderLeftColor: theme.colors.background,
+    },
+    sliderPickerButton: {
+      position: 'absolute',
+      // Position will be set dynamically based on sliderWrapper position
+      left: theme.spacing.md + theme.spacing.sm,
+      zIndex: 20,
+      minWidth: 80, // Make it easier to tap
+      minHeight: 36, // Minimum touch target size
+    },
+    sliderPickerButtonRight: {
+      left: 'auto',
+      right: theme.spacing.md + theme.spacing.sm,
+    },
+    pickerButtonContent: {
+      backgroundColor: theme.colors.overlay,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      minHeight: 36, // Ensure minimum touch target
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    pickerButtonText: {
+      ...theme.typography.label,
+      color: '#FFFFFF',
+      fontSize: 13, // Slightly bigger text
+      fontWeight: '600',
+    },
+  });
+}

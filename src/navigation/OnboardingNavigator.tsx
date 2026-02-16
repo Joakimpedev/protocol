@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 
 /** Get focused route name from nested navigator state */
 function getFocusedRouteName(state: { routes: any[]; index: number } | undefined): string {
@@ -39,7 +39,7 @@ import TrialPaywallScreen from '../screens/onboarding/TrialPaywallScreen';
 import ShoppingScreen from '../screens/onboarding/ShoppingScreen';
 import WhyThisWorksScreen from '../screens/onboarding/WhyThisWorksScreen';
 import WOWMomentScreen from '../screens/onboarding/WOWMomentScreen';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { ProgressHeader } from '../components/ProgressHeader';
 import { saveOnboardingProgress, loadOnboardingProgress } from '../utils/onboardingStorage';
 
@@ -76,6 +76,7 @@ const PROGRESS_BAR_SCREEN_COUNT = 20;
 
 function OnboardingNavigatorContent({ route }: { route: any }) {
   const navigation = useNavigation();
+  const theme = useTheme();
   const { data } = useOnboarding();
   const initialRoute = (route?.params?.initialRoute as string) || 'Welcome';
   const [currentScreenIndex, setCurrentScreenIndex] = useState(
@@ -112,7 +113,7 @@ function OnboardingNavigatorContent({ route }: { route: any }) {
         initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -147,6 +148,7 @@ export default function OnboardingNavigator() {
   const { user } = useAuth();
   const { forceShowOnboarding } = useDevMode();
   const { updateData } = useOnboarding();
+  const theme = useTheme();
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -206,8 +208,8 @@ export default function OnboardingNavigator() {
 
   if (loading || !initialRoute) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.text} />
+      <View style={{ flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -223,12 +225,4 @@ export default function OnboardingNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
 

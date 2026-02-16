@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import {
   markPendingProductAsActive,
@@ -26,6 +27,8 @@ export default function PendingProductModal({
   shortDescription,
   onUpdate,
 }: PendingProductModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { user } = useAuth();
   const [step, setStep] = useState<'initial' | 'have' | 'dontHave' | 'defer' | 'skip'>('initial');
   const [productName, setProductName] = useState('');
@@ -103,13 +106,13 @@ export default function PendingProductModal({
   const ingredient = guideBlocks.ingredients?.find(
     (ing: any) => ing.ingredient_id === ingredientId
   );
-  
+
   // Extract benefit text from short_description or used_for - use ingredient data first
   const getBenefitText = (): string => {
     // Use ingredient from guide blocks if available, otherwise use passed shortDescription
     const desc = ingredient?.short_description || shortDescription;
     const usedFor = ingredient?.used_for || [];
-    
+
     // Build benefit text from used_for (most accurate)
     const benefits: string[] = [];
     if (usedFor.includes('oily_skin') && usedFor.includes('blackheads')) {
@@ -142,11 +145,11 @@ export default function PendingProductModal({
     if (usedFor.includes('jawline')) {
       benefits.push('skin health');
     }
-    
+
     if (benefits.length > 0) {
       return benefits.join(' and ');
     }
-    
+
     // Fallback: extract from description
     const descLower = desc.toLowerCase();
     if (descLower.includes('oil') && descLower.includes('pore')) {
@@ -173,7 +176,7 @@ export default function PendingProductModal({
     if (descLower.includes('brighten') || descLower.includes('antioxidant')) {
       return 'skin brightening';
     }
-    
+
     // Final fallback - use first part of description
     if (desc) {
       const firstSentence = desc.split('.')[0];
@@ -181,7 +184,7 @@ export default function PendingProductModal({
         return firstSentence.toLowerCase();
       }
     }
-    
+
     return 'skin health';
   };
   const benefitText = getBenefitText();
@@ -225,7 +228,7 @@ export default function PendingProductModal({
               <TextInput
                 style={styles.input}
                 placeholder="Enter product name"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 value={productName}
                 onChangeText={setProductName}
                 autoFocus={true}
@@ -328,134 +331,135 @@ export default function PendingProductModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  modal: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    width: '95%',
-    maxWidth: 400,
-  },
-  title: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.lg,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  benefitText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    lineHeight: 22,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  question: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  input: {
-    ...typography.body,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.lg,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  buttonContainer: {
-    width: '100%',
-  },
-  skipWarningButtons: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  button: {
-    width: '100%',
-    padding: spacing.md,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    marginBottom: spacing.sm,
-    minHeight: 44,
-  },
-  primaryButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  waitingButton: {
-    marginBottom: spacing.md,
-  },
-  secondaryButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  optionButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  buttonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonTextDisabled: {
-    opacity: 0.5,
-  },
-  skipForeverButton: {
-    padding: spacing.xs,
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  skipForeverText: {
-    ...typography.bodySmall,
-    fontSize: 12,
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
-  },
-  warningText: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.md,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  cancelButton: {
-    padding: spacing.sm,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  cancelText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+    },
+    modal: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      width: '95%',
+      maxWidth: 400,
+    },
+    title: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    description: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+      lineHeight: 22,
+      textAlign: 'center',
+    },
+    benefitText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.lg,
+      lineHeight: 22,
+      textAlign: 'center',
+      fontStyle: 'italic',
+    },
+    question: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    input: {
+      ...theme.typography.body,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    buttonContainer: {
+      width: '100%',
+    },
+    skipWarningButtons: {
+      width: '100%',
+      alignItems: 'center',
+    },
+    button: {
+      width: '100%',
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      marginBottom: theme.spacing.sm,
+      minHeight: 44,
+    },
+    primaryButton: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+    },
+    waitingButton: {
+      marginBottom: theme.spacing.md,
+    },
+    secondaryButton: {
+      backgroundColor: theme.colors.background,
+      borderColor: theme.colors.border,
+    },
+    optionButton: {
+      backgroundColor: theme.colors.background,
+      borderColor: theme.colors.border,
+      marginBottom: theme.spacing.sm,
+    },
+    buttonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonTextDisabled: {
+      opacity: 0.5,
+    },
+    skipForeverButton: {
+      padding: theme.spacing.xs,
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+    },
+    skipForeverText: {
+      ...theme.typography.bodySmall,
+      fontSize: 12,
+      color: theme.colors.textMuted,
+      textDecorationLine: 'underline',
+    },
+    warningText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      lineHeight: 22,
+      textAlign: 'center',
+    },
+    cancelButton: {
+      padding: theme.spacing.sm,
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    cancelText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textDecorationLine: 'underline',
+    },
+  });
+}

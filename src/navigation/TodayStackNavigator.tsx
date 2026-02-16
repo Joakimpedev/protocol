@@ -1,6 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { colors } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 import TodayScreen from '../screens/TodayScreen';
 import SessionScreen from '../screens/SessionScreen';
 import ExerciseHubScreen from '../screens/ExerciseHubScreen';
@@ -15,16 +15,24 @@ import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 const Stack = createNativeStackNavigator();
 
 export default function TodayStackNavigator() {
+  const theme = useTheme();
+
+  const headerStyle = {
+    backgroundColor: theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  };
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="TodayMain" component={TodayScreen} />
-      <Stack.Screen 
-        name="Session" 
+      <Stack.Screen
+        name="Session"
         component={SessionScreen}
         options={{
           presentation: 'modal',
@@ -32,138 +40,100 @@ export default function TodayStackNavigator() {
           headerTransparent: true,
           headerStyle: {
             backgroundColor: 'transparent',
-            borderBottomWidth: 0,
-            borderBottomColor: 'transparent',
-            elevation: 0,
-            shadowOpacity: 0,
-            shadowRadius: 0,
-            shadowOffset: { width: 0, height: 0 },
-          },
-          headerTintColor: colors.text,
+          } as any,
+          headerShadowVisible: false,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
         }}
       />
-      <Stack.Screen 
-        name="ExerciseHub" 
+      <Stack.Screen
+        name="ExerciseHub"
         component={ExerciseHubScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: 'Exercises',
           headerBackTitle: 'Today',
         }}
       />
-      <Stack.Screen 
-        name="MewingSettings" 
+      <Stack.Screen
+        name="MewingSettings"
         component={MewingSettingsScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: 'Mewing Settings',
           headerBackTitle: 'Exercises',
         }}
       />
-      <Stack.Screen 
-        name="ChewingTimer" 
+      <Stack.Screen
+        name="ChewingTimer"
         component={ChewingTimerScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Exercises',
         }}
       />
-      <Stack.Screen 
-        name="CyclingExercise" 
+      <Stack.Screen
+        name="CyclingExercise"
         component={CyclingExerciseScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Exercises',
         }}
       />
-      <Stack.Screen 
-        name="Settings" 
+      <Stack.Screen
+        name="Settings"
         component={SettingsScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: 'Settings',
           headerBackTitle: 'Today',
         }}
       />
-      <Stack.Screen 
-        name="PrivacyPolicy" 
+      <Stack.Screen
+        name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="FAQ" 
+      <Stack.Screen
+        name="FAQ"
         component={FAQScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="TermsOfUse" 
+      <Stack.Screen
+        name="TermsOfUse"
         component={TermsOfUseScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
     </Stack.Navigator>
   );
 }
-

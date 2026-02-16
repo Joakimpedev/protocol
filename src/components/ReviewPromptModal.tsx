@@ -1,10 +1,10 @@
 /**
  * Review Prompt Modal Component
- * 
+ *
  * Asks users to leave an App Store review at the right moment
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
   Modal,
   TouchableOpacity,
 } from 'react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 interface ReviewPromptModalProps {
   visible: boolean;
@@ -25,6 +26,9 @@ export default function ReviewPromptModal({
   onLeaveReview,
   onNotNow,
 }: ReviewPromptModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <Modal
       visible={visible}
@@ -60,58 +64,56 @@ export default function ReviewPromptModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modal: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 400,
-  },
-  title: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  primaryButton: {
-    backgroundColor: colors.buttonAccent,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  primaryButtonText: {
-    ...typography.body,
-    color: '#000000',
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-});
-
-
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+    },
+    modal: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      width: '100%',
+      maxWidth: 400,
+    },
+    title: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xl,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    primaryButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    primaryButtonText: {
+      ...theme.typography.body,
+      color: '#000000',
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      paddingVertical: theme.spacing.sm,
+      alignItems: 'center',
+    },
+    secondaryButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+  });
+}

@@ -8,7 +8,7 @@
  * - Checking if friend has started trial
  */
 
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteField, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 /**
@@ -221,4 +221,242 @@ export async function getReferralStatus(userId: string): Promise<{
     friendStartedTrial: !!data.friendStartedTrial,
     waitingForFriend: !!data.claimedBy && !data.friendStartedTrial,
   };
+}
+
+// ─── Room-based Referral System ───────────────────────────────────────────────
+
+export interface RoomMember {
+  userId: string;
+  name: string;
+  joinedAt: Timestamp;
+}
+
+export interface ReferralRoom {
+  hostId: string;
+  hostName: string;
+  code: string;
+  members: RoomMember[];
+  memberCount: number;
+  isUnlocked: boolean;
+  createdAt: Timestamp;
+}
+
+/**
+ * Generate a random 6-character room code
+ */
+function generateRoomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // exclude ambiguous chars
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+/**
+ * Create a new referral room for the user.
+ *
+ * Storage strategy (avoids permission issues):
+ *  - Full room data → host's own user doc  (users/{hostId}.room)
+ *  - Lightweight lookup → referrals/{code}  (uses ownerId field to match existing rules)
+ */
+export async function createRoom(userId: string, hostName: string): Promise<ReferralRoom> {
+  const code = generateRoomCode();
+  const now = Timestamp.now();
+
+  const room: ReferralRoom = {
+    hostId: userId,
+    hostName: hostName,
+    code,
+    members: [{ userId, name: hostName, joinedAt: now }],
+    memberCount: 1,
+    isUnlocked: false,
+    createdAt: now,
+  };
+
+  // 1) Store full room data on the host's own user doc (always allowed)
+  await setDoc(doc(db, 'users', userId), {
+    roomCode: code,
+    roomName: hostName,
+    room,
+  }, { merge: true });
+
+  // 2) Write a code→host lookup using existing referrals field format
+  //    (ownerId matches the field existing rules expect)
+  try {
+    await setDoc(doc(db, 'referrals', code), {
+      ownerId: userId,
+      claimedBy: null,
+      friendStartedTrial: false,
+      creditApplied: false,
+      isRoom: true,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    // Lookup write is best-effort; room still works via host's user doc
+    console.warn('[referralService] Room lookup write failed (non-critical):', e);
+  }
+
+  return room;
+}
+
+/**
+ * Join an existing referral room.
+ *
+ * Reads lookup (referrals/{code}) → host's user doc → room data.
+ * Writes updated room back to host's doc, marks joiner's own doc.
+ */
+export async function joinRoom(
+  code: string,
+  userId: string,
+  name: string
+): Promise<{ success: boolean; error?: string; room?: ReferralRoom }> {
+  const upperCode = code.toUpperCase();
+
+  // Check if this user is already in a room
+  const userRef = doc(db, 'users', userId);
+  const joinerDoc = await getDoc(userRef);
+  if (joinerDoc.exists() && joinerDoc.data().roomCode) {
+    return { success: false, error: 'You are already in a room.' };
+  }
+
+  // Find the room via lookup → host doc
+  const room = await getRoomByCode(upperCode);
+  if (!room) {
+    return { success: false, error: 'Room not found. Check the code and try again.' };
+  }
+
+  if (room.members.some((m) => m.userId === userId)) {
+    return { success: false, error: 'You are already in this room.' };
+  }
+
+  if (room.isUnlocked) {
+    return { success: false, error: 'This room is already full.' };
+  }
+
+  // Build updated room
+  const now = Timestamp.now();
+  const updatedMembers = [...room.members, { userId, name, joinedAt: now }];
+  const updatedCount = updatedMembers.length;
+  const isUnlocked = updatedCount >= 4;
+
+  const updatedRoom: ReferralRoom = {
+    ...room,
+    members: updatedMembers,
+    memberCount: updatedCount,
+    isUnlocked,
+  };
+
+  // Update room on the HOST's user doc
+  await updateDoc(doc(db, 'users', room.hostId), { room: updatedRoom });
+
+  // Mark the joiner as belonging to this room
+  await setDoc(userRef, {
+    roomCode: upperCode,
+    roomName: name,
+    roomHostId: room.hostId,
+  }, { merge: true });
+
+  return { success: true, room: updatedRoom };
+}
+
+/**
+ * Get a room by its code.
+ * Uses the referrals/{code} lookup doc to find the host, then reads room from host's user doc.
+ */
+export async function getRoomByCode(code: string): Promise<ReferralRoom | null> {
+  const lookupSnap = await getDoc(doc(db, 'referrals', code.toUpperCase()));
+  if (!lookupSnap.exists()) return null;
+
+  const hostId = lookupSnap.data().ownerId;
+  if (!hostId) return null;
+
+  const hostSnap = await getDoc(doc(db, 'users', hostId));
+  if (!hostSnap.exists()) return null;
+
+  return (hostSnap.data().room as ReferralRoom) ?? null;
+}
+
+/**
+ * Get the room a user belongs to (if any).
+ * Works for both hosts and joiners.
+ */
+export async function getUserRoom(userId: string): Promise<ReferralRoom | null> {
+  const userSnap = await getDoc(doc(db, 'users', userId));
+  if (!userSnap.exists()) return null;
+  const data = userSnap.data();
+
+  if (!data.roomCode) return null;
+
+  // If this user IS the host, room data is on their own doc
+  if (data.room) {
+    return data.room as ReferralRoom;
+  }
+
+  // Otherwise they're a joiner — read the host's doc
+  const hostId = data.roomHostId;
+  if (!hostId) return null;
+
+  const hostSnap = await getDoc(doc(db, 'users', hostId));
+  if (!hostSnap.exists()) return null;
+
+  return (hostSnap.data().room as ReferralRoom) ?? null;
+}
+
+/**
+ * Clear a user's room data (for dev mode reset).
+ * Removes roomCode, roomName, roomHostId, and room fields from their user doc.
+ */
+export async function clearUserRoom(userId: string): Promise<void> {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return;
+
+  await updateDoc(userRef, {
+    roomCode: deleteField(),
+    roomName: deleteField(),
+    roomHostId: deleteField(),
+    room: deleteField(),
+  });
+}
+
+/**
+ * [DEV] Fill remaining room spots with fake members to test unlock flow.
+ */
+export async function devFillRoom(userId: string): Promise<ReferralRoom | null> {
+  const room = await getUserRoom(userId);
+  if (!room) return null;
+
+  const now = Timestamp.now();
+  const fakeNames = ['Alex', 'Jordan', 'Sam', 'Chris', 'Taylor'];
+  const updatedMembers = [...room.members];
+
+  while (updatedMembers.length < 4) {
+    const idx = updatedMembers.length - 1;
+    updatedMembers.push({
+      userId: `fake_${Date.now()}_${idx}`,
+      name: fakeNames[idx % fakeNames.length],
+      joinedAt: now,
+    });
+  }
+
+  const updatedRoom: ReferralRoom = {
+    ...room,
+    members: updatedMembers,
+    memberCount: updatedMembers.length,
+    isUnlocked: true,
+  };
+
+  // Update on the host's doc
+  await updateDoc(doc(db, 'users', room.hostId), { room: updatedRoom });
+
+  return updatedRoom;
+}
+
+/**
+ * Check if a room is unlocked (4+ members)
+ */
+export async function checkRoomUnlocked(code: string): Promise<boolean> {
+  const room = await getRoomByCode(code);
+  return room?.isUnlocked ?? false;
 }

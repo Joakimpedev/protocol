@@ -1,18 +1,22 @@
 /**
  * Weekly Summary Screen
- * 
+ *
  * Displays weekly consistency summary with breakdown (premium) or basic (free)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { getWeeklySummary, WeeklySummaryData } from '../services/completionService';
 
 export default function WeeklySummaryScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const insets = useSafeAreaInsets();
@@ -27,7 +31,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
 
   const loadSummary = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       const data = await getWeeklySummary(user.uid);
@@ -42,7 +46,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -91,11 +95,11 @@ export default function WeeklySummaryScreen({ navigation }: any) {
 
 
   return (
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={[
         styles.contentContainer,
-        { paddingTop: insets.top + spacing.lg }
+        { paddingTop: insets.top + theme.spacing.lg }
       ]}
     >
       {/* Header */}
@@ -141,7 +145,7 @@ export default function WeeklySummaryScreen({ navigation }: any) {
           {/* Breakdown by Routine Type with Progress Bars */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>This Week: {summary.overallConsistency.toFixed(1)} / 10</Text>
-            
+
             {/* Morning */}
             <View style={styles.breakdownRowItem}>
               <View style={styles.breakdownRowHeader}>
@@ -232,218 +236,220 @@ export default function WeeklySummaryScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  dateRange: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  consistencyCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  consistencyLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  consistencyScore: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 48,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  consistencySubtext: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-  },
-  breakdownRowItem: {
-    marginBottom: spacing.md,
-  },
-  breakdownRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  breakdownLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  breakdownValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  breakdownValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  breakdownChange: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  progressBarContainer: {
-    marginTop: spacing.xs,
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFilled: {
-    height: '100%',
-    backgroundColor: '#00cc00',
-    borderRadius: 4,
-  },
-  timerSkipSubtext: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  premiumCTA: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  premiumCTAContent: {
-    alignItems: 'center',
-  },
-  premiumCTATitle: {
-    ...typography.headingSmall,
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  premiumCTASubtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  premiumCTAButton: {
-    backgroundColor: colors.buttonAccent,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 4,
-    marginTop: spacing.sm,
-  },
-  premiumCTAButtonText: {
-    ...typography.body,
-    color: '#000000',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  streakItem: {
-    alignItems: 'center',
-  },
-  streakLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  streakValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 32,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  streakSubtext: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  trendContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  trendItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  trendLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  trendValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  trendArrow: {
-    paddingHorizontal: spacing.md,
-  },
-  trendArrowText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 32,
-    color: colors.text,
-  },
-  premiumPromptContainer: {
-    marginBottom: spacing.lg,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+      paddingBottom: theme.spacing.xxl,
+    },
+    header: {
+      marginBottom: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    title: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    dateRange: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    consistencyCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginBottom: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    consistencyLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    consistencyScore: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 48,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    consistencySubtext: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+    section: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+    },
+    breakdownRowItem: {
+      marginBottom: theme.spacing.md,
+    },
+    breakdownRowHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.xs,
+    },
+    breakdownLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    breakdownValueContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    breakdownValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    breakdownChange: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+    },
+    progressBarContainer: {
+      marginTop: theme.spacing.xs,
+    },
+    progressBarBackground: {
+      height: 8,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+    },
+    progressBarFilled: {
+      height: '100%',
+      backgroundColor: '#00cc00',
+      borderRadius: theme.borderRadius.lg,
+    },
+    timerSkipSubtext: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+    },
+    premiumCTA: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    premiumCTAContent: {
+      alignItems: 'center',
+    },
+    premiumCTATitle: {
+      ...theme.typography.headingSmall,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    premiumCTASubtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.md,
+      lineHeight: 20,
+    },
+    premiumCTAButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.xl,
+      borderRadius: theme.borderRadius.lg,
+      marginTop: theme.spacing.sm,
+    },
+    premiumCTAButtonText: {
+      ...theme.typography.body,
+      color: '#000000',
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    streakRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    streakItem: {
+      alignItems: 'center',
+    },
+    streakLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    streakValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 32,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    streakSubtext: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+    trendContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-around',
+    },
+    trendItem: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    trendLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    trendValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    trendArrow: {
+      paddingHorizontal: theme.spacing.md,
+    },
+    trendArrowText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 32,
+      color: theme.colors.text,
+    },
+    premiumPromptContainer: {
+      marginBottom: theme.spacing.lg,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+}

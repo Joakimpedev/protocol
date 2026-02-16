@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { useDevMode } from '../contexts/DevModeContext';
@@ -23,6 +25,8 @@ const NOTIFICATIONS_REQUESTED_KEY = '@protocol_notifications_requested';
 const TOP_PADDING = 120;
 
 export default function TodayScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const { isDebugInfoEnabled } = useDevMode();
@@ -39,28 +43,23 @@ export default function TodayScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [showGlobalComparison, setShowGlobalComparison] = useState(true);
 
+  const isPro = theme.key === 'pro';
+
   // Calculate ranking percentage based on consistency score
-  // Gradual interpolation between key points:
-  // 10.0 → 7%, 7.0 → 28%, 6.0 → 45%, 5.0 → 60%, 0.0 → 100%
   const calculateRankingPercentage = (consistency: number): number => {
     if (consistency >= 10.0) return 7;
     if (consistency <= 0) return 100;
-    
-    // Linear interpolation between key points
+
     if (consistency >= 7.0) {
-      // Between 10.0 and 7.0: 7% to 28%
       const ratio = (10.0 - consistency) / (10.0 - 7.0);
       return Math.round(7 + ratio * (28 - 7));
     } else if (consistency >= 6.0) {
-      // Between 7.0 and 6.0: 28% to 45%
       const ratio = (7.0 - consistency) / (7.0 - 6.0);
       return Math.round(28 + ratio * (45 - 28));
     } else if (consistency >= 5.0) {
-      // Between 6.0 and 5.0: 45% to 60%
       const ratio = (6.0 - consistency) / (6.0 - 5.0);
       return Math.round(45 + ratio * (60 - 45));
     } else {
-      // Between 5.0 and 0.0: 60% to 100%
       const ratio = (5.0 - consistency) / 5.0;
       return Math.round(60 + ratio * (100 - 60));
     }
@@ -81,7 +80,6 @@ export default function TodayScreen({ navigation }: any) {
       return;
     }
 
-    // Subscribe to routine data
     const unsubscribe = subscribeToUserRoutine(user.uid, (data) => {
       setRoutineData(data);
       if (data) {
@@ -90,7 +88,6 @@ export default function TodayScreen({ navigation }: any) {
       }
     });
 
-    // Load initial data
     const loadData = async () => {
       try {
         const today = getTodayDateString();
@@ -149,7 +146,6 @@ export default function TodayScreen({ navigation }: any) {
         setExerciseCompletionCount(exerciseCount);
         setShowGlobalComparison(preferences.showGlobalComparison);
 
-        // Request notifications on first homescreen load (after onboarding)
         try {
           const hasRequestedNotifications = await AsyncStorage.getItem(NOTIFICATIONS_REQUESTED_KEY);
           if (!hasRequestedNotifications) {
@@ -161,7 +157,6 @@ export default function TodayScreen({ navigation }: any) {
           console.error('Error initializing notifications:', error);
         }
 
-        // Check for re-engagement notifications
         const { checkAndSendReEngagement, checkAndRescheduleWeeklySummary } = require('../services/notificationService');
         checkAndSendReEngagement(user.uid).catch(console.error);
         checkAndRescheduleWeeklySummary(user.uid).catch(console.error);
@@ -211,12 +206,23 @@ export default function TodayScreen({ navigation }: any) {
         </View>
 
         {!isCompleted && (
-          <TouchableOpacity
-            style={[styles.startButton, { padding: responsive.sz(8) }]}
-            onPress={() => handleStartSession(section)}
-          >
-            <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
-          </TouchableOpacity>
+          isPro ? (
+            <LinearGradient
+              colors={theme.gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.startButtonGradient, { padding: responsive.sz(8) }]}
+            >
+              <Text style={[styles.startButtonTextPro, { fontSize: responsive.font(16) }]}>Start</Text>
+            </LinearGradient>
+          ) : (
+            <TouchableOpacity
+              style={[styles.startButton, { padding: responsive.sz(8) }]}
+              onPress={() => handleStartSession(section)}
+            >
+              <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
+            </TouchableOpacity>
+          )
         )}
 
         {isCompleted && (
@@ -231,12 +237,11 @@ export default function TodayScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
 
-  // Dynamic styles that respond to screen width (including iPad compat mode)
   const dynamicPadding = responsive.safeHorizontalPadding;
 
   if (!routineData || !routineData.routineStarted) {
@@ -250,7 +255,6 @@ export default function TodayScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {/* Debug Info Banner - Only shown when enabled in dev mode */}
       {isDebugInfoEnabled && (
         <View style={styles.debugBanner}>
           <Text style={styles.debugText}>
@@ -260,8 +264,8 @@ export default function TodayScreen({ navigation }: any) {
       )}
       <TouchableOpacity
         style={[
-          styles.settingsButton, 
-          { 
+          styles.settingsButton,
+          {
             right: dynamicPadding,
             width: responsive.sz(36),
             height: responsive.sz(36),
@@ -270,26 +274,26 @@ export default function TodayScreen({ navigation }: any) {
         ]}
         onPress={() => navigation.navigate('Settings')}
       >
-        <Image 
-          source={require('../../assets/icons/gear.png')} 
+        <Image
+          source={require('../../assets/icons/gear.png')}
           style={[styles.settingsButtonIcon, { width: responsive.sz(22), height: responsive.sz(22) }]}
           resizeMode="contain"
         />
       </TouchableOpacity>
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingHorizontal: dynamicPadding }]}
       >
         <View style={[
-          { 
-            maxWidth: responsive.contentMaxWidth, 
+          {
+            maxWidth: responsive.contentMaxWidth,
             alignSelf: responsive.contentAlign,
             width: '100%',
           }
         ]}>
         <View style={styles.headerContainer}>
         <Text style={[styles.greeting, { fontSize: responsive.font(24) }]}>{getGreeting()}</Text>
-        
+
         <View style={styles.consistencyContainer}>
           <View style={styles.scoreItem}>
             <Text style={[styles.consistencyScore, { fontSize: responsive.font(28) }]}>{todayScore.toFixed(1)}</Text>
@@ -345,12 +349,23 @@ export default function TodayScreen({ navigation }: any) {
         </View>
 
         {!sessionCompletions?.exercises && (
-          <TouchableOpacity
-            style={[styles.startButton, { padding: responsive.sz(8) }]}
-            onPress={handleExercisesPress}
-          >
-            <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
-          </TouchableOpacity>
+          isPro ? (
+            <LinearGradient
+              colors={theme.gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.startButtonGradient, { padding: responsive.sz(8) }]}
+            >
+              <Text style={[styles.startButtonTextPro, { fontSize: responsive.font(16) }]}>Start</Text>
+            </LinearGradient>
+          ) : (
+            <TouchableOpacity
+              style={[styles.startButton, { padding: responsive.sz(8) }]}
+              onPress={handleExercisesPress}
+            >
+              <Text style={[styles.startButtonText, { fontSize: responsive.font(16) }]}>Start</Text>
+            </TouchableOpacity>
+          )
         )}
 
         {sessionCompletions?.exercises && (
@@ -365,210 +380,216 @@ export default function TodayScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingVertical: spacing.md,
-    // paddingHorizontal is set dynamically based on screen width
-  },
-  debugBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#ff0000',
-    padding: spacing.xs,
-    zIndex: 9999,
-  },
-  debugText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontFamily: MONOSPACE_FONT,
-  },
-  settingsButton: {
-    position: 'absolute',
-    top: 60,
-    // right is set dynamically to match content padding
-    zIndex: 1000,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingsButtonIcon: {
-    width: 24,
-    height: 24,
-    tintColor: colors.text,
-  },
-  headerContainer: {
-    paddingTop: TOP_PADDING,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  greeting: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  consistencyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-    gap: spacing.md,
-  },
-  scoreItem: {
-    alignItems: 'center',
-    minWidth: 60,
-  },
-  scoreDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: colors.border,
-  },
-  consistencyScore: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 28,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  consistencyLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    minHeight: 90,
-  },
-  cardCompleted: {
-    opacity: 0.7,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  cardTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontWeight: '600',
-    color: colors.text,
-    flexShrink: 1,
-    minWidth: 100,
-    // fontSize is set dynamically via inline style
-  },
-  cardRightSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flexShrink: 0,
-  },
-  cardInfoInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  checkmarkContainer: {
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completedCheckmark: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    color: colors.accent,
-  },
-  cardInfoText: {
-    fontFamily: 'System',
-    color: colors.textSecondary,
-    marginRight: spacing.xs,
-    // fontSize is set dynamically via inline style
-  },
-  startButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.sm,
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  startButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  completedBadge: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  completedBadgeText: {
-    fontFamily: 'System',
-    color: colors.accent,
-    fontWeight: '500',
-    // fontSize is set dynamically via inline style
-  },
-  emptyState: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.md,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  arrowText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    color: colors.textSecondary,
-  },
-  rankingContainer: {
-    marginTop: spacing.md,
-    padding: spacing.sm,
-    backgroundColor: colors.surfaceGreen,
-    borderWidth: 1,
-    borderColor: colors.borderGreen,
-    borderRadius: 4,
-  },
-  rankingText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-});
-
+function getStyles(theme: Theme) {
+  const isPro = theme.key === 'pro';
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      paddingVertical: theme.spacing.md,
+    },
+    debugBanner: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: '#ff0000',
+      padding: theme.spacing.xs,
+      zIndex: 9999,
+    },
+    debugText: {
+      color: '#ffffff',
+      fontSize: 10,
+      fontFamily: 'System',
+    },
+    settingsButton: {
+      position: 'absolute',
+      top: 60,
+      zIndex: 1000,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    settingsButtonIcon: {
+      width: 24,
+      height: 24,
+      tintColor: theme.colors.text,
+    },
+    headerContainer: {
+      paddingTop: TOP_PADDING,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    greeting: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    consistencyContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: theme.spacing.md,
+      gap: theme.spacing.md,
+    },
+    scoreItem: {
+      alignItems: 'center',
+      minWidth: 60,
+    },
+    scoreDivider: {
+      width: 1,
+      height: 36,
+      backgroundColor: theme.colors.border,
+    },
+    consistencyScore: {
+      fontFamily: isPro ? 'System' : undefined,
+      fontSize: 28,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    consistencyLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      minHeight: 90,
+      ...theme.shadows.card,
+    },
+    cardCompleted: {
+      opacity: 0.7,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.xs,
+      flexWrap: 'wrap',
+      gap: theme.spacing.xs,
+    },
+    cardTitle: {
+      ...theme.typography.headingSmall,
+      flexShrink: 1,
+      minWidth: 100,
+    },
+    cardRightSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+      flexShrink: 0,
+    },
+    cardInfoInline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+    },
+    checkmarkContainer: {
+      width: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    completedCheckmark: {
+      fontSize: 24,
+      color: theme.colors.accent,
+      fontWeight: '700',
+    },
+    cardInfoText: {
+      fontFamily: 'System',
+      color: theme.colors.textSecondary,
+      marginRight: theme.spacing.xs,
+    },
+    startButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.sm,
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+    },
+    startButtonGradient: {
+      borderRadius: theme.borderRadius.pill,
+      padding: theme.spacing.sm,
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+    },
+    startButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    startButtonTextPro: {
+      ...theme.typography.body,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    completedBadge: {
+      backgroundColor: isPro ? 'rgba(168, 85, 247, 0.1)' : theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.md,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginTop: theme.spacing.sm,
+    },
+    completedBadgeText: {
+      fontFamily: 'System',
+      color: theme.colors.accent,
+      fontWeight: '500',
+    },
+    emptyState: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginTop: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.md,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    arrowText: {
+      fontSize: 24,
+      color: theme.colors.textSecondary,
+    },
+    rankingContainer: {
+      marginTop: theme.spacing.md,
+      padding: theme.spacing.sm,
+      backgroundColor: isPro ? 'rgba(168, 85, 247, 0.08)' : '#171A17',
+      borderWidth: 1,
+      borderColor: isPro ? 'rgba(168, 85, 247, 0.2)' : '#0D360D',
+      borderRadius: theme.borderRadius.md,
+    },
+    rankingText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+}

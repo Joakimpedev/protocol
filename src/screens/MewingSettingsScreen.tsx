@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { getExerciseById } from '../services/exerciseService';
 import { getExercisePreferences, saveExercisePreferences, MewingSettings } from '../services/exerciseService';
@@ -19,6 +20,9 @@ import {
 } from '../services/notificationService';
 
 export default function MewingSettingsScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const [exercise, setExercise] = useState<any>(null);
   const [settings, setSettings] = useState<MewingSettings>({
@@ -87,7 +91,7 @@ export default function MewingSettingsScreen({ navigation }: any) {
   const validateTime = (time: string): boolean => {
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timeRegex.test(time)) return false;
-    
+
     // Ensure format is HH:mm (2 digits for hour)
     const [hours, minutes] = time.split(':');
     return hours.length === 2 && minutes.length === 2;
@@ -96,23 +100,23 @@ export default function MewingSettingsScreen({ navigation }: any) {
   const formatTimeInput = (text: string): string => {
     // Remove non-numeric characters except colon
     let cleaned = text.replace(/[^\d:]/g, '');
-    
+
     // Limit length
     if (cleaned.length > 5) {
       cleaned = cleaned.substring(0, 5);
     }
-    
+
     // Auto-format as user types
     if (cleaned.length === 2 && !cleaned.includes(':')) {
       cleaned = cleaned + ':';
     }
-    
+
     return cleaned;
   };
 
   const handleAddCustomTime = () => {
     let timeString = customTimeInput.trim();
-    
+
     // Ensure format is HH:mm
     if (timeString.length === 4 && !timeString.includes(':')) {
       timeString = timeString.substring(0, 2) + ':' + timeString.substring(2);
@@ -268,7 +272,7 @@ export default function MewingSettingsScreen({ navigation }: any) {
                     }
                   }}
                   placeholder="09:00"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.colors.textMuted}
                   keyboardType="numeric"
                   maxLength={5}
                 />
@@ -292,7 +296,7 @@ export default function MewingSettingsScreen({ navigation }: any) {
                     }
                   }}
                   placeholder="21:00"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={theme.colors.textMuted}
                   keyboardType="numeric"
                   maxLength={5}
                 />
@@ -329,7 +333,7 @@ export default function MewingSettingsScreen({ navigation }: any) {
                   setCustomTimeInput(formatted);
                 }}
                 placeholder="HH:mm (e.g., 09:00)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
                 maxLength={5}
               />
@@ -352,7 +356,7 @@ export default function MewingSettingsScreen({ navigation }: any) {
           value={settings.notificationText}
           onChangeText={text => setSettings({ ...settings, notificationText: text })}
           placeholder="Posture."
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
         />
         <Text style={styles.previewText}>
           Preview: "{settings.notificationText || 'Posture.'}"
@@ -371,202 +375,203 @@ export default function MewingSettingsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.text,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    fontSize: 20,
-    marginBottom: spacing.sm,
-  },
-  bodyText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  modeContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  modeButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  modeButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
-  },
-  modeButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  modeButtonTextActive: {
-    color: colors.text,
-    fontWeight: '600',
-  },
-  intervalContainer: {
-    marginTop: spacing.md,
-  },
-  label: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-  },
-  intervalButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  intervalButton: {
-    padding: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  intervalButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
-  },
-  intervalButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  intervalButtonTextActive: {
-    color: colors.text,
-    fontWeight: '600',
-  },
-  timeRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  timeInputContainer: {
-    flex: 1,
-  },
-  timeInput: {
-    ...typography.body,
-    fontFamily: MONOSPACE_FONT,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  customTimesContainer: {
-    marginTop: spacing.md,
-  },
-  customTimesList: {
-    marginBottom: spacing.md,
-  },
-  customTimeItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  customTimeText: {
-    ...typography.body,
-    fontFamily: MONOSPACE_FONT,
-    color: colors.text,
-  },
-  deleteButton: {
-    padding: spacing.xs,
-  },
-  deleteButtonText: {
-    ...typography.bodySmall,
-    color: colors.error,
-    textDecorationLine: 'underline',
-  },
-  addTimeContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  addTimeButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-  },
-  addTimeButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  textInput: {
-    ...typography.body,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  previewText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  explanationText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-    marginBottom: spacing.md,
-  },
-  saveButton: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.xl,
+      paddingBottom: theme.spacing.xl,
+    },
+    loadingText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginTop: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 20,
+      marginBottom: theme.spacing.sm,
+    },
+    bodyText: {
+      ...theme.typography.body,
+      lineHeight: 24,
+    },
+    modeContainer: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.md,
+    },
+    modeButton: {
+      flex: 1,
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+    },
+    modeButtonActive: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.accent,
+    },
+    modeButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    modeButtonTextActive: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    intervalContainer: {
+      marginTop: theme.spacing.md,
+    },
+    label: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.xs,
+    },
+    intervalButtons: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.sm,
+      marginBottom: theme.spacing.md,
+    },
+    intervalButton: {
+      padding: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    intervalButtonActive: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.accent,
+    },
+    intervalButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    intervalButtonTextActive: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    timeRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    timeInputContainer: {
+      flex: 1,
+    },
+    timeInput: {
+      ...theme.typography.body,
+      fontFamily: theme.typography.heading.fontFamily,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginTop: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    customTimesContainer: {
+      marginTop: theme.spacing.md,
+    },
+    customTimesList: {
+      marginBottom: theme.spacing.md,
+    },
+    customTimeItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surface,
+    },
+    customTimeText: {
+      ...theme.typography.body,
+      fontFamily: theme.typography.heading.fontFamily,
+      color: theme.colors.text,
+    },
+    deleteButton: {
+      padding: theme.spacing.xs,
+    },
+    deleteButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.error,
+      textDecorationLine: 'underline',
+    },
+    addTimeContainer: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+      alignItems: 'center',
+    },
+    addTimeButton: {
+      flex: 1,
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: theme.colors.surface,
+      alignItems: 'center',
+    },
+    addTimeButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    textInput: {
+      ...theme.typography.body,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    previewText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+    },
+    explanationText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+      marginBottom: theme.spacing.md,
+    },
+    saveButton: {
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.xl,
+    },
+    saveButtonDisabled: {
+      opacity: 0.5,
+    },
+    saveButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+  });
+}

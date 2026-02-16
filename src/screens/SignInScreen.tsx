@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
 export default function SignInScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,7 +53,7 @@ export default function SignInScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Sign in.</Text>
-      
+
       <View style={styles.form}>
         <Text style={styles.label}>Email</Text>
         <TextInput
@@ -57,7 +61,7 @@ export default function SignInScreen({ navigation }: any) {
           value={email}
           onChangeText={setEmail}
           placeholder="email@example.com"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           autoCapitalize="none"
           keyboardType="email-address"
           editable={!loading}
@@ -69,7 +73,7 @@ export default function SignInScreen({ navigation }: any) {
           value={password}
           onChangeText={setPassword}
           placeholder="••••••••"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           secureTextEntry
           autoCapitalize="none"
           editable={!loading}
@@ -81,7 +85,7 @@ export default function SignInScreen({ navigation }: any) {
           disabled={loading || appleLoading}
         >
           {loading ? (
-            <ActivityIndicator color={colors.text} />
+            <ActivityIndicator color={theme.colors.text} />
           ) : (
             <Text style={styles.buttonText}>Sign In</Text>
           )}
@@ -114,69 +118,65 @@ export default function SignInScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: spacing.lg,
-    justifyContent: 'center',
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.xl,
-  },
-  form: {
-    width: '100%',
-  },
-  label: {
-    ...typography.label,
-    marginBottom: spacing.sm,
-    marginTop: spacing.md,
-  },
-  input: {
-    ...typography.body,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    ...typography.body,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  linkText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  appleButton: {
-    width: '100%',
-    height: 44,
-  },
-});
-
-
-
-
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+      padding: theme.spacing.lg,
+      justifyContent: 'center',
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.xl,
+    },
+    form: {
+      width: '100%',
+    },
+    label: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.sm,
+      marginTop: theme.spacing.md,
+    },
+    input: {
+      ...theme.typography.body,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    button: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginTop: theme.spacing.lg,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    linkText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    appleButton: {
+      width: '100%',
+      height: 44,
+    },
+  });
+}

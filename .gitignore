@@ -63,6 +63,6 @@ expo-env.d.ts
 .env
 .env.local
 
-# API Keys - Note: openai.ts is committed with placeholder for build compatibility
-# For production, use EAS environment variables or secure backend
+# API Keys
+src/config/openai.ts
 

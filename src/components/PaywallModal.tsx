@@ -1,11 +1,11 @@
 /**
  * Generic Paywall Modal Component
- * 
+ *
  * Displays subscription options for premium features throughout the app.
  * Use PhotoPaywallModal for Week 5 photo-specific paywall.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,8 @@ import {
 import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { usePremium } from '../contexts/PremiumContext';
 import { useResponsive } from '../utils/responsive';
 import LegalModal from './LegalModal';
@@ -50,6 +51,8 @@ export default function PaywallModal({
   subtitle,
   showFeatures = true,
 }: PaywallModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { refreshSubscriptionStatus } = usePremium();
   const posthog = usePostHog();
   const navigation = useNavigation();
@@ -60,7 +63,7 @@ export default function PaywallModal({
   const [legalModalVisible, setLegalModalVisible] = useState(false);
   const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'faq'>('privacy');
   const insets = useSafeAreaInsets();
-  
+
   // Responsive values - 85% scaling on narrow screens (iPad compatibility mode)
   const containerPadding = responsive.sz(24);
   const tableFontSize = responsive.font(14);
@@ -90,9 +93,9 @@ export default function PaywallModal({
         const availablePackages = offering.availablePackages;
         console.log('Loaded packages:', availablePackages.length, availablePackages.map(p => p.identifier));
         setPackages(availablePackages);
-        
+
         // Pre-select annual package (default/standard)
-        const annualPackage = availablePackages.find(pkg => 
+        const annualPackage = availablePackages.find(pkg =>
           pkg.packageType === 'ANNUAL' || pkg.identifier.includes('annual') || pkg.identifier.includes('yearly')
         );
         if (annualPackage) {
@@ -115,7 +118,7 @@ export default function PaywallModal({
   const handlePurchase = async () => {
     if (packages.length === 0) {
       Alert.alert(
-        'Subscription Unavailable', 
+        'Subscription Unavailable',
         'Unable to load subscription options. Please check your internet connection and try again, or contact support if the issue persists.'
       );
       return;
@@ -129,7 +132,7 @@ export default function PaywallModal({
     setLoading(true);
     try {
       const result = await purchasePackage(selectedPackage);
-      
+
       if (result.success) {
         // Track purchase completed event
         if (posthog && selectedPackage) {
@@ -152,7 +155,7 @@ export default function PaywallModal({
 
         // Refresh subscription status
         await refreshSubscriptionStatus();
-        
+
         if (onPurchaseComplete) {
           onPurchaseComplete();
         }
@@ -172,7 +175,7 @@ export default function PaywallModal({
     setLoading(true);
     try {
       const result = await restorePurchases();
-      
+
       if (result.success && result.isPremium) {
         await refreshSubscriptionStatus();
         Alert.alert('Success', 'Purchases restored');
@@ -192,13 +195,13 @@ export default function PaywallModal({
     // Use localized price from RevenueCat
     const priceString = packageItem.product.priceString;
     const identifier = packageItem.identifier.toLowerCase();
-    
+
     if (identifier.includes('annual') || packageItem.packageType === 'ANNUAL') {
       return `${priceString}/year`;
     } else if (identifier.includes('monthly') || packageItem.packageType === 'MONTHLY') {
       return `${priceString}/month`;
     }
-    
+
     // Fallback to product title if we can't determine type
     return packageItem.product.title || priceString;
   };
@@ -221,12 +224,12 @@ export default function PaywallModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { 
-              paddingTop: insets.top + spacing.lg,
+            {
+              paddingTop: insets.top + theme.spacing.lg,
               paddingHorizontal: responsive.safeHorizontalPadding,
             }
           ]}
@@ -354,7 +357,7 @@ export default function PaywallModal({
             <View style={styles.optionsContainer}>
               {packages.map((pkg) => {
                 const isSelected = selectedPackage?.identifier === pkg.identifier;
-                
+
                 return (
                   <TouchableOpacity
                     key={pkg.identifier}
@@ -394,7 +397,7 @@ export default function PaywallModal({
               disabled={loading || packages.length === 0 || !selectedPackage}
             >
               {loading ? (
-                <ActivityIndicator color={colors.background} />
+                <ActivityIndicator color={theme.colors.background} />
               ) : packages.length === 0 ? (
                 <Text style={[styles.purchaseButtonText, { fontSize: bodyFontSize }]}>Loading...</Text>
               ) : (
@@ -463,284 +466,285 @@ export default function PaywallModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-    width: '100%',
-  },
-  scrollContent: {
-    // paddingHorizontal is set dynamically based on screen width
-    paddingBottom: spacing.lg,
-    justifyContent: 'center',
-    minHeight: '100%',
-  },
-  container: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    // padding is set dynamically based on screen width
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  titleSection: {
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  mainTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  sellSection: {
-    marginBottom: spacing.lg,
-  },
-  sellHeadline: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  comparisonTable: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    marginTop: spacing.md,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tableHeaderCell: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  tableHeaderCellFull: {
-    backgroundColor: TABLE_FULL_PROTOCOL_HEADER_BG,
-    borderRightWidth: 0,
-  },
-  tableHeaderText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 24,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  tableHeaderTextFull: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 24,
-    color: colors.background,
-    textAlign: 'center',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  tableCell: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  tableCellFull: {
-    backgroundColor: colors.background,
-    borderRightWidth: 0,
-  },
-  tableCellText: {
-    ...typography.body,
-    color: colors.text,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  tableCellTextFull: {
-    ...typography.body,
-    color: '#00cc00',
-    fontWeight: '600',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  detailedInsightButton: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    backgroundColor: '#00B800',
-  },
-  detailedInsightButtonText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.background,
-  },
-  benefitsSection: {
-    marginBottom: spacing.lg,
-  },
-  benefitsTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.md,
-    color: colors.text,
-  },
-  benefitsList: {
-    gap: spacing.xs,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.xs,
-  },
-  benefitBullet: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginRight: spacing.sm,
-    marginTop: 2,
-  },
-  benefitText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  optionsContainer: {
-    marginBottom: spacing.lg,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  optionSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  optionSubtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.md,
-  },
-  checkmarkText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  purchaseButton: {
-    backgroundColor: colors.accentSecondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  purchaseButtonDisabled: {
-    opacity: 0.5,
-  },
-  purchaseButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.background,
-  },
-  declineButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  declineButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  restoreButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  restoreText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  legalSection: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  autoRenewalText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 11,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    lineHeight: 16,
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  legalLink: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontSize: 11,
-    textDecorationLine: 'underline',
-  },
-  legalLinkSeparator: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollView: {
+      flex: 1,
+      width: '100%',
+    },
+    scrollContent: {
+      // paddingHorizontal is set dynamically based on screen width
+      paddingBottom: theme.spacing.lg,
+      justifyContent: 'center',
+      minHeight: '100%',
+    },
+    container: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      // padding is set dynamically based on screen width
+      width: '100%',
+      maxWidth: 400,
+      alignSelf: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    titleSection: {
+      marginBottom: theme.spacing.xl,
+      marginTop: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    mainTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    subtitle: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    sellSection: {
+      marginBottom: theme.spacing.lg,
+    },
+    sellHeadline: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    comparisonTable: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      marginTop: theme.spacing.md,
+    },
+    tableHeader: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tableHeaderCell: {
+      flex: 1,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderRightWidth: 1,
+      borderRightColor: theme.colors.border,
+    },
+    tableHeaderCellFull: {
+      backgroundColor: TABLE_FULL_PROTOCOL_HEADER_BG,
+      borderRightWidth: 0,
+    },
+    tableHeaderText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 24,
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    tableHeaderTextFull: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 24,
+      color: theme.colors.background,
+      textAlign: 'center',
+    },
+    tableRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tableRowLast: {
+      borderBottomWidth: 0,
+    },
+    tableCell: {
+      flex: 1,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.background,
+      borderRightWidth: 1,
+      borderRightColor: theme.colors.border,
+    },
+    tableCellFull: {
+      backgroundColor: theme.colors.background,
+      borderRightWidth: 0,
+    },
+    tableCellText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    tableCellTextFull: {
+      ...theme.typography.body,
+      color: '#00cc00',
+      fontWeight: '600',
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    detailedInsightButton: {
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      backgroundColor: '#00B800',
+    },
+    detailedInsightButtonText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.background,
+    },
+    benefitsSection: {
+      marginBottom: theme.spacing.lg,
+    },
+    benefitsTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.md,
+      color: theme.colors.text,
+    },
+    benefitsList: {
+      gap: theme.spacing.xs,
+    },
+    benefitItem: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: theme.spacing.xs,
+    },
+    benefitBullet: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginRight: theme.spacing.sm,
+      marginTop: 2,
+    },
+    benefitText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      flex: 1,
+    },
+    optionsContainer: {
+      marginBottom: theme.spacing.lg,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surface,
+    },
+    optionSelected: {
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.surface,
+    },
+    optionContent: {
+      flex: 1,
+    },
+    optionTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.xs,
+    },
+    optionSubtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+    checkmark: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: theme.colors.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: theme.spacing.md,
+    },
+    checkmarkText: {
+      color: theme.colors.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    purchaseButton: {
+      backgroundColor: theme.colors.accentSecondary,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    purchaseButtonDisabled: {
+      opacity: 0.5,
+    },
+    purchaseButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.background,
+    },
+    declineButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    declineButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    restoreButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+    restoreText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 12,
+    },
+    legalSection: {
+      marginTop: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    autoRenewalText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 11,
+      textAlign: 'center',
+      marginBottom: theme.spacing.sm,
+      lineHeight: 16,
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    legalLink: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontSize: 11,
+      textDecorationLine: 'underline',
+    },
+    legalLinkSeparator: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 11,
+    },
+  });
+}

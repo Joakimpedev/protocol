@@ -7,7 +7,7 @@
  * - "Check Status" button to see if eligible for free trial
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 interface ReferralModalProps {
   visible: boolean;
@@ -44,6 +45,8 @@ export default function ReferralModal({
   hasUsedCode = false,
   initialMode = 'share',
 }: ReferralModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const [viewMode, setViewMode] = useState<'share' | 'enter'>(initialMode);
   const [inputCode, setInputCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -216,7 +219,7 @@ export default function ReferralModal({
                 value={inputCode}
                 onChangeText={(text) => setInputCode(text.toUpperCase())}
                 placeholder="ABC123"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 maxLength={6}
                 autoCapitalize="characters"
                 autoCorrect={false}
@@ -240,172 +243,174 @@ export default function ReferralModal({
   );
 }
 
-const styles = StyleSheet.create({
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: spacing.xl,
-    minHeight: 400,
-  },
-  topBar: {
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl, // Increased spacing before content
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionButtonDisabled: {
-    opacity: 0.5,
-  },
-  actionButtonText: {
-    ...typography.body,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  usedBadge: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  usedText: {
-    ...typography.bodySmall,
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  contentSection: {
-    paddingHorizontal: spacing.lg,
-  },
-  contentTitle: {
-    ...typography.headingSmall,
-    fontSize: 24,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  contentSubtitle: {
-    ...typography.bodySmall,
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  input: {
-    ...typography.body,
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 20,
-    color: colors.text,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  submitButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    ...typography.body,
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-  },
-  codeContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    marginBottom: spacing.sm,
-  },
-  code: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: 4,
-  },
-  copyButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    alignSelf: 'center',
-    marginBottom: spacing.md,
-  },
-  copyButtonText: {
-    ...typography.bodySmall,
-    fontSize: 13,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  waitingBadge: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 8,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  waitingText: {
-    ...typography.bodySmall,
-    fontSize: 13,
-    color: colors.accent,
-    textAlign: 'center',
-  },
-  shareButton: {
-    backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  shareButtonText: {
-    ...typography.body,
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#000',
-  },
-});
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    keyboardAvoidingView: {
+      flex: 1,
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: theme.colors.surface,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingBottom: theme.spacing.xl,
+      minHeight: 400,
+    },
+    topBar: {
+      alignItems: 'center',
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.md,
+    },
+    handle: {
+      width: 40,
+      height: 4,
+      backgroundColor: theme.colors.border,
+      borderRadius: 2,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      paddingHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.xl, // Increased spacing before content
+      gap: theme.spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.sm,
+      backgroundColor: theme.colors.background,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    actionButtonDisabled: {
+      opacity: 0.5,
+    },
+    actionButtonText: {
+      ...theme.typography.body,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    usedBadge: {
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      backgroundColor: theme.colors.background,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    usedText: {
+      ...theme.typography.bodySmall,
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    contentSection: {
+      paddingHorizontal: theme.spacing.lg,
+    },
+    contentTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 24,
+      marginBottom: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    contentSubtitle: {
+      ...theme.typography.bodySmall,
+      fontSize: 14,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    input: {
+      ...theme.typography.body,
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 20,
+      color: theme.colors.text,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 8,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    submitButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.md,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    submitButtonDisabled: {
+      opacity: 0.5,
+    },
+    submitButtonText: {
+      ...theme.typography.body,
+      fontSize: 17,
+      fontWeight: '600',
+      color: '#000',
+    },
+    codeContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.background,
+      borderRadius: 12,
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.xl,
+      marginBottom: theme.spacing.sm,
+    },
+    code: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 32,
+      fontWeight: '700',
+      color: theme.colors.text,
+      letterSpacing: 4,
+    },
+    copyButton: {
+      paddingVertical: theme.spacing.xs,
+      paddingHorizontal: theme.spacing.md,
+      alignSelf: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    copyButtonText: {
+      ...theme.typography.bodySmall,
+      fontSize: 13,
+      color: theme.colors.textSecondary,
+      textDecorationLine: 'underline',
+    },
+    waitingBadge: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: 8,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    waitingText: {
+      ...theme.typography.bodySmall,
+      fontSize: 13,
+      color: theme.colors.accent,
+      textAlign: 'center',
+    },
+    shareButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.md,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    shareButtonText: {
+      ...theme.typography.body,
+      fontSize: 17,
+      fontWeight: '600',
+      color: '#000',
+    },
+  });
+}

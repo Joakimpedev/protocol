@@ -1,7 +1,12 @@
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 export default function FAQScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -77,98 +82,99 @@ export default function FAQScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  heading: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 28,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-  },
-  contactCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  contactLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-  },
-  contactEmail: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  contactHint: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.lg,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  faqItem: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  question: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  answer: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  feedbackCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-  },
-  bottomPadding: {
-    height: spacing.xxl,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: theme.spacing.lg,
+    },
+    heading: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 28,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    subtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xl,
+    },
+    contactCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+    },
+    contactLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.sm,
+    },
+    contactEmail: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    contactHint: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    faqItem: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    question: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    answer: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 22,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+    },
+    feedbackCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+    },
+    bottomPadding: {
+      height: theme.spacing.xxl,
+    },
+  });
+}

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { clearOnboardingProgress } from '../utils/onboardingStorage';
+import { clearV2Progress } from './OnboardingV2Navigator';
 import * as Notifications from 'expo-notifications';
-import { colors } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useDevMode } from '../contexts/DevModeContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
@@ -13,10 +14,14 @@ import { db } from '../config/firebase';
 import { listenForFriendCompletions } from '../services/notificationService';
 import AppNavigator from './AppNavigator';
 import OnboardingNavigator from './OnboardingNavigator';
+import OnboardingV2Navigator from './OnboardingV2Navigator';
+
+const USE_ONBOARDING_V2 = true;
 
 const Stack = createNativeStackNavigator();
 
 export default function RootNavigator() {
+  const theme = useTheme();
   const { user, loading } = useAuth();
   const { isDevModeEnabled, forceShowOnboarding, forceShowApp } = useDevMode();
   const { onboardingComplete, setOnboardingComplete } = useOnboarding();
@@ -46,6 +51,7 @@ export default function RootNavigator() {
     if (!isReady || showOnboarding === null) return;
     if (prevShowOnboardingRef.current === true && showOnboarding === false) {
       clearOnboardingProgress();
+      clearV2Progress();
     }
     prevShowOnboardingRef.current = showOnboarding;
   }, [isReady, showOnboarding]);
@@ -178,8 +184,8 @@ export default function RootNavigator() {
   // Don't render navigator until we know definitively what to show
   if (!isReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.text} />
+      <View style={{ flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -191,11 +197,13 @@ export default function RootNavigator() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
         {showApp ? (
           <Stack.Screen name="App" component={AppNavigator} />
+        ) : USE_ONBOARDING_V2 ? (
+          <Stack.Screen name="OnboardingV2" component={OnboardingV2Navigator} />
         ) : (
           <Stack.Screen name="Onboarding" component={OnboardingNavigator} />
         )}
@@ -204,12 +212,4 @@ export default function RootNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
 

@@ -1,14 +1,15 @@
 /**
  * Photo Preview Screen
- * 
+ *
  * Preview captured photo with retake/use options
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { saveProgressPhoto } from '../services/photoService';
 import { trackSkinRating } from '../services/analyticsService';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +28,9 @@ interface PhotoPreviewScreenProps {
 }
 
 export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { photoUri, weekNumber } = route.params;
   const { user } = useAuth();
   const posthog = usePostHog();
@@ -63,20 +67,20 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
     try {
       setIsSaving(true);
       const savedPhotoPath = await saveProgressPhoto(photoUri, weekNumber);
-      
+
       // Track progress photo taken event
       if (posthog) {
         posthog.capture('progress_photo_taken', {
           week_number: weekNumber,
         });
       }
-      
+
       // Track skin rating (only for non-baseline photos)
       if (user && weekNumber !== 0 && skinRating) {
         const photoDate = getTodayDateString();
         try {
           await trackSkinRating(user.uid, weekNumber, photoDate, skinRating);
-          
+
           // Check if we should show review prompt
           const shouldShow = await shouldShowReviewPrompt(user.uid, weekNumber, skinRating);
           if (shouldShow) {
@@ -90,7 +94,7 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
           // Continue even if tracking fails
         }
       }
-      
+
       // Navigate to What to Expect screen
       navigation.navigate('WhatToExpect', {
         weekNumber,
@@ -108,14 +112,14 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
 
   const handleLeaveReview = async () => {
     if (!user) return;
-    
+
     try {
       // Update last review prompt date
       await updateLastReviewPromptDate(user.uid);
-      
+
       // Request native review dialog
       await requestReview();
-      
+
       // Close modal - don't navigate, just show the native review dialog
       setShowReviewModal(false);
       // Navigate to WhatToExpect screen after closing modal
@@ -138,14 +142,14 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
       navigation.navigate('Feedback');
       return;
     }
-    
+
     try {
       // Update last review prompt date (30 day cooldown)
       await updateLastReviewPromptDate(user.uid);
     } catch (error) {
       console.error('Error updating review prompt date:', error);
     }
-    
+
     setShowReviewModal(false);
     navigation.navigate('Feedback');
   };
@@ -223,15 +227,15 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
 
           <TouchableOpacity
             style={[
-              styles.button, 
-              styles.useButton, 
+              styles.button,
+              styles.useButton,
               (isSaving || (weekNumber !== 0 && !skinRating)) && styles.buttonDisabled
             ]}
             onPress={handleUsePhoto}
             disabled={isSaving || (weekNumber !== 0 && !skinRating)}
           >
             {isSaving ? (
-              <ActivityIndicator color={colors.background} />
+              <ActivityIndicator color={theme.colors.background} />
             ) : (
               <Text style={styles.useButtonText}>Use Photo</Text>
             )}
@@ -248,96 +252,97 @@ export default function PhotoPreviewScreen({ route, navigation }: PhotoPreviewSc
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  previewContainer: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: spacing.lg,
-    gap: spacing.md,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retakeButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  retakeButtonText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  useButton: {
-    backgroundColor: colors.text,
-  },
-  useButtonText: {
-    ...typography.body,
-    color: colors.background,
-    fontWeight: '600',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  ratingContainer: {
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  ratingQuestion: {
-    ...typography.body,
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  ratingButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  ratingButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  ratingButtonSelected: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
-  },
-  ratingButtonText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  ratingButtonTextSelected: {
-    color: colors.background,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    previewContainer: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    previewImage: {
+      width: '100%',
+      height: '100%',
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: theme.spacing.lg,
+      gap: theme.spacing.md,
+      backgroundColor: theme.colors.background,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    button: {
+      flex: 1,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    retakeButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    retakeButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    useButton: {
+      backgroundColor: theme.colors.text,
+    },
+    useButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.background,
+      fontWeight: '600',
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    ratingContainer: {
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.background,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    ratingQuestion: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      textAlign: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    ratingButtons: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: theme.spacing.sm,
+    },
+    ratingButton: {
+      flex: 1,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.sm,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+    },
+    ratingButtonSelected: {
+      backgroundColor: theme.colors.text,
+      borderColor: theme.colors.text,
+    },
+    ratingButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    ratingButtonTextSelected: {
+      color: theme.colors.background,
+    },
+  });
+}

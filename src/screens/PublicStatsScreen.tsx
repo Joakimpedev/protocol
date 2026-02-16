@@ -1,13 +1,14 @@
 /**
  * Public Stats Screen
- * 
+ *
  * Shows anonymous aggregate stats and user ranking (Premium only)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateWeeklyConsistency } from '../services/completionService';
 
@@ -29,6 +30,9 @@ function getTodayCompletionsForDate(): number {
 }
 
 export default function PublicStatsScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,7 @@ export default function PublicStatsScreen({ navigation }: any) {
 
       // For MVP: Use placeholder logic until there's enough user data
       // In production, this would query Firestore for aggregate stats
-      
+
       // Calculate rank (placeholder: assume user is in top 28% if consistency > 7.0)
       if (consistency >= 7.0) {
         setUserRank(28); // Top 28%
@@ -85,44 +89,44 @@ export default function PublicStatsScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.contentContainer,
-          { paddingTop: insets.top + spacing.xl }
+          { paddingTop: insets.top + theme.spacing.xl }
         ]}
       >
         {/* Your Ranking Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>YOUR RANKING</Text>
           <View style={styles.divider} />
-          
+
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>This week:</Text>
             <Text style={styles.statValue}>Top {userRank}%</Text>
           </View>
-          
+
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Your consistency:</Text>
             <Text style={styles.statValueGreen}>
               {userConsistency !== null ? userConsistency.toFixed(1) : 'N/A'}
             </Text>
           </View>
-          
+
           <View style={styles.statRow}>
             <Text style={styles.statLabel}>Average user:</Text>
             <Text style={styles.statValue}>
               {averageConsistency !== null ? averageConsistency.toFixed(1) : 'N/A'}
             </Text>
           </View>
-          
+
           <View style={styles.divider} />
         </View>
 
@@ -130,15 +134,15 @@ export default function PublicStatsScreen({ navigation }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>TODAY</Text>
           <View style={styles.divider} />
-          
+
           <Text style={styles.todayText}>
             {todayCompletions !== null ? todayCompletions : 'N/A'} users completed their routine
           </Text>
-          
+
           {userCompletedToday && (
             <Text style={styles.todayUserText}>You're one of them. ✓</Text>
           )}
-          
+
           <View style={styles.divider} />
         </View>
 
@@ -146,24 +150,24 @@ export default function PublicStatsScreen({ navigation }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>INSIGHTS</Text>
           <View style={styles.divider} />
-          
+
           <Text style={styles.insightText}>
             Users with 8+ consistency:{'\n'}
             Report "Better" skin 3x more often
           </Text>
-          
+
           {userConsistency !== null && userConsistency < 8.0 && (
             <Text style={styles.insightUserText}>
               You're at {userConsistency.toFixed(1)}.
             </Text>
           )}
-          
+
           {userConsistency !== null && userConsistency >= 8.0 && (
             <Text style={styles.insightUserText}>
               You're at {userConsistency.toFixed(1)} — keep it up.
             </Text>
           )}
-          
+
           <View style={styles.divider} />
         </View>
       </ScrollView>
@@ -171,84 +175,82 @@ export default function PublicStatsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.md,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  statLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  statValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  statValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  todayText: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  todayUserText: {
-    ...typography.body,
-    color: '#00cc00',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  insightText: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.md,
-    lineHeight: 24,
-  },
-  insightUserText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-});
-
-
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+      paddingBottom: theme.spacing.xxl,
+    },
+    section: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.md,
+    },
+    statRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    statLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    statValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    statValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    todayText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    todayUserText: {
+      ...theme.typography.body,
+      color: '#00cc00',
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+    insightText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      lineHeight: 24,
+    },
+    insightUserText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+    },
+  });
+}

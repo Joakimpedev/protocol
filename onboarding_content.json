@@ -1,7 +1,7 @@
 {
   "problems": {
     "acne": {
-      "priority": 1,
+      "priority": 3,
       "requires_products": true,
       "routine_time_minutes": 12,
       "severity_question": {
@@ -150,7 +150,7 @@
       }
     },
     "jawline": {
-      "priority": 2,
+      "priority": 1,
       "requires_products": false,
       "routine_time_minutes": 10,
       "severity_question": {
@@ -336,7 +336,7 @@
       }
     },
     "facial_hair": {
-      "priority": 3,
+      "priority": 2,
       "requires_products": true,
       "routine_time_minutes": 5,
       "severity_question": {
@@ -1496,7 +1496,7 @@
       "name": "Ethan",
       "age": 22,
       "quote": "Insane change after only a little over 2 months",
-      "problems": ["acne"],
+      "problems": ["acne", "oily_skin"],
       "severity": "moderate",
       "impacts": ["avoiding_dating", "affects_mood", "constantly_thinking"],
       "before_photo": "ethan_acne_before.jpg",
@@ -1526,6 +1526,30 @@
       "before_photo": "alex_beard_before.jpg",
       "after_photo": "alex_beard_after.jpg",
       "weeks_elapsed": 44
+    },
+    {
+      "id": "markus_21_dry_skin",
+      "name": "Markus",
+      "age": 21,
+      "quote": "My skin went from flaky and irritated to smooth and healthy. Protocol changed everything.",
+      "problems": ["dry_skin"],
+      "severity": "moderate",
+      "impacts": ["affects_mood", "less_confident", "avoiding_photos"],
+      "before_photo": "markus_dry_before.jpg",
+      "after_photo": "markus_dry_after.jpg",
+      "weeks_elapsed": 12
+    },
+    {
+      "id": "jake_20_hyperpigmentation",
+      "name": "Jake",
+      "age": 20,
+      "quote": "Dark spots and circles were killing my confidence. 3 months later and the difference is night and day.",
+      "problems": ["hyperpigmentation", "dark_circles"],
+      "severity": "moderate",
+      "impacts": ["affects_mood", "avoiding_photos", "constantly_thinking"],
+      "before_photo": "jake_acne_before.jpg",
+      "after_photo": "jake_acne_after.jpg",
+      "weeks_elapsed": 14
     }
   ]
 }

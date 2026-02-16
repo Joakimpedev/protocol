@@ -10,6 +10,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { OnboardingProvider } from './src/contexts/OnboardingContext';
 import { PremiumProvider } from './src/contexts/PremiumContext';
 import { DevModeProvider } from './src/contexts/DevModeContext';
+import { ThemeProvider } from './src/contexts/ThemeContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 const FIRST_TIME_OPEN_KEY = '@protocol_first_time_open';
@@ -84,9 +85,11 @@ export default function App() {
       <AuthProvider>
         <PremiumProvider>
           <DevModeProvider>
-            <OnboardingProvider>
-              <AppContent />
-            </OnboardingProvider>
+            <ThemeProvider>
+              <OnboardingProvider>
+                <AppContent />
+              </OnboardingProvider>
+            </ThemeProvider>
           </DevModeProvider>
         </PremiumProvider>
       </AuthProvider>

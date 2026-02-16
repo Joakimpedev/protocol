@@ -1,10 +1,10 @@
 /**
  * Feedback Screen
- * 
+ *
  * Allows users to submit feedback after review prompt
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { saveFeedback } from '../services/feedbackService';
 
@@ -25,6 +26,9 @@ interface FeedbackScreenProps {
 }
 
 export default function FeedbackScreen({ navigation }: FeedbackScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [feedback, setFeedback] = useState('');
@@ -73,7 +77,7 @@ export default function FeedbackScreen({ navigation }: FeedbackScreenProps) {
           value={feedback}
           onChangeText={setFeedback}
           placeholder="Your feedback..."
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           multiline
           numberOfLines={6}
           textAlignVertical="top"
@@ -103,71 +107,72 @@ export default function FeedbackScreen({ navigation }: FeedbackScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    minWidth: 60,
-  },
-  backButtonText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: spacing.xl,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    ...typography.body,
-    color: colors.text,
-    minHeight: 150,
-    marginBottom: spacing.lg,
-  },
-  submitButton: {
-    backgroundColor: colors.buttonAccent,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  submitButtonDisabled: {
-    opacity: 0.5,
-  },
-  submitButtonText: {
-    ...typography.body,
-    color: '#000000',
-    fontWeight: '600',
-  },
-  skipButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      minWidth: 60,
+    },
+    backButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    content: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+    },
+    title: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.xl,
+    },
+    input: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      ...theme.typography.body,
+      color: theme.colors.text,
+      minHeight: 150,
+      marginBottom: theme.spacing.lg,
+    },
+    submitButton: {
+      backgroundColor: theme.colors.accent,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    submitButtonDisabled: {
+      opacity: 0.5,
+    },
+    submitButtonText: {
+      ...theme.typography.body,
+      color: '#000000',
+      fontWeight: '600',
+    },
+    skipButton: {
+      paddingVertical: theme.spacing.sm,
+      alignItems: 'center',
+    },
+    skipButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+  });
+}

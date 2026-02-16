@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { Exercise, ExerciseVariation, getTodayVariation } from '../services/exerciseService';
 import {
@@ -30,6 +31,9 @@ interface CyclingExerciseScreenProps {
 type ScreenState = 'pre-timer' | 'ready' | 'exercise';
 
 export default function CyclingExerciseScreen({ route, navigation }: CyclingExerciseScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { exercise } = route.params;
   const { user } = useAuth();
   const [screen, setScreen] = useState<ScreenState>('pre-timer');
@@ -41,11 +45,11 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
   const [variation, setVariation] = useState<ExerciseVariation | null>(null);
   const [additionalHoldIndex, setAdditionalHoldIndex] = useState(0);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Create audio players using hooks
   const countdownPlayer = useAudioPlayer(countdownSource);
   const completePlayer = useAudioPlayer(completeSource);
-  
+
   // Set volume and loop properties
   useEffect(() => {
     if (countdownPlayer) {
@@ -61,7 +65,7 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
   useEffect(() => {
     const todayVariation = getTodayVariation(exercise);
     setVariation(todayVariation);
-    
+
     if (user) {
       loadPreferences();
     }
@@ -87,7 +91,7 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
               console.error('Error in countdown sound:', e);
             }
           }
-          
+
           // Play countdown sound at 2 seconds (so it plays when timer will show 1)
           if (prev === 2) {
             try {
@@ -99,7 +103,7 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
               console.error('Error in countdown sound:', e);
             }
           }
-          
+
           // Play complete sound at 1 second (so it plays when timer will show 0 and phase completes)
           if (prev === 1) {
             // Play complete sound immediately when phase completes
@@ -115,11 +119,11 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
             handlePhaseComplete();
             return 0;
           }
-          
+
           if (prev <= 0) {
             return 0;
           }
-          
+
           return prev - 1;
         });
       }, 1000);
@@ -384,7 +388,7 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
           )}
           <Text style={styles.setDisplay}>Set {currentSet} of {selectedSets}</Text>
           <Text style={styles.instructionText}>{variation.instructions}</Text>
-          
+
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={styles.nextButton}
@@ -424,7 +428,7 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
           </View>
         )}
         <Text style={styles.setDisplay}>Set {currentSet} of {selectedSets}</Text>
-        
+
         {timeRemaining > 0 && (
           <Text style={styles.timerDisplay}>{formatTime(timeRemaining)}</Text>
         )}
@@ -459,184 +463,185 @@ export default function CyclingExerciseScreen({ route, navigation }: CyclingExer
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    fontSize: 20,
-    marginBottom: spacing.sm,
-  },
-  bodyText: {
-    ...typography.body,
-    lineHeight: 24,
-  },
-  setOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  setButton: {
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  setButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
-  },
-  setButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  setButtonTextActive: {
-    color: colors.text,
-    fontWeight: '600',
-  },
-  startButton: {
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: spacing.xl,
-  },
-  startButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  readyContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  readyText: {
-    ...typography.heading,
-    marginBottom: spacing.xl,
-  },
-  goButton: {
-    padding: spacing.xl,
-    paddingHorizontal: spacing.xxl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  goButtonText: {
-    ...typography.heading,
-    color: colors.text,
-  },
-  exerciseContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  setDisplay: {
-    ...typography.headingSmall,
-    marginBottom: spacing.lg,
-  },
-  timerDisplay: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 96,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  phaseText: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textTransform: 'uppercase',
-  },
-  instructionText: {
-    ...typography.body,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-    lineHeight: 24,
-    paddingHorizontal: spacing.lg,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  controlButton: {
-    padding: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  endButton: {
-    borderColor: colors.error,
-  },
-  controlButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  nextButton: {
-    padding: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 4,
-  },
-  nextButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  devButton: {
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
-  },
-  devButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.accent,
-    fontSize: 12,
-  },
-  instructionsContainer: {
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    width: '100%',
-  },
-  instructionsLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  instructionsText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    fontSize: 13,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.xl,
+      paddingBottom: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 20,
+      marginBottom: theme.spacing.sm,
+    },
+    bodyText: {
+      ...theme.typography.body,
+      lineHeight: 24,
+    },
+    setOptions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+    },
+    setButton: {
+      padding: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    setButtonActive: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.accent,
+    },
+    setButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    setButtonTextActive: {
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    startButton: {
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      marginTop: theme.spacing.xl,
+    },
+    startButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    readyContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.xl,
+    },
+    readyText: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.xl,
+    },
+    goButton: {
+      padding: theme.spacing.xl,
+      paddingHorizontal: theme.spacing.xxl,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    goButtonText: {
+      ...theme.typography.heading,
+      color: theme.colors.text,
+    },
+    exerciseContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.xl,
+    },
+    setDisplay: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.lg,
+    },
+    timerDisplay: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 96,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    phaseText: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textTransform: 'uppercase',
+    },
+    instructionText: {
+      ...theme.typography.body,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+      lineHeight: 24,
+      paddingHorizontal: theme.spacing.lg,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+      marginTop: theme.spacing.xl,
+    },
+    controlButton: {
+      padding: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.xl,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    endButton: {
+      borderColor: theme.colors.error,
+    },
+    controlButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    nextButton: {
+      padding: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.xl,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.lg,
+    },
+    nextButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.accent,
+    },
+    devButton: {
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.surface,
+    },
+    devButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.accent,
+      fontSize: 12,
+    },
+    instructionsContainer: {
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      width: '100%',
+    },
+    instructionsLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xs,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    instructionsText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+      fontSize: 13,
+    },
+  });
+}

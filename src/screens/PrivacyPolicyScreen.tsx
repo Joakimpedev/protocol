@@ -1,7 +1,12 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 export default function PrivacyPolicyScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -17,7 +22,7 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data We Collect</Text>
-          
+
           <Text style={styles.subsectionTitle}>Account Information</Text>
           <View style={styles.list}>
             <Text style={styles.listItem}>• Email address (required for account creation)</Text>
@@ -51,7 +56,7 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data We Do NOT Collect</Text>
-          
+
           <Text style={styles.subsectionTitle}>Progress Photos</Text>
           <Text style={styles.body}>
             Your progress photos are stored locally on your device only. They are never uploaded to our servers or any cloud service. If you delete the app, your photos are permanently deleted.
@@ -135,75 +140,76 @@ export default function PrivacyPolicyScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.lg,
-  },
-  heading: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 28,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  lastUpdated: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginBottom: spacing.xl,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  subsectionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  bodyMuted: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    marginTop: spacing.md,
-  },
-  list: {
-    marginLeft: spacing.sm,
-  },
-  listItem: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  contactEmail: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  bottomPadding: {
-    height: spacing.xxl,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: theme.spacing.lg,
+    },
+    heading: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 28,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    lastUpdated: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xl,
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    subsectionTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 24,
+    },
+    bodyMuted: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      marginTop: theme.spacing.md,
+    },
+    list: {
+      marginLeft: theme.spacing.sm,
+    },
+    listItem: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    contactEmail: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      color: theme.colors.text,
+      marginTop: theme.spacing.sm,
+    },
+    bottomPadding: {
+      height: theme.spacing.xxl,
+    },
+  });
+}

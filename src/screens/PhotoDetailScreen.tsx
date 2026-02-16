@@ -1,13 +1,14 @@
 /**
  * Photo Detail Screen
- * 
+ *
  * Shows a large photo with what to expect content below it
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, FlatList, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -17,6 +18,9 @@ import { getWhatToExpect } from '../services/whatToExpectService';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function PhotoDetailScreen({ route, navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { weekNumber: initialWeekNumber, photoUri: initialPhotoUri } = route.params;
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -40,18 +44,18 @@ export default function PhotoDetailScreen({ route, navigation }: any) {
   useEffect(() => {
     const loadWhatToExpect = async () => {
       if (!user || userCategories.length === 0) return;
-      
+
       try {
         const allWeeks = Array.from(new Set(photos.map(p => p.weekNumber)));
         const contentMap: { [week: number]: any } = {};
-        
+
         for (const week of allWeeks) {
           if (week !== 0) {
             const content = getWhatToExpect(week, userCategories);
             contentMap[week] = content;
           }
         }
-        
+
         setWhatToExpectContent(contentMap);
       } catch (error) {
         console.error('Error loading what to expect:', error);
@@ -73,7 +77,7 @@ export default function PhotoDetailScreen({ route, navigation }: any) {
         const userData = userDoc.data();
         const signup = userData.signupDate || userData.signup_date;
         const concerns = userData.concerns || [];
-        
+
         setSignupDate(signup);
         setUserCategories(concerns);
 
@@ -203,84 +207,85 @@ export default function PhotoDetailScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    minWidth: 60,
-  },
-  backButtonText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  headerTitle: {
-    ...typography.headingSmall,
-    fontSize: 18,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl,
-  },
-  photoContainer: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: colors.surface,
-    marginBottom: spacing.lg,
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  baselineCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  baselineTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.sm,
-  },
-  baselineText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  expectationCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionLabel: {
-    ...typography.label,
-    marginBottom: spacing.sm,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  currentWeekText: {
-    ...typography.body,
-    lineHeight: 24,
-    color: colors.textSecondary,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      minWidth: 60,
+    },
+    backButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    headerTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 18,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingBottom: theme.spacing.xl,
+    },
+    photoContainer: {
+      width: '100%',
+      aspectRatio: 1,
+      backgroundColor: theme.colors.surface,
+      marginBottom: theme.spacing.lg,
+    },
+    photo: {
+      width: '100%',
+      height: '100%',
+    },
+    baselineCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    baselineTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.sm,
+    },
+    baselineText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+    },
+    expectationCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginHorizontal: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionLabel: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.sm,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    currentWeekText: {
+      ...theme.typography.body,
+      lineHeight: 24,
+      color: theme.colors.textSecondary,
+    },
+  });
+}

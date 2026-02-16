@@ -1,6 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { colors } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 import ProtocolScreen from '../screens/ProtocolScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
@@ -10,78 +10,66 @@ import TermsOfUseScreen from '../screens/TermsOfUseScreen';
 const Stack = createNativeStackNavigator();
 
 export default function ProtocolStackNavigator() {
+  const theme = useTheme();
+
+  const headerStyle = {
+    backgroundColor: theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  };
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="ProtocolMain" component={ProtocolScreen} />
-      <Stack.Screen 
-        name="Settings" 
+      <Stack.Screen
+        name="Settings"
         component={SettingsScreen}
         options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: 'Settings',
           headerBackTitle: 'Protocol',
         }}
       />
-      <Stack.Screen 
-        name="PrivacyPolicy" 
+      <Stack.Screen
+        name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="FAQ" 
+      <Stack.Screen
+        name="FAQ"
         component={FAQScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="TermsOfUse" 
+      <Stack.Screen
+        name="TermsOfUse"
         component={TermsOfUseScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
     </Stack.Navigator>
   );
 }
-
-
-
-

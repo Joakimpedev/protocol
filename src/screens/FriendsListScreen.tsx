@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image, Modal } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import PaywallModal from '../components/PaywallModal';
@@ -20,6 +22,10 @@ import {
 } from '../services/friendService';
 
 export default function FriendsListScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  const isPro = theme.key === 'pro';
+
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const [friends, setFriends] = useState<FriendProfile[]>([]);
@@ -194,10 +200,90 @@ export default function FriendsListScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
+
+  const renderPublicStatsCard = () => {
+    const cardContent = (
+      <View style={styles.publicStatsContent}>
+        <View style={styles.publicStatsTextContainer}>
+          <Text style={styles.publicStatsTitle}>See how you rank</Text>
+          <Text style={styles.publicStatsSubtitle}>Compare your consistency score</Text>
+        </View>
+        <Image
+          source={require('../../assets/icons/leaderboard.png')}
+          style={styles.leaderboardIcon}
+          resizeMode="contain"
+        />
+      </View>
+    );
+
+    if (isPro) {
+      return (
+        <TouchableOpacity
+          onPress={() => {
+            if (isPremium) {
+              navigation.navigate('PublicStats');
+            } else {
+              setShowPaywall(true);
+            }
+          }}
+        >
+          <LinearGradient
+            colors={theme.gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.publicStatsCard}
+          >
+            {cardContent}
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.publicStatsCard}
+        onPress={() => {
+          if (isPremium) {
+            navigation.navigate('PublicStats');
+          } else {
+            setShowPaywall(true);
+          }
+        }}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAddButton = () => {
+    if (isPro) {
+      return (
+        <TouchableOpacity onPress={() => navigation.navigate('AddFriend')}>
+          <LinearGradient
+            colors={theme.gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.addButtonGradient}
+          >
+            <Text style={styles.addButtonTextPro}>+ Add Friend</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('AddFriend')}
+      >
+        <Text style={styles.addButtonText}>+ Add Friend</Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -205,8 +291,8 @@ export default function FriendsListScreen({ navigation }: any) {
         style={styles.settingsButton}
         onPress={() => navigation.navigate('Settings')}
       >
-        <Image 
-          source={require('../../assets/icons/gear.png')} 
+        <Image
+          source={require('../../assets/icons/gear.png')}
           style={styles.settingsButtonIcon}
           resizeMode="contain"
         />
@@ -220,37 +306,11 @@ export default function FriendsListScreen({ navigation }: any) {
       <View style={styles.friendCodeContainer}>
         <Text style={styles.friendCodeLabel}>Your Friend Code</Text>
         <Text style={styles.friendCode}>{myFriendCode}</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddFriend')}
-        >
-          <Text style={styles.addButtonText}>+ Add Friend</Text>
-        </TouchableOpacity>
+        {renderAddButton()}
       </View>
 
       {/* Public Stats Card */}
-      <TouchableOpacity
-        style={styles.publicStatsCard}
-        onPress={() => {
-          if (isPremium) {
-            navigation.navigate('PublicStats');
-          } else {
-            setShowPaywall(true);
-          }
-        }}
-      >
-        <View style={styles.publicStatsContent}>
-          <View style={styles.publicStatsTextContainer}>
-            <Text style={styles.publicStatsTitle}>See how you rank</Text>
-            <Text style={styles.publicStatsSubtitle}>Compare your consistency score</Text>
-          </View>
-          <Image 
-            source={require('../../assets/icons/leaderboard.png')} 
-            style={styles.leaderboardIcon}
-            resizeMode="contain"
-          />
-        </View>
-      </TouchableOpacity>
+      {renderPublicStatsCard()}
 
       {/* Pending Requests */}
       {pendingRequests.length > 0 && (
@@ -373,228 +433,239 @@ export default function FriendsListScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingTop: 120,
-  },
-  settingsButton: {
-    position: 'absolute',
-    top: 60,
-    right: spacing.lg,
-    zIndex: 1000,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingsButtonIcon: {
-    width: 24,
-    height: 24,
-    tintColor: colors.text,
-  },
-  header: {
-    marginBottom: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-  },
-  friendCodeContainer: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  friendCodeLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  friendCode: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 32,
-    fontWeight: '600',
-    color: colors.text,
-    letterSpacing: 4,
-    marginBottom: spacing.lg,
-  },
-  addButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    width: '100%',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-  },
-  friendCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  friendInfo: {
-    marginBottom: spacing.sm,
-  },
-  friendHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  friendEmail: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-  },
-  menuButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
-  },
-  menuButtonText: {
-    fontSize: 24,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  mutedBadge: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 2,
-  },
-  friendCodeText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  friendStats: {
-    marginTop: spacing.xs,
-  },
-  statText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  acceptButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 4,
-    padding: spacing.sm,
-    flex: 1,
-    alignItems: 'center',
-  },
-  acceptButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuContainer: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    minWidth: 200,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  menuItemText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  menuItemTextDanger: {
-    color: colors.error,
-    fontWeight: '600',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  emptyState: {
-    padding: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyStateText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyStateSubtext: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-  },
-  publicStatsCard: {
-    backgroundColor: colors.buttonAccent,
-    borderWidth: 1,
-    borderColor: colors.buttonAccent,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  publicStatsContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  publicStatsTextContainer: {
-    flex: 1,
-  },
-  publicStatsTitle: {
-    ...typography.body,
-    fontFamily: MONOSPACE_FONT,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: spacing.xs,
-  },
-  publicStatsSubtitle: {
-    ...typography.bodySmall,
-    color: '#000000',
-  },
-  leaderboardIcon: {
-    width: 45,
-    height: 45,
-    marginLeft: spacing.md,
-    tintColor: '#000000',
-  },
-});
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    content: {
+      padding: theme.spacing.lg,
+      paddingTop: 120,
+    },
+    settingsButton: {
+      position: 'absolute',
+      top: 60,
+      right: theme.spacing.lg,
+      zIndex: 1000,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    settingsButtonIcon: {
+      width: 24,
+      height: 24,
+      tintColor: theme.colors.text,
+    },
+    header: {
+      marginBottom: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+    },
+    friendCodeContainer: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    friendCodeLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    },
+    friendCode: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 32,
+      fontWeight: '600',
+      color: theme.colors.text,
+      letterSpacing: 4,
+      marginBottom: theme.spacing.lg,
+    },
+    addButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      width: '100%',
+      alignItems: 'center',
+    },
+    addButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    addButtonGradient: {
+      borderRadius: theme.borderRadius.pill,
+      padding: theme.spacing.md,
+      width: '100%',
+      alignItems: 'center',
+    },
+    addButtonTextPro: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    section: {
+      marginBottom: theme.spacing.xl,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+    },
+    friendCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    friendInfo: {
+      marginBottom: theme.spacing.sm,
+    },
+    friendHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.xs,
+    },
+    friendEmail: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      flex: 1,
+    },
+    menuButton: {
+      padding: theme.spacing.xs,
+      marginLeft: theme.spacing.sm,
+    },
+    menuButtonText: {
+      fontSize: 24,
+      color: theme.colors.textSecondary,
+      lineHeight: 24,
+    },
+    mutedBadge: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      backgroundColor: theme.colors.background,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: 2,
+    },
+    friendCodeText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    friendStats: {
+      marginTop: theme.spacing.xs,
+    },
+    statText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: 2,
+    },
+    friendActions: {},
+    acceptButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.sm,
+      flex: 1,
+      alignItems: 'center',
+    },
+    acceptButtonText: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.accent,
+    },
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    menuContainer: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      minWidth: 200,
+      overflow: 'hidden',
+    },
+    menuItem: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+    menuItemText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    menuItemTextDanger: {
+      color: theme.colors.error,
+      fontWeight: '600',
+    },
+    menuDivider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+    },
+    emptyState: {
+      padding: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    emptyStateText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    emptyStateSubtext: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+    },
+    publicStatsCard: {
+      backgroundColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.xl,
+      overflow: 'hidden',
+    },
+    publicStatsContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    publicStatsTextContainer: {
+      flex: 1,
+    },
+    publicStatsTitle: {
+      ...theme.typography.body,
+      fontFamily: theme.typography.heading.fontFamily,
+      fontWeight: '600',
+      color: '#000000',
+      marginBottom: theme.spacing.xs,
+    },
+    publicStatsSubtitle: {
+      ...theme.typography.bodySmall,
+      color: '#000000',
+    },
+    leaderboardIcon: {
+      width: 45,
+      height: 45,
+      marginLeft: theme.spacing.md,
+      tintColor: '#000000',
+    },
+  });
+}

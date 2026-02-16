@@ -1,15 +1,16 @@
 /**
  * Premium Insight Screen
- * 
+ *
  * Displays detailed premium insights for weekly summary
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Switch, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import PaywallModal from '../components/PaywallModal';
@@ -17,14 +18,17 @@ import { getWeeklySummary, WeeklySummaryData } from '../services/completionServi
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { getMonthlyInsights, MonthlyInsightsData } from '../services/monthlyInsightsService';
-import { 
-  getHardestDayNotificationPreferences, 
+import {
+  getHardestDayNotificationPreferences,
   updateHardestDayNotificationPreferences,
-  scheduleHardestDayNotification 
+  scheduleHardestDayNotification
 } from '../services/notificationService';
 import MatrixRedactedText from '../components/MatrixRedactedText';
 
 export default function PremiumInsightScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const insets = useSafeAreaInsets();
@@ -35,7 +39,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
   const [totalProducts, setTotalProducts] = useState<number | null>(null);
   const [productsInRoutine, setProductsInRoutine] = useState<number | null>(null);
   const [exercisesInRoutine, setExercisesInRoutine] = useState<number | null>(null);
-  
+
   // Monthly skip data (last 30 days)
   const [monthlyProductSkips, setMonthlyProductSkips] = useState<number>(0);
   const [monthlyTimerSkips, setMonthlyTimerSkips] = useState<number>(0);
@@ -45,7 +49,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     productName: string;
     count: number;
   }>>([]);
-  
+
   // Hardest day notification state
   const [hardestDayNotificationEnabled, setHardestDayNotificationEnabled] = useState(false);
   const [hardestDayNotificationTime, setHardestDayNotificationTime] = useState('09:00');
@@ -77,7 +81,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const loadMonthlySkipData = async () => {
     if (!user) return;
-    
+
     try {
       const {
         getProductSkipCountLast30Days,
@@ -85,14 +89,14 @@ export default function PremiumInsightScreen({ navigation }: any) {
         getExerciseEarlyEndCountLast30Days,
         getSkippedProductsWithCountsLast30Days,
       } = await import('../services/analyticsService');
-      
+
       const [productSkips, timerSkips, exerciseEarlyEnds, skippedProducts] = await Promise.all([
         getProductSkipCountLast30Days(user.uid),
         getTimerSkipCountLast30Days(user.uid),
         getExerciseEarlyEndCountLast30Days(user.uid),
         getSkippedProductsWithCountsLast30Days(user.uid),
       ]);
-      
+
       setMonthlyProductSkips(productSkips);
       setMonthlyTimerSkips(timerSkips);
       setMonthlyExerciseEarlyEnds(exerciseEarlyEnds);
@@ -105,7 +109,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const loadSummary = async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       const data = await getWeeklySummary(user.uid);
@@ -124,7 +128,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const loadMonthlyInsights = async () => {
     if (!user) return;
-    
+
     try {
       const insights = await getMonthlyInsights(user.uid);
       setMonthlyInsights(insights);
@@ -137,13 +141,13 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const loadHardestDayNotificationPreferences = async () => {
     if (!user) return;
-    
+
     try {
       const prefs = await getHardestDayNotificationPreferences(user.uid);
       setHardestDayNotificationEnabled(prefs.enabled);
       setHardestDayNotificationTime(prefs.time);
       setSavedHardestDayNotificationTime(prefs.time);
-      
+
       // Initialize date picker with saved time
       const [hours, minutes] = prefs.time.split(':').map(Number);
       const date = new Date();
@@ -156,7 +160,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const loadTotalProducts = async () => {
     if (!user) return;
-    
+
     try {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       if (userDoc.exists()) {
@@ -164,14 +168,14 @@ export default function PremiumInsightScreen({ navigation }: any) {
         const ingredientSelections = userData.ingredientSelections || [];
         // Count total products (ingredients) - all ingredients in their plan
         setTotalProducts(ingredientSelections.length);
-        
+
         // Count products actually in the routine (not skipped)
         // Products with state='added' or 'active' are in the routine
         const productsInRoutine = ingredientSelections.filter(
           (ing: any) => ing.state === 'added' || ing.state === 'active'
         ).length;
         setProductsInRoutine(productsInRoutine);
-        
+
         // Count exercises in the routine (not skipped)
         const exerciseSelections = userData.exerciseSelections || [];
         const exercisesInRoutine = exerciseSelections.filter(
@@ -209,11 +213,11 @@ export default function PremiumInsightScreen({ navigation }: any) {
       setShowPaywall(true);
       return;
     }
-    
+
     setHardestDayNotificationEnabled(value);
-    
+
     if (!user) return;
-    
+
     // If disabling, save immediately and cancel notifications
     if (!value) {
       try {
@@ -265,7 +269,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
   const handleSaveHardestDayNotification = async () => {
     if (!user) return;
-    
+
     if (!hardestDayNotificationEnabled) {
       return;
     }
@@ -276,9 +280,9 @@ export default function PremiumInsightScreen({ navigation }: any) {
         enabled: true,
         time: hardestDayNotificationTime,
       });
-      
+
       await scheduleHardestDayNotification(user.uid);
-      
+
       setSavedHardestDayNotificationTime(hardestDayNotificationTime);
     } catch (error) {
       console.error('Error saving hardest day notification:', error);
@@ -289,7 +293,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
   };
 
   // Check if there are unsaved changes (time changed or just enabled)
-  const hasUnsavedChanges = hardestDayNotificationEnabled && 
+  const hasUnsavedChanges = hardestDayNotificationEnabled &&
     hardestDayNotificationTime !== savedHardestDayNotificationTime;
 
   const renderHardestDayTimePicker = () => {
@@ -304,7 +308,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
               is24Hour={false}
               display="spinner"
               onChange={handleHardestDayPickerChange}
-              textColor={colors.text}
+              textColor={theme.colors.text}
               style={styles.picker}
             />
             <View style={styles.pickerActions}>
@@ -349,7 +353,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -418,11 +422,11 @@ export default function PremiumInsightScreen({ navigation }: any) {
   const calculatePercentage = (discrepancyMinutes: number): number => {
     const maxDiscrepancyMinutes = 4 * 60; // 4 hours = 240 minutes
     const maxPercentage = 37;
-    
+
     if (discrepancyMinutes >= maxDiscrepancyMinutes) {
       return maxPercentage;
     }
-    
+
     // Linear interpolation: (discrepancy / maxDiscrepancy) * maxPercentage
     const percentage = Math.round((discrepancyMinutes / maxDiscrepancyMinutes) * maxPercentage);
     return percentage;
@@ -434,7 +438,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
     const currentScore = summary.overallConsistency;
     const totalSkips = (summary.productSkips || 0) + (summary.timerSkips || 0) + (summary.exerciseEarlyEnds || 0);
-    
+
     // Estimate impact: each skip type has different weight
     // Product skips: most impactful (affects routine completeness)
     // Timer skips: medium impact (waiting time, but routine still done)
@@ -442,18 +446,18 @@ export default function PremiumInsightScreen({ navigation }: any) {
     const productSkipImpact = (summary.productSkips || 0) * 0.8; // 0.8 points per skip
     const timerSkipImpact = (summary.timerSkips || 0) * 0.3; // 0.3 points per skip
     const exerciseEarlyEndImpact = (summary.exerciseEarlyEnds || 0) * 0.2; // 0.2 points per early end
-    
+
     const totalImpact = productSkipImpact + timerSkipImpact + exerciseEarlyEndImpact;
     const potentialScore = Math.min(10.0, currentScore + totalImpact);
     const improvementPoints = potentialScore - currentScore;
-    const improvementPercentage = currentScore > 0 
+    const improvementPercentage = currentScore > 0
       ? Math.round((improvementPoints / currentScore) * 100)
       : Math.round((improvementPoints / 10.0) * 100);
 
     // Find biggest opportunity
     let biggestOpportunity = null;
     let biggestImpact = 0;
-    
+
     if (productSkipImpact > biggestImpact && (summary.productSkips || 0) > 0) {
       biggestImpact = productSkipImpact;
       biggestOpportunity = {
@@ -463,7 +467,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         message: 'Complete all products',
       };
     }
-    
+
     if (timerSkipImpact > biggestImpact && (summary.timerSkips || 0) > 0) {
       biggestImpact = timerSkipImpact;
       biggestOpportunity = {
@@ -473,7 +477,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         message: 'Complete waiting periods',
       };
     }
-    
+
     if (exerciseEarlyEndImpact > biggestImpact && (summary.exerciseEarlyEnds || 0) > 0) {
       biggestImpact = exerciseEarlyEndImpact;
       biggestOpportunity = {
@@ -517,12 +521,12 @@ export default function PremiumInsightScreen({ navigation }: any) {
     const timerSkips = summary.timerSkips || 0;
     const exerciseEarlyEnds = summary.exerciseEarlyEnds || 0;
     const daysWithActivity = summary.daysCompleted || 1;
-    
+
     // Get current day of week (Monday = 1, Tuesday = 2, ..., Sunday = 7)
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const daysInWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // Convert Sunday (0) to 7
-    
+
     // Use actual total products from user's routine, or fallback to estimate
     const actualTotalProducts = totalProducts || 6; // Fallback to 6 if not loaded yet
 
@@ -540,35 +544,35 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // Waiting is a slight boost, so the impact should be modest compared to full product skips
     const BASE_POINTS_PER_APPLICATION = 10;
     const BOOSTED_POINTS_PER_APPLICATION = 14; // 40% boost from waiting (14 vs 10)
-    
+
     // For products: Use products actually in the routine (not skipped entirely)
     const actualProductsInRoutine = productsInRoutine || actualTotalProducts; // Fallback to total if not loaded
-    
-    // Calculate waiting periods using actual products in routine × days in week (based on current day)
+
+    // Calculate waiting periods using actual products in routine x days in week (based on current day)
     // Max effectiveness lost for waiting = 30% (when all waiting periods are skipped)
-    // Linear calculation: (timerSkips / totalPossibleWaitingOpportunities) × 30
+    // Linear calculation: (timerSkips / totalPossibleWaitingOpportunities) x 30
     // Monday = 1 day, Tuesday = 2 days, ..., Sunday = 7 days
     const totalPossibleWaitingOpportunities = actualProductsInRoutine * daysInWeek;
-    
+
     // Cap timerSkips to not exceed possible opportunities
     const actualTimerSkips = Math.min(timerSkips, totalPossibleWaitingOpportunities);
-    
-    // Calculate waiting effectiveness lost: (skipped / total) × 30%
-    // Example: 2 skips out of 28 = (2/28) × 30 = 2.14%
+
+    // Calculate waiting effectiveness lost: (skipped / total) x 30%
+    // Example: 2 skips out of 28 = (2/28) x 30 = 2.14%
     const waitingEffectivenessLost = totalPossibleWaitingOpportunities > 0
       ? (actualTimerSkips / totalPossibleWaitingOpportunities) * 30
       : 0;
 
     // For products: Use products actually in the routine (not skipped entirely)
     // productSkips from weekly summary = number of times products were skipped during the week
-    
+
     // Calculate product applications for the week
-    // Total possible applications = products in routine × 7 days (full week)
+    // Total possible applications = products in routine x 7 days (full week)
     const totalPossibleApplications = actualProductsInRoutine * 7;
-    
+
     // Actual applications = total possible - productSkips (times products were skipped)
     const actualApplications = Math.max(0, totalPossibleApplications - productSkips);
-    
+
     // Products contribute points when used (with proper waiting = 14 points per application)
     // Products that are skipped entirely (not in routine) = 0 points
     // Each application = 14 points (with proper waiting)
@@ -581,22 +585,22 @@ export default function PremiumInsightScreen({ navigation }: any) {
 
     // For exercises ended early: Calculate effectiveness lost
     // Max effectiveness lost for exercises = 50% (when all exercises are ended early in the week)
-    // Linear calculation: (exerciseEarlyEnds / totalPossibleExerciseSessions) × 50
+    // Linear calculation: (exerciseEarlyEnds / totalPossibleExerciseSessions) x 50
     // Get exercises in routine to calculate percentage impact
     const actualExercisesInRoutine = exercisesInRoutine || 3; // Fallback to 3 if not loaded
     // Monday = 1 day, Tuesday = 2 days, ..., Sunday = 7 days
     const totalPossibleExerciseSessions = actualExercisesInRoutine * daysInWeek;
-    
+
     // Cap exerciseEarlyEnds to not exceed possible sessions
     const actualExerciseEarlyEnds = Math.min(exerciseEarlyEnds, totalPossibleExerciseSessions);
-    
-    // Calculate exercise effectiveness lost: (ended early / total) × 50%
-    // Example: 3 exercises × 7 days = 21 sessions, if 2 ended early = (2/21) × 50 = 4.76%
-    // If all 21 ended early = (21/21) × 50 = 50%
+
+    // Calculate exercise effectiveness lost: (ended early / total) x 50%
+    // Example: 3 exercises x 7 days = 21 sessions, if 2 ended early = (2/21) x 50 = 4.76%
+    // If all 21 ended early = (21/21) x 50 = 50%
     const exerciseEffectivenessLost = totalPossibleExerciseSessions > 0
       ? (actualExerciseEarlyEnds / totalPossibleExerciseSessions) * 50
       : 0;
-    
+
     // Total effectiveness lost: Simply add waiting periods skipped + exercises ended early percentages
     const totalEffectivenessLost = waitingEffectivenessLost + exerciseEffectivenessLost;
 
@@ -605,7 +609,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     const monthlyEffectivenessLost = totalEffectivenessLost; // Same rate, not multiplied
 
     // Format time (handles both seconds and minutes)
-    const formatTime = (minutes: number) => {
+    const formatTimeFn = (minutes: number) => {
       if (minutes < 1) {
         // If less than 1 minute, show seconds
         const seconds = Math.round(minutes * 60);
@@ -636,18 +640,18 @@ export default function PremiumInsightScreen({ navigation }: any) {
     };
 
     return {
-      formatTime,
+      formatTime: formatTimeFn,
       formatTimeFromSeconds,
       waitingTimeSaved: waitingTimeSavedSeconds / 60, // Convert to minutes for display
       productTimeSaved: productTimeSavedSeconds / 60, // Convert to minutes for display
       exerciseTimeSaved: exerciseTimeSavedMinutes, // Already in minutes
       totalTimeSavedMinutes,
-      totalTimeSavedFormatted: formatTime(totalTimeSavedMinutes),
+      totalTimeSavedFormatted: formatTimeFn(totalTimeSavedMinutes),
       waitingEffectivenessLost,
       productEffectivenessLost,
       exerciseEffectivenessLost,
       totalEffectivenessLost,
-      monthlyTimeSavedFormatted: formatTime(monthlyTimeSavedMinutes),
+      monthlyTimeSavedFormatted: formatTimeFn(monthlyTimeSavedMinutes),
       monthlyEffectivenessLost,
     };
   };
@@ -664,7 +668,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     const productSkips = monthlyProductSkips || 0;
     const timerSkips = monthlyTimerSkips || 0;
     const exerciseEarlyEnds = monthlyExerciseEarlyEnds || 0;
-    
+
     // Use actual total products from user's routine, or fallback to estimate
     const actualTotalProducts = totalProducts || 6;
     const actualProductsInRoutine = productsInRoutine || actualTotalProducts;
@@ -681,12 +685,12 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // Calculate effectiveness using Linear Accumulation model
     const BASE_POINTS_PER_APPLICATION = 10;
     const BOOSTED_POINTS_PER_APPLICATION = 14; // 40% boost from waiting (14 vs 10)
-    
-    // For 30 days: Calculate waiting periods using actual products in routine × 30 days
+
+    // For 30 days: Calculate waiting periods using actual products in routine x 30 days
     const totalPossibleWaitingOpportunities = actualProductsInRoutine * 30;
     const actualTimerSkips = Math.min(timerSkips, totalPossibleWaitingOpportunities);
-    
-    // Calculate waiting effectiveness lost: (skipped / total) × 30%
+
+    // Calculate waiting effectiveness lost: (skipped / total) x 30%
     const waitingEffectivenessLost = totalPossibleWaitingOpportunities > 0
       ? (actualTimerSkips / totalPossibleWaitingOpportunities) * 30
       : 0;
@@ -694,7 +698,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // Calculate product applications for 30 days
     const totalPossibleApplications = actualProductsInRoutine * 30;
     const actualApplications = Math.max(0, totalPossibleApplications - productSkips);
-    
+
     const productPointsEarned = actualApplications * BOOSTED_POINTS_PER_APPLICATION;
     const productPointsIdeal = actualProductsInRoutine * 30 * BOOSTED_POINTS_PER_APPLICATION;
     const productEffectiveness = productPointsIdeal > 0
@@ -705,8 +709,8 @@ export default function PremiumInsightScreen({ navigation }: any) {
     // For exercises ended early: Calculate effectiveness lost for 30 days
     const totalPossibleExerciseSessions = actualExercisesInRoutine * 30;
     const actualExerciseEarlyEnds = Math.min(exerciseEarlyEnds, totalPossibleExerciseSessions);
-    
-    // Calculate exercise effectiveness lost: (ended early / total) × 50%
+
+    // Calculate exercise effectiveness lost: (ended early / total) x 50%
     const exerciseEffectivenessLost = totalPossibleExerciseSessions > 0
       ? (actualExerciseEarlyEnds / totalPossibleExerciseSessions) * 50
       : 0;
@@ -715,7 +719,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
     const totalEffectivenessLost = waitingEffectivenessLost + exerciseEffectivenessLost;
 
     // Format time (handles both seconds and minutes)
-    const formatTime = (minutes: number) => {
+    const formatTimeFn = (minutes: number) => {
       if (minutes < 1) {
         const seconds = Math.round(minutes * 60);
         return `${seconds}s`;
@@ -732,12 +736,12 @@ export default function PremiumInsightScreen({ navigation }: any) {
     };
 
     return {
-      formatTime,
+      formatTime: formatTimeFn,
       waitingTimeSaved: waitingTimeSavedSeconds / 60, // Convert to minutes for display
       productTimeSaved: productTimeSavedSeconds / 60, // Convert to minutes for display
       exerciseTimeSaved: exerciseTimeSavedMinutes, // Already in minutes
       totalTimeSavedMinutes,
-      totalTimeSavedFormatted: formatTime(totalTimeSavedMinutes),
+      totalTimeSavedFormatted: formatTimeFn(totalTimeSavedMinutes),
       waitingEffectivenessLost,
       productEffectivenessLost,
       exerciseEffectivenessLost,
@@ -760,7 +764,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>
           Weekly Score: {overallScore}
         </Text>
-        
+
         {/* Morning */}
         <View style={styles.breakdownRowItem}>
           <View style={styles.breakdownRowHeader}>
@@ -852,7 +856,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         {/* What You Have Skipped (Last 30 Days) - FIRST SECTION */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>What you have skipped</Text>
-          
+
           <View style={styles.skipRow}>
             <Text style={styles.skipLabel}>Products skipped:</Text>
             <MatrixRedactedText value={monthlyProductSkips} style={styles.skipValueGreen} />
@@ -878,7 +882,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           {/* Timer skip insight */}
           {monthlyTimerSkips > 0 && (
             <Text style={styles.skipInsight}>
-              Waiting periods (like after applying products) help products absorb properly. 
+              Waiting periods (like after applying products) help products absorb properly.
               According to studies, skipping them reduces effectiveness by approximately 25-30%.
             </Text>
           )}
@@ -891,7 +895,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           {/* Exercise early end insight */}
           {monthlyExerciseEarlyEnds > 0 && (
             <Text style={styles.skipInsight}>
-              Completing full exercise sessions gives better results. 
+              Completing full exercise sessions gives better results.
               Partial sessions still count, but full sessions maximize progress.
             </Text>
           )}
@@ -901,7 +905,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         {timeVsEffectiveness30Days && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Time vs Effectiveness</Text>
-            
+
             <View style={styles.timeEffectivenessCard}>
               <View style={styles.timeEffectivenessSection}>
                 <Text style={styles.timeEffectivenessSubtitle}>Time Saved</Text>
@@ -1034,7 +1038,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                   <>
                     <Text style={styles.insightSentence}>
                       {monthlyInsights.correlationInsights.whatsWorking.sentenceTemplatePrefix}
-                      <MatrixRedactedText 
+                      <MatrixRedactedText
                         value={monthlyInsights.correlationInsights.whatsWorking.sentenceData}
                         inline={true}
                         fixedLength={8}
@@ -1048,7 +1052,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                     </Text>
                     <Text style={styles.insightAction}>
                       {monthlyInsights.correlationInsights.whatsWorking.adviceTemplatePrefix}
-                      <MatrixRedactedText 
+                      <MatrixRedactedText
                         value={monthlyInsights.correlationInsights.whatsWorking.adviceData}
                         inline={true}
                         fixedLength={8}
@@ -1084,7 +1088,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                   <>
                     <Text style={styles.insightSentence}>
                       {monthlyInsights.correlationInsights.whatsHurting.sentenceTemplatePrefix}
-                      <MatrixRedactedText 
+                      <MatrixRedactedText
                         value={monthlyInsights.correlationInsights.whatsHurting.sentenceData}
                         inline={true}
                         fixedLength={8}
@@ -1098,7 +1102,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                     </Text>
                     <Text style={styles.insightAction}>
                       {monthlyInsights.correlationInsights.whatsHurting.adviceTemplatePrefix}
-                      <MatrixRedactedText 
+                      <MatrixRedactedText
                         value={monthlyInsights.correlationInsights.whatsHurting.adviceData}
                         inline={true}
                         fixedLength={8}
@@ -1125,9 +1129,9 @@ export default function PremiumInsightScreen({ navigation }: any) {
             )}
 
             {/* No insights message - Only for premium users when no data */}
-            {isPremium && 
-             !monthlyInsights.correlationInsights.whatsWorking && 
-             !monthlyInsights.correlationInsights.whatsHurting && 
+            {isPremium &&
+             !monthlyInsights.correlationInsights.whatsWorking &&
+             !monthlyInsights.correlationInsights.whatsHurting &&
              !monthlyInsights.correlationInsights.message && (
               <View style={styles.section}>
                 <Text style={styles.body}>Not enough data to show insights yet.</Text>
@@ -1143,7 +1147,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           {monthlyInsights.hardestDay ? (
             <View style={styles.patternRow}>
               <Text style={styles.patternLabel}>Hardest day:</Text>
-              <MatrixRedactedText 
+              <MatrixRedactedText
                 value={`${monthlyInsights.hardestDay.day} (${monthlyInsights.hardestDay.percentage}%)`}
                 style={styles.patternValueGreen}
               />
@@ -1158,7 +1162,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           {monthlyInsights.bestDay ? (
             <View style={styles.patternRow}>
               <Text style={styles.patternLabel}>Best day:</Text>
-              <MatrixRedactedText 
+              <MatrixRedactedText
                 value={`${monthlyInsights.bestDay.day} (${monthlyInsights.bestDay.percentage}%)`}
                 style={styles.patternValueGreen}
               />
@@ -1177,9 +1181,9 @@ export default function PremiumInsightScreen({ navigation }: any) {
             <Switch
               value={hardestDayNotificationEnabled}
               onValueChange={handleHardestDayNotificationToggle}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.surface}
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: theme.colors.border, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
+              ios_backgroundColor={theme.colors.border}
             />
           </View>
 
@@ -1219,7 +1223,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
         {/* Notification Timing */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notification timing</Text>
-          
+
           {/* Morning Routine */}
           {monthlyInsights.notificationTiming.morning ? (
             <View style={styles.timingSubsection}>
@@ -1261,7 +1265,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                   {' '}more likely to stick to your routine if you properly adjust your notifications.
                 </Text>
               )}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.adjustButton}
                 onPress={() => navigation.navigate('Settings')}
               >
@@ -1318,7 +1322,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
                   {' '}more likely to stick to your routine if you properly adjust your notifications.
                 </Text>
               )}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.adjustButton}
                 onPress={() => navigation.navigate('Settings')}
               >
@@ -1338,7 +1342,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           </>
         )}
 
-      </> 
+      </>
     );
   };
 
@@ -1354,7 +1358,7 @@ export default function PremiumInsightScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       )}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.contentContainer,
@@ -1372,733 +1376,734 @@ export default function PremiumInsightScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  header: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  title: {
-    ...typography.heading,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-  },
-  breakdownRowItem: {
-    marginBottom: spacing.md,
-  },
-  breakdownRowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  breakdownLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  breakdownValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  breakdownValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  breakdownValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  breakdownChange: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-  progressBarContainer: {
-    marginTop: spacing.xs,
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarFilled: {
-    height: '100%',
-    backgroundColor: '#00cc00',
-    borderRadius: 4,
-  },
-  skipRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  skipLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  skipValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  skipValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  skippedProductsList: {
-    marginTop: spacing.md,
-    marginBottom: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  skippedProductRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  skippedProductName: {
-    ...typography.body,
-    color: colors.text,
-    flex: 1,
-  },
-  skippedProductCount: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  skippedProductCountGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  streakContainer: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  streakItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  streakDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  streakLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  streakValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  streakValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  skipHint: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
-  },
-  opportunityCard: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: '#00cc00',
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
-  },
-  opportunityTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  opportunityScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  opportunityScoreItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  opportunityScoreLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  opportunityScoreValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  opportunityScoreValuePotential: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  opportunityArrow: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 20,
-    color: colors.textSecondary,
-    marginHorizontal: spacing.md,
-  },
-  opportunityMessage: {
-    ...typography.body,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  opportunityHighlight: {
-    fontFamily: MONOSPACE_FONT,
-    color: '#00cc00',
-    fontWeight: '600',
-  },
-  biggestOpportunityCard: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  biggestOpportunityTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  biggestOpportunityMessage: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  biggestOpportunityImpact: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  biggestOpportunityHighlight: {
-    fontFamily: MONOSPACE_FONT,
-    color: '#00cc00',
-    fontWeight: '600',
-  },
-  skipInsight: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
-    fontStyle: 'italic',
-    lineHeight: 18,
-  },
-  skipRateCard: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  skipRateLabel: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  skipRateValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#00cc00',
-    marginBottom: spacing.xs,
-  },
-  skipRateInsight: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
-  },
-  mostSkippedCard: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  mostSkippedTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  mostSkippedName: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  mostSkippedCount: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  mostSkippedCountValue: {
-    fontFamily: MONOSPACE_FONT,
-    color: '#00cc00',
-    fontWeight: '600',
-  },
-  mostSkippedInsight: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
-  },
-  timeEffectivenessCard: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  timeEffectivenessTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  timeEffectivenessSection: {
-    marginBottom: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  timeEffectivenessSectionLast: {
-    borderBottomWidth: 0,
-    marginBottom: 0,
-    paddingBottom: 0,
-  },
-  timeEffectivenessSubtitle: {
-    ...typography.bodySmall,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  timeEffectivenessRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  timeEffectivenessItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  timeEffectivenessDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  timeEffectivenessLabel: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  timeEffectivenessValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  timeEffectivenessValueLost: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#cc0000',
-  },
-  timeEffectivenessBreakdown: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  timeEffectivenessBreakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  timeEffectivenessBreakdownLabel: {
-    ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  timeEffectivenessBreakdownValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  timeEffectivenessBreakdownValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    color: '#00cc00',
-    fontWeight: '600',
-  },
-  timeEffectivenessBreakdownValueLost: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    color: '#cc0000',
-    fontWeight: '600',
-  },
-  timeEffectivenessBreakdownSeparator: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginHorizontal: spacing.xs,
-  },
-  timeEffectivenessInsight: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    fontStyle: 'italic',
-  },
-  patternRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  patternLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  patternValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  patternValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  timingSubsection: {
-    marginBottom: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  timingSubsectionLast: {
-    borderBottomWidth: 0,
-    marginBottom: 0,
-  },
-  timingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  timingLabel: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  timingValue: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  timingValueGreen: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#00cc00',
-  },
-  percentageText: {
-    ...typography.body,
-    color: colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    fontStyle: 'italic',
-  },
-  adjustButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
-    marginTop: spacing.xs,
-  },
-  adjustButtonText: {
-    ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  messageCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-  },
-  messageText: {
-    ...typography.body,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  insightCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: '#00cc00', // Green border for "working"
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-  },
-  insightCardHurting: {
-    borderColor: '#cc0000', // Red/muted border for "hurting"
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  insightIcon: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#00cc00', // Green checkmark
-    marginRight: spacing.sm,
-  },
-  insightIconHurting: {
-    color: '#cc0000', // Red X
-  },
-  insightTitle: {
-    ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  insightSentence: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.md,
-    lineHeight: 22,
-  },
-  insightWeekCount: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    fontFamily: MONOSPACE_FONT,
-  },
-  insightAction: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: spacing.sm,
-  },
-  insightSentenceMatrix: {
-    fontFamily: MONOSPACE_FONT,
-    color: '#00cc00',
-  },
-  insightActionMatrix: {
-    fontFamily: MONOSPACE_FONT,
-    color: '#00cc00',
-  },
-  hardestDayNotificationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  settingRow: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-  },
-  settingLabel: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  timeDisplay: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  timeDisplayText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  editHint: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-  },
-  pickerContainer: {
-    marginTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  picker: {
-    width: '100%',
-    height: 200,
-  },
-  pickerActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  pickerButton: {
-    flex: 1,
-    padding: spacing.sm,
-    borderRadius: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  cancelButton: {
-    backgroundColor: colors.background,
-  },
-  saveButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
-  },
-  pickerButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  saveButtonStyle: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-  },
-  getFullProtocolButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.buttonAccent,
-    borderRadius: 4,
-    backgroundColor: 'transparent',
-  },
-  getFullProtocolText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.buttonAccent,
-  },
-  contentContainerWithStickyHeader: {
-    paddingTop: spacing.md * 2 + spacing.sm * 2 + 24 + 1, // Account for sticky header: padding (top+bottom) + button padding (top+bottom) + text line height + border
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+      paddingBottom: theme.spacing.xxl,
+    },
+    header: {
+      marginTop: theme.spacing.xl,
+      marginBottom: theme.spacing.xl,
+      alignItems: 'center',
+    },
+    title: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    section: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+    },
+    breakdownRowItem: {
+      marginBottom: theme.spacing.md,
+    },
+    breakdownRowHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.xs,
+    },
+    breakdownLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    breakdownValueContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    breakdownValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    breakdownValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    breakdownChange: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+    },
+    progressBarContainer: {
+      marginTop: theme.spacing.xs,
+    },
+    progressBarBackground: {
+      height: 8,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+    },
+    progressBarFilled: {
+      height: '100%',
+      backgroundColor: '#00cc00',
+      borderRadius: theme.borderRadius.lg,
+    },
+    skipRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    skipLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    skipValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    skipValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    skippedProductsList: {
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      paddingTop: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    skippedProductRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    skippedProductName: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      flex: 1,
+    },
+    skippedProductCount: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.textSecondary,
+    },
+    skippedProductCountGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    streakContainer: {
+      marginTop: theme.spacing.lg,
+      paddingTop: theme.spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    streakRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    streakItem: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    streakDivider: {
+      width: 1,
+      height: 32,
+      backgroundColor: theme.colors.border,
+      marginHorizontal: theme.spacing.md,
+    },
+    streakLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    streakValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    streakValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 20,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    skipHint: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      fontStyle: 'italic',
+    },
+    opportunityCard: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: '#00cc00',
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      marginTop: theme.spacing.sm,
+    },
+    opportunityTitle: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    opportunityScoreRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    opportunityScoreItem: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    opportunityScoreLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    opportunityScoreValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    opportunityScoreValuePotential: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    opportunityArrow: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 20,
+      color: theme.colors.textSecondary,
+      marginHorizontal: theme.spacing.md,
+    },
+    opportunityMessage: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      lineHeight: 20,
+    },
+    opportunityHighlight: {
+      fontFamily: theme.typography.heading.fontFamily,
+      color: '#00cc00',
+      fontWeight: '600',
+    },
+    biggestOpportunityCard: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    biggestOpportunityTitle: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    biggestOpportunityMessage: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    biggestOpportunityImpact: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+    },
+    biggestOpportunityHighlight: {
+      fontFamily: theme.typography.heading.fontFamily,
+      color: '#00cc00',
+      fontWeight: '600',
+    },
+    skipInsight: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      marginBottom: theme.spacing.sm,
+      fontStyle: 'italic',
+      lineHeight: 18,
+    },
+    skipRateCard: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    skipRateLabel: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    skipRateValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#00cc00',
+      marginBottom: theme.spacing.xs,
+    },
+    skipRateInsight: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      fontStyle: 'italic',
+    },
+    mostSkippedCard: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    mostSkippedTitle: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    mostSkippedName: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    mostSkippedCount: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    mostSkippedCountValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      color: '#00cc00',
+      fontWeight: '600',
+    },
+    mostSkippedInsight: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.xs,
+      fontStyle: 'italic',
+    },
+    timeEffectivenessCard: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    timeEffectivenessTitle: {
+      ...theme.typography.bodySmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    timeEffectivenessSection: {
+      marginBottom: theme.spacing.md,
+      paddingBottom: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    timeEffectivenessSectionLast: {
+      borderBottomWidth: 0,
+      marginBottom: 0,
+      paddingBottom: 0,
+    },
+    timeEffectivenessSubtitle: {
+      ...theme.typography.bodySmall,
+      fontWeight: '500',
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    },
+    timeEffectivenessRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    timeEffectivenessItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    timeEffectivenessDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: theme.colors.border,
+      marginHorizontal: theme.spacing.md,
+    },
+    timeEffectivenessLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    timeEffectivenessValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    timeEffectivenessValueLost: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#cc0000',
+    },
+    timeEffectivenessBreakdown: {
+      marginTop: theme.spacing.md,
+      paddingTop: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    timeEffectivenessBreakdownRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    timeEffectivenessBreakdownLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    timeEffectivenessBreakdownValues: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.xs,
+    },
+    timeEffectivenessBreakdownValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      color: '#00cc00',
+      fontWeight: '600',
+    },
+    timeEffectivenessBreakdownValueLost: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      color: '#cc0000',
+      fontWeight: '600',
+    },
+    timeEffectivenessBreakdownSeparator: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginHorizontal: theme.spacing.xs,
+    },
+    timeEffectivenessInsight: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.sm,
+      fontStyle: 'italic',
+    },
+    patternRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    patternLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    patternValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    patternValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    timingSubsection: {
+      marginBottom: theme.spacing.lg,
+      paddingBottom: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    timingSubsectionLast: {
+      borderBottomWidth: 0,
+      marginBottom: 0,
+    },
+    timingRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    timingLabel: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    timingValue: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    timingValueGreen: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#00cc00',
+    },
+    percentageText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      fontStyle: 'italic',
+    },
+    adjustButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignSelf: 'flex-start',
+      marginTop: theme.spacing.xs,
+    },
+    adjustButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    messageCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+    },
+    messageText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    insightCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: '#00cc00', // Green border for "working"
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginTop: theme.spacing.md,
+    },
+    insightCardHurting: {
+      borderColor: '#cc0000', // Red/muted border for "hurting"
+    },
+    insightHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    insightIcon: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 20,
+      fontWeight: '600',
+      color: '#00cc00', // Green checkmark
+      marginRight: theme.spacing.sm,
+    },
+    insightIconHurting: {
+      color: '#cc0000', // Red X
+    },
+    insightTitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+    },
+    insightSentence: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+      lineHeight: 22,
+    },
+    insightWeekCount: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+      fontFamily: theme.typography.heading.fontFamily,
+    },
+    insightAction: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontStyle: 'italic',
+      marginTop: theme.spacing.sm,
+    },
+    insightSentenceMatrix: {
+      fontFamily: theme.typography.heading.fontFamily,
+      color: '#00cc00',
+    },
+    insightActionMatrix: {
+      fontFamily: theme.typography.heading.fontFamily,
+      color: '#00cc00',
+    },
+    hardestDayNotificationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.md,
+    },
+    settingRow: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    settingLabel: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.sm,
+    },
+    timeDisplay: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    timeDisplayText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    editHint: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+    },
+    pickerContainer: {
+      marginTop: theme.spacing.md,
+      paddingBottom: theme.spacing.md,
+    },
+    picker: {
+      width: '100%',
+      height: 200,
+    },
+    pickerActions: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+      marginTop: theme.spacing.md,
+      paddingBottom: theme.spacing.sm,
+    },
+    pickerButton: {
+      flex: 1,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    cancelButton: {
+      backgroundColor: theme.colors.background,
+    },
+    saveButton: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.accent,
+    },
+    pickerButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    saveButtonStyle: {
+      marginTop: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+    },
+    saveButtonDisabled: {
+      opacity: 0.5,
+    },
+    saveButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    stickyHeader: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 1000,
+      backgroundColor: theme.colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    getFullProtocolButton: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.lg,
+      backgroundColor: 'transparent',
+    },
+    getFullProtocolText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.accent,
+    },
+    contentContainerWithStickyHeader: {
+      paddingTop: theme.spacing.md * 2 + theme.spacing.sm * 2 + 24 + 1, // Account for sticky header: padding (top+bottom) + button padding (top+bottom) + text line height + border
+    },
+  });
+}

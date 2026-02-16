@@ -1,15 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { useResponsive } from '../utils/responsive';
 import { markSessionCompleted } from '../services/sessionService';
 import { RoutineSection, RoutineStep } from '../services/routineBuilder';
-import { 
-  trackStepSkip, 
-  trackTimerSkip, 
-  trackRoutineStartTime 
+import {
+  trackStepSkip,
+  trackTimerSkip,
+  trackRoutineStartTime
 } from '../services/analyticsService';
 import PendingProductModal from '../components/PendingProductModal';
 import { loadUserRoutine } from '../services/routineService';
@@ -24,6 +25,9 @@ interface SessionScreenProps {
 }
 
 export default function SessionScreen({ route, navigation }: SessionScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const posthog = usePostHog();
   const responsive = useResponsive();
@@ -35,7 +39,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   const [hasTrackedStartTime, setHasTrackedStartTime] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [routineData, setRoutineData] = useState<any>(null);
-  
+
   const waitTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentTimerDurationRef = useRef<number | null>(null);
 
@@ -62,11 +66,11 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   // Track routine start time when first step is shown
   useEffect(() => {
     if (!user || !currentStep || hasTrackedStartTime) return;
-    
+
     // Determine routine type from section name
-    const routineType = section.name === 'morning' ? 'morning' : 
+    const routineType = section.name === 'morning' ? 'morning' :
                        section.name === 'evening' ? 'evening' : null;
-    
+
     if (routineType && currentStepIndex === 0) {
       trackRoutineStartTime(user.uid, routineType).catch(console.error);
       setHasTrackedStartTime(true);
@@ -95,10 +99,10 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
     // Track routine step completed event
     if (posthog) {
-      const routineType = section.name === 'morning' ? 'morning' : 
-                         section.name === 'evening' ? 'evening' : 
+      const routineType = section.name === 'morning' ? 'morning' :
+                         section.name === 'evening' ? 'evening' :
                          section.name === 'exercises' ? 'exercises' : section.name;
-      
+
       posthog.capture('routine_step_completed', {
         step_name: currentStep.displayName || currentStep.id,
         routine_type: routineType,
@@ -107,13 +111,13 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
     // Check if we need to wait before next step
     const waitTime = currentStep.session.wait_after_seconds;
-    
+
     if (waitTime > 0 && !isLastStep) {
       // Show wait screen
       setIsWaiting(true);
       setWaitTimerSeconds(waitTime);
       currentTimerDurationRef.current = waitTime;
-      
+
       waitTimerIntervalRef.current = setInterval(() => {
         setWaitTimerSeconds((prev) => {
           if (prev === null || prev <= 1) {
@@ -156,7 +160,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
                 console.error('Error tracking timer skip:', error);
               }
             }
-            
+
             if (waitTimerIntervalRef.current) {
               clearInterval(waitTimerIntervalRef.current);
               waitTimerIntervalRef.current = null;
@@ -210,7 +214,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   if (!currentStep) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -225,7 +229,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
           <Text style={[styles.waitDescription, { fontSize: responsive.font(16) }]}>
             Waiting between steps improves product absorption.
           </Text>
-          
+
           <TouchableOpacity
             style={[styles.skipButton, { padding: responsive.sz(16) }]}
             onPress={handleSkipWait}
@@ -293,7 +297,7 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
 
       <View style={[styles.content, { paddingHorizontal: responsive.safeHorizontalPadding }]}>
         <Text style={[styles.stepName, { fontSize: responsive.font(24) }]}>{currentStep.displayName}</Text>
-        
+
         {currentStep.productName && (
           <Text style={[styles.productName, { fontSize: responsive.font(16) }]}>Your product: {currentStep.productName}</Text>
         )}
@@ -332,20 +336,20 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={colors.text} />
+            <ActivityIndicator color={theme.colors.text} />
           ) : (
             <Text style={[styles.doneButtonText, { fontSize: responsive.font(16) }]}>
               {isLastStep ? 'Complete' : 'Done'}
             </Text>
           )}
         </TouchableOpacity>
-        
+
         {/* Skip Today Button */}
         <TouchableOpacity
           style={styles.skipTodayButton}
           onPress={async () => {
             if (!user || !currentStep) return;
-            
+
             Alert.alert(
               'Skip this step?',
               'This will mark the step as skipped for today.',
@@ -377,226 +381,227 @@ export default function SessionScreen({ route, navigation }: SessionScreenProps)
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 0,
-  },
-  header: {
-    padding: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: 0,
-    marginTop: 0,
-    marginBottom: 0,
-    alignItems: 'center',
-    borderTopWidth: 0,
-    borderBottomWidth: 0,
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderWidth: 0,
-    elevation: 0,
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    backgroundColor: colors.background,
-    overflow: 'visible',
-  },
-  progressText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    borderWidth: 2,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    alignSelf: 'center',
-  },
-  content: {
-    flex: 1,
-    paddingVertical: spacing.xl,
-    // paddingHorizontal is set dynamically
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: '25%',
-  },
-  stepName: {
-    ...typography.heading,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  productName: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  descriptionContainer: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    width: '100%',
-  },
-  descriptionLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  description: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    fontSize: 13,
-  },
-  instructionContainer: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    width: '100%',
-  },
-  instructionLabel: {
-    ...typography.label,
-    color: colors.textMuted,
-    marginBottom: spacing.sm,
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  instruction: {
-    ...typography.body,
-    color: colors.text,
-    lineHeight: 24,
-  },
-  tipContainer: {
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
-  },
-  tip: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  continuousNote: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-  },
-  continuousNoteText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  doneButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  doneButtonDisabled: {
-    opacity: 0.5,
-  },
-  doneButtonText: {
-    ...typography.headingSmall,
-    color: colors.text,
-  },
-  waitTitle: {
-    ...typography.heading,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  waitTimer: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 64,
-    fontWeight: '600',
-    color: colors.accent,
-    marginBottom: spacing.lg,
-  },
-  waitDescription: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  skipButton: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-  },
-  skipButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  // Skip today button (below Done button)
-  skipTodayButton: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  skipTodayButtonText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-  },
-  pendingContainer: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    alignItems: 'center',
-    width: '100%',
-  },
-  pendingIcon: {
-    fontSize: 48,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  pendingText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  configureButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    alignItems: 'center',
-    width: '100%',
-    minHeight: 50,
-    justifyContent: 'center',
-  },
-  configureButtonText: {
-    ...typography.headingSmall,
-    fontWeight: '600',
-    color: colors.text,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+      borderWidth: 0,
+    },
+    header: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.lg,
+      paddingBottom: 0,
+      marginTop: 0,
+      marginBottom: 0,
+      alignItems: 'center',
+      borderTopWidth: 0,
+      borderBottomWidth: 0,
+      borderLeftWidth: 0,
+      borderRightWidth: 0,
+      borderWidth: 0,
+      elevation: 0,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      backgroundColor: theme.colors.background,
+      overflow: 'visible',
+    },
+    progressText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      textAlign: 'center',
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.sm,
+      alignSelf: 'center',
+    },
+    content: {
+      flex: 1,
+      paddingVertical: theme.spacing.xl,
+      // paddingHorizontal is set dynamically
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      paddingTop: '25%',
+    },
+    stepName: {
+      ...theme.typography.heading,
+      textAlign: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    productName: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    descriptionContainer: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderStyle: 'dashed',
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      width: '100%',
+    },
+    descriptionLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.xs,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    description: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+      fontSize: 13,
+    },
+    instructionContainer: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.lg,
+      width: '100%',
+    },
+    instructionLabel: {
+      ...theme.typography.label,
+      color: theme.colors.textMuted,
+      marginBottom: theme.spacing.sm,
+      fontSize: 11,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    instruction: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      lineHeight: 24,
+    },
+    tipContainer: {
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.md,
+    },
+    tip: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      textAlign: 'center',
+      fontStyle: 'italic',
+    },
+    continuousNote: {
+      marginTop: theme.spacing.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+    },
+    continuousNoteText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    footer: {
+      padding: theme.spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    doneButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    doneButtonDisabled: {
+      opacity: 0.5,
+    },
+    doneButtonText: {
+      ...theme.typography.headingSmall,
+      color: theme.colors.text,
+    },
+    waitTitle: {
+      ...theme.typography.heading,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    waitTimer: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 64,
+      fontWeight: '600',
+      color: theme.colors.accent,
+      marginBottom: theme.spacing.lg,
+    },
+    waitDescription: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    skipButton: {
+      marginTop: theme.spacing.lg,
+      padding: theme.spacing.md,
+    },
+    skipButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      textDecorationLine: 'underline',
+    },
+    // Skip today button (below Done button)
+    skipTodayButton: {
+      marginTop: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+    },
+    skipTodayButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      textDecorationLine: 'underline',
+    },
+    pendingContainer: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      alignItems: 'center',
+      width: '100%',
+    },
+    pendingIcon: {
+      fontSize: 48,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+    },
+    pendingText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    configureButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      alignItems: 'center',
+      width: '100%',
+      minHeight: 50,
+      justifyContent: 'center',
+    },
+    configureButtonText: {
+      ...theme.typography.headingSmall,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+  });
+}

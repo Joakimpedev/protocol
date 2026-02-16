@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Alert, Image, Modal } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Alert, Image, Modal, Platform } from 'react-native';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useResponsive } from '../utils/responsive';
+
+const MONOSPACE_FONT = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { loadUserRoutine, subscribeToUserRoutine, UserRoutineData, IngredientSelection, ExerciseSelection, updateIngredientState, updateExerciseState } from '../services/routineService';
@@ -21,6 +24,8 @@ interface ActiveProductModalProps {
   onProductNameChange: (text: string) => void;
   onUpdate: () => void;
   onRemove: () => void;
+  activeProductModalStyles: ReturnType<typeof getActiveProductModalStyles>;
+  theme: Theme;
 }
 
 function ActiveProductModal({
@@ -31,6 +36,8 @@ function ActiveProductModal({
   onProductNameChange,
   onUpdate,
   onRemove,
+  activeProductModalStyles,
+  theme,
 }: ActiveProductModalProps) {
   return (
     <Modal
@@ -47,19 +54,19 @@ function ActiveProductModal({
               <Text style={activeProductModalStyles.closeButton}>✕</Text>
             </TouchableOpacity>
           </View>
-          
+
           <View style={activeProductModalStyles.divider} />
-          
+
           <Text style={activeProductModalStyles.sectionLabel}>Your product</Text>
           <TextInput
             style={activeProductModalStyles.input}
             placeholder="Product name..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             value={productName}
             onChangeText={onProductNameChange}
             autoFocus={true}
           />
-          
+
           <TouchableOpacity
             style={[activeProductModalStyles.updateButton, !productName.trim() && activeProductModalStyles.buttonDisabled]}
             onPress={onUpdate}
@@ -67,9 +74,9 @@ function ActiveProductModal({
           >
             <Text style={activeProductModalStyles.updateButtonText}>Update</Text>
           </TouchableOpacity>
-          
+
           <View style={activeProductModalStyles.divider} />
-          
+
           <TouchableOpacity onPress={onRemove}>
             <Text style={activeProductModalStyles.removeText}>Remove from routine</Text>
           </TouchableOpacity>
@@ -119,6 +126,10 @@ export default function ProtocolScreen({ navigation }: any) {
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const responsive = useResponsive();
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  const activeProductModalStyles = useMemo(() => getActiveProductModalStyles(theme), [theme]);
+  const isPro = theme.key === 'pro';
   const [routineData, setRoutineData] = useState<UserRoutineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -184,7 +195,7 @@ export default function ProtocolScreen({ navigation }: any) {
       const product = selectedIngredients.find((item: any) => item.ingredient_id === configureProductId);
       if (product) {
         const selection = product.selection as IngredientSelection;
-        const state = selection.state === 'added' ? 'active' : 
+        const state = selection.state === 'added' ? 'active' :
                       selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
                       selection.state;
         if (state === 'active' && selection.product_name) {
@@ -205,7 +216,7 @@ export default function ProtocolScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -225,16 +236,16 @@ export default function ProtocolScreen({ navigation }: any) {
 
   // Get current ingredient selections
   const currentIngredientIds = new Set(ingredientSelections.map((sel: IngredientSelection) => sel.ingredient_id));
-  
+
   // Check if there are missing products (pending, deferred, or not_received, but not skipped)
   const hasMissingProducts = ingredientSelections.some((sel: IngredientSelection) => {
-    const state = sel.state === 'added' ? 'active' : 
+    const state = sel.state === 'added' ? 'active' :
                 sel.state === 'not_received' ? (sel.waiting_for_delivery ? 'deferred' : 'pending') :
                 sel.state;
     // Missing if pending, deferred, or not_received (but not skipped)
     return (state === 'pending' || state === 'deferred' || state === 'not_received') && state !== 'skipped';
   });
-  
+
   // Helper to check if ingredient is premium (for free users, hide premium ingredients)
   const isPremiumIngredient = (ing: any): boolean => {
     return ing?.session?.premium === true;
@@ -279,21 +290,21 @@ export default function ProtocolScreen({ navigation }: any) {
   // Helper to get badge info based on product state
   const getBadgeInfo = (selection: IngredientSelection) => {
     // Handle legacy states
-    const state = selection.state === 'added' ? 'active' : 
+    const state = selection.state === 'added' ? 'active' :
                   selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
                   selection.state;
 
     switch (state) {
       case 'active':
-        return { text: 'You have', color: colors.accent };
+        return { text: 'You have', color: theme.colors.accent };
       case 'pending':
-        return { text: 'Will get', color: colors.textMuted };
+        return { text: 'Will get', color: theme.colors.textMuted };
       case 'deferred':
-        return { text: formatArrivalDate(selection.defer_until), color: colors.warning };
+        return { text: formatArrivalDate(selection.defer_until), color: theme.colors.warning };
       case 'skipped':
-        return { text: 'Skipped', color: colors.error };
+        return { text: 'Skipped', color: theme.colors.error };
       default:
-        return { text: 'Will get', color: colors.textMuted };
+        return { text: 'Will get', color: theme.colors.textMuted };
     }
   };
 
@@ -356,7 +367,7 @@ export default function ProtocolScreen({ navigation }: any) {
     try {
       const userDoc = await doc(db, 'users', user.uid);
       const currentSelections = routineData.ingredientSelections || [];
-      
+
       // Check if ingredient already exists
       const existingIndex = currentSelections.findIndex(
         (sel: IngredientSelection) => sel.ingredient_id === ingredientId
@@ -490,7 +501,7 @@ export default function ProtocolScreen({ navigation }: any) {
     const ingredient = item;
     const selection = item.selection as IngredientSelection;
     const badgeInfo = getBadgeInfo(selection);
-    const state = selection.state === 'added' ? 'active' : 
+    const state = selection.state === 'added' ? 'active' :
                   selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
                   selection.state;
     const productName = state === 'active' && selection.product_name ? selection.product_name : '';
@@ -553,7 +564,7 @@ export default function ProtocolScreen({ navigation }: any) {
             <TextInput
               style={styles.productInput}
               placeholder="What is name of the product you got?"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.colors.textMuted}
               value={editState.productName}
               onChangeText={(text) => handleProductNameChange(ingredient.ingredient_id, text)}
             />
@@ -667,7 +678,7 @@ export default function ProtocolScreen({ navigation }: any) {
           <TextInput
             style={styles.productInput}
             placeholder="What is name of the product you got?"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             value={state.productName}
             onChangeText={(text) => handleProductNameChange(ingredient.ingredient_id, text)}
           />
@@ -808,8 +819,8 @@ export default function ProtocolScreen({ navigation }: any) {
     <View style={styles.container}>
       <TouchableOpacity
         style={[
-          styles.settingsButton, 
-          { 
+          styles.settingsButton,
+          {
             right: responsive.safeHorizontalPadding,
             width: responsive.sz(36),
             height: responsive.sz(36),
@@ -818,8 +829,8 @@ export default function ProtocolScreen({ navigation }: any) {
         ]}
         onPress={() => navigation.navigate('Settings')}
       >
-        <Image 
-          source={require('../../assets/icons/gear.png')} 
+        <Image
+          source={require('../../assets/icons/gear.png')}
           style={[styles.settingsButtonIcon, { width: responsive.sz(22), height: responsive.sz(22) }]}
           resizeMode="contain"
         />
@@ -944,10 +955,10 @@ export default function ProtocolScreen({ navigation }: any) {
         const product = selectedIngredients.find((item: any) => item.ingredient_id === configureProductId);
         if (!product) return null;
         const selection = product.selection as IngredientSelection;
-        const state = selection.state === 'added' ? 'active' : 
+        const state = selection.state === 'added' ? 'active' :
                       selection.state === 'not_received' ? (selection.waiting_for_delivery ? 'deferred' : 'pending') :
                       selection.state;
-        
+
         // Show PendingProductModal for pending/deferred/skipped products
         if (state === 'pending' || state === 'deferred' || state === 'skipped') {
           return (
@@ -964,13 +975,13 @@ export default function ProtocolScreen({ navigation }: any) {
             />
           );
         }
-        
+
         // Show active product modal
         if (state === 'active') {
           // If modal is open, always use editingProductName (even if empty) since user is editing
           // Otherwise fall back to original product name
-          const currentName = configureProductId === product.ingredient_id 
-            ? editingProductName 
+          const currentName = configureProductId === product.ingredient_id
+            ? editingProductName
             : (selection.product_name || '');
           return (
             <ActiveProductModal
@@ -1011,10 +1022,12 @@ export default function ProtocolScreen({ navigation }: any) {
                   ]
                 );
               }}
+              activeProductModalStyles={activeProductModalStyles}
+              theme={theme}
             />
           );
         }
-        
+
         return null;
       })()}
       {/* Exercise Configuration Modal */}
@@ -1022,7 +1035,7 @@ export default function ProtocolScreen({ navigation }: any) {
         const exercise = selectedExercises.find((item: any) => item.exercise_id === configureExerciseId);
         if (!exercise) return null;
         const selection = exercise.selection as ExerciseSelection;
-        
+
         return (
           <Modal
             visible={true}
@@ -1038,9 +1051,9 @@ export default function ProtocolScreen({ navigation }: any) {
                     <Text style={activeProductModalStyles.closeButton}>✕</Text>
                   </TouchableOpacity>
                 </View>
-                
+
                 <View style={activeProductModalStyles.divider} />
-                
+
                 <TouchableOpacity
                   style={activeProductModalStyles.removeButton}
                   onPress={() => {
@@ -1059,478 +1072,483 @@ export default function ProtocolScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    // paddingHorizontal is set dynamically
-    paddingVertical: spacing.lg,
-    paddingTop: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    fontSize: 32,
-    marginBottom: spacing.lg,
-    textAlign: 'center',
-  },
-  protocolHeading: {
-    marginTop: spacing.xxl,
-    paddingTop: spacing.xxl * 1.5,
-    marginBottom: spacing.xxl,
-  },
-  problemsTitle: {
-    ...typography.heading,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
-  },
-  protocolIntro: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  infoIntro: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.xl,
-    lineHeight: 22,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  section: {
-    marginBottom: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-  },
-  problemSection: {
-    marginBottom: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  problemTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.sm,
-  },
-  problemParagraph: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  solutionTitle: {
-    ...typography.headingSmall,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  ingredientCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  ingredientName: {
-    ...typography.headingSmall,
-    marginBottom: spacing.xs,
-  },
-  ingredientDescription: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-  },
-  examplesContainer: {
-    marginBottom: spacing.sm,
-  },
-  examplesLabel: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-  },
-  exampleText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
-  },
-  addedContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  addedText: {
-    ...typography.body,
-    color: colors.accent,
-    flex: 1,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  changeText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  removeText: {
-    ...typography.body,
-    color: colors.error,
-    textDecorationLine: 'underline',
-  },
-  notReceivedContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  notReceivedText: {
-    ...typography.body,
-    color: colors.warning,
-    flex: 1,
-  },
-  skippedText: {
-    ...typography.body,
-    color: colors.textMuted,
-    flex: 1,
-  },
-  inputContainer: {
-    marginTop: spacing.sm,
-  },
-  productInput: {
-    ...typography.body,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  checkbox: {
-    marginBottom: spacing.sm,
-  },
-  checkboxText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  addButton: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  skipButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  actionButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  exerciseCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  exerciseCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xs,
-  },
-  exerciseName: {
-    ...typography.headingSmall,
-    flex: 1,
-  },
-  exerciseDescription: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-  exerciseInstructions: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-    color: colors.text,
-  },
-  exerciseExplanation: {
-    ...typography.body,
-    marginBottom: spacing.md,
-    lineHeight: 22,
-    color: colors.text,
-  },
-  exerciseTip: {
-    ...typography.bodySmall,
-    marginTop: spacing.xs,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  exercisesIntro: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.lg,
-    lineHeight: 22,
-  },
-  variationsTitle: {
-    ...typography.headingSmall,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-    color: colors.text,
-  },
-  variationListItem: {
-    ...typography.body,
-    marginBottom: spacing.xs,
-    color: colors.text,
-    lineHeight: 22,
-  },
-  addButtonContainer: {
-    backgroundColor: colors.accentSecondary,
-    borderWidth: 1,
-    borderColor: colors.accentSecondary,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  addButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.background,
-  },
-  cancelButtonContainer: {
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  cancelButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textDecorationLine: 'underline',
-  },
-  body: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  settingsButton: {
-    position: 'absolute',
-    top: 60,
-    // right is set dynamically to match content padding
-    zIndex: 1000,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingsButtonIcon: {
-    width: 22,
-    height: 22,
-    tintColor: colors.text,
-  },
-  productCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  productCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
-  productCardLeft: {
-    flex: 1,
-  },
-  productCardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  productIngredientName: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  productName: {
-    ...typography.body,
-    color: colors.text,
-  },
-  productDescription: {
-    ...typography.body,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-    lineHeight: 22,
-    color: colors.text,
-  },
-  productExamplesContainer: {
-    marginBottom: spacing.sm,
-  },
-  productExamplesLabel: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-  },
-  productExampleText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginLeft: spacing.sm,
-  },
-  configureButton: {
-    padding: spacing.xs,
-  },
-  configureButtonText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 16,
-    letterSpacing: 2,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: 'transparent',
-  },
-  badgeText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  missingProductsBanner: {
-    backgroundColor: colors.surfaceGreen,
-    borderWidth: 1,
-    borderColor: colors.borderGreen,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
-  missingProductsBannerText: {
-    ...typography.body,
-    color: colors.accent,
-    fontWeight: '600',
-  },
-});
+function getStyles(theme: Theme) {
+  const isPro = theme.key === 'pro';
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      // paddingHorizontal is set dynamically
+      paddingVertical: theme.spacing.lg,
+      paddingTop: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      fontSize: 32,
+      marginBottom: theme.spacing.lg,
+      textAlign: 'center',
+    },
+    protocolHeading: {
+      marginTop: theme.spacing.xxl,
+      paddingTop: theme.spacing.xxl * 1.5,
+      marginBottom: theme.spacing.xxl,
+    },
+    problemsTitle: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.xl,
+      textAlign: 'center',
+    },
+    protocolIntro: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    infoIntro: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xl,
+      lineHeight: 22,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    section: {
+      marginBottom: theme.spacing.md,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+    },
+    problemSection: {
+      marginBottom: theme.spacing.lg,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    problemTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.sm,
+    },
+    problemParagraph: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    solutionTitle: {
+      ...theme.typography.headingSmall,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+    },
+    ingredientCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    ingredientName: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.xs,
+    },
+    ingredientDescription: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+    },
+    examplesContainer: {
+      marginBottom: theme.spacing.sm,
+    },
+    examplesLabel: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.xs,
+    },
+    exampleText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginLeft: theme.spacing.sm,
+    },
+    addedContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.sm,
+      paddingTop: theme.spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.borderLight,
+    },
+    addedText: {
+      ...theme.typography.body,
+      color: theme.colors.accent,
+      flex: 1,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+    },
+    changeText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textDecorationLine: 'underline',
+    },
+    removeText: {
+      ...theme.typography.body,
+      color: theme.colors.error,
+      textDecorationLine: 'underline',
+    },
+    notReceivedContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: theme.spacing.sm,
+      paddingTop: theme.spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.borderLight,
+    },
+    notReceivedText: {
+      ...theme.typography.body,
+      color: theme.colors.warning,
+      flex: 1,
+    },
+    skippedText: {
+      ...theme.typography.body,
+      color: theme.colors.textMuted,
+      flex: 1,
+    },
+    inputContainer: {
+      marginTop: theme.spacing.sm,
+    },
+    productInput: {
+      ...theme.typography.body,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    checkbox: {
+      marginBottom: theme.spacing.sm,
+    },
+    checkboxText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    actionButtons: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    actionButton: {
+      flex: 1,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+    },
+    addButton: {
+      backgroundColor: theme.colors.surface,
+      borderColor: theme.colors.border,
+    },
+    skipButton: {
+      backgroundColor: theme.colors.background,
+      borderColor: theme.colors.border,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    actionButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    exerciseCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    exerciseCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: theme.spacing.xs,
+    },
+    exerciseName: {
+      ...theme.typography.headingSmall,
+      flex: 1,
+    },
+    exerciseDescription: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+      color: theme.colors.textSecondary,
+    },
+    exerciseInstructions: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+      color: theme.colors.text,
+    },
+    exerciseExplanation: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.md,
+      lineHeight: 22,
+      color: theme.colors.text,
+    },
+    exerciseTip: {
+      ...theme.typography.bodySmall,
+      marginTop: theme.spacing.xs,
+      color: theme.colors.textMuted,
+      fontStyle: 'italic',
+      lineHeight: 20,
+    },
+    exercisesIntro: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.lg,
+      lineHeight: 22,
+    },
+    variationsTitle: {
+      ...theme.typography.headingSmall,
+      marginTop: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      color: theme.colors.text,
+    },
+    variationListItem: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.xs,
+      color: theme.colors.text,
+      lineHeight: 22,
+    },
+    addButtonContainer: {
+      backgroundColor: theme.colors.accentSecondary,
+      borderWidth: 1,
+      borderColor: theme.colors.accentSecondary,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    addButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.background,
+    },
+    cancelButtonContainer: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    cancelButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textDecorationLine: 'underline',
+    },
+    body: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    settingsButton: {
+      position: 'absolute',
+      top: 60,
+      // right is set dynamically to match content padding
+      zIndex: 1000,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    settingsButtonIcon: {
+      width: 22,
+      height: 22,
+      tintColor: theme.colors.text,
+    },
+    productCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    productCardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: theme.spacing.sm,
+    },
+    productCardLeft: {
+      flex: 1,
+    },
+    productCardRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+    },
+    productIngredientName: {
+      fontFamily: theme.typography.label.fontFamily,
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.xs,
+    },
+    productName: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    productDescription: {
+      ...theme.typography.body,
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.sm,
+      lineHeight: 22,
+      color: theme.colors.text,
+    },
+    productExamplesContainer: {
+      marginBottom: theme.spacing.sm,
+    },
+    productExamplesLabel: {
+      ...theme.typography.label,
+      marginBottom: theme.spacing.xs,
+    },
+    productExampleText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginLeft: theme.spacing.sm,
+    },
+    configureButton: {
+      padding: theme.spacing.xs,
+    },
+    configureButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 16,
+      letterSpacing: 2,
+    },
+    badge: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderRadius: theme.borderRadius.lg,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      backgroundColor: 'transparent',
+    },
+    badgeText: {
+      fontFamily: theme.typography.label.fontFamily,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    missingProductsBanner: {
+      backgroundColor: isPro ? 'rgba(168, 85, 247, 0.08)' : '#171A17',
+      borderWidth: 1,
+      borderColor: isPro ? 'rgba(168, 85, 247, 0.2)' : '#0D360D',
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    missingProductsBannerText: {
+      ...theme.typography.body,
+      color: theme.colors.accent,
+      fontWeight: '600',
+    },
+  });
+}
 
-const activeProductModalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  modal: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    width: '95%',
-    maxWidth: 400,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    ...typography.headingSmall,
-    flex: 1,
-  },
-  closeButton: {
-    ...typography.body,
-    fontSize: 24,
-    color: colors.textMuted,
-    padding: spacing.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.md,
-  },
-  sectionLabel: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-  },
-  input: {
-    ...typography.body,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.md,
-  },
-  updateButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  updateButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  removeText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    textDecorationLine: 'underline',
-  },
-  removeButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-});
+function getActiveProductModalStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+    },
+    modal: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      width: '95%',
+      maxWidth: 400,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    title: {
+      ...theme.typography.headingSmall,
+      flex: 1,
+    },
+    closeButton: {
+      ...theme.typography.body,
+      fontSize: 24,
+      color: theme.colors.textMuted,
+      padding: theme.spacing.xs,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.md,
+    },
+    sectionLabel: {
+      ...theme.typography.body,
+      marginBottom: theme.spacing.sm,
+    },
+    input: {
+      ...theme.typography.body,
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.md,
+    },
+    updateButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    updateButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    removeText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      textDecorationLine: 'underline',
+    },
+    removeButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+  });
+}

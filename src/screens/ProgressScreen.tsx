@@ -1,23 +1,25 @@
 /**
  * Progress Screen
- * 
+ *
  * Displays weekly photo prompts, photo timeline/grid, and comparison access
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, FlatList, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePostHog } from 'posthog-react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { usePremium } from '../contexts/PremiumContext';
 import { useDevMode } from '../contexts/DevModeContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { 
-  loadAllPhotos, 
-  getCurrentWeekNumber, 
+import {
+  loadAllPhotos,
+  getCurrentWeekNumber,
   shouldPromptForWeeklyPhoto,
   ProgressPhoto,
   getPhotoForWeek,
@@ -30,6 +32,10 @@ const whatToExpect = require('../data/what_to_expect.json');
 const guideBlocks = require('../data/guide_blocks.json');
 
 export default function ProgressScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+  const isPro = theme.key === 'pro';
+
   const { user } = useAuth();
   const { isPremium } = usePremium();
   const { isDevModeEnabled } = useDevMode();
@@ -83,7 +89,7 @@ export default function ProgressScreen({ navigation }: any) {
         const signup = userData.signupDate || userData.signup_date;
         const day = userData.photoDay || userData.photo_day;
         const concerns = userData.concerns || [];
-        
+
         setSignupDate(signup);
         setPhotoDay(day || 'monday');
         setUserCategories(concerns);
@@ -117,7 +123,7 @@ export default function ProgressScreen({ navigation }: any) {
         // Double-check with subscription service for 6-month retention period
         const { canAccessPremiumFeatures } = require('../services/subscriptionService');
         const canAccess = await canAccessPremiumFeatures(user?.uid || '');
-        
+
         if (!canAccess) {
           setPaywallWeek(weekNumber);
           setPendingPhotoWeek(weekNumber); // Store the week number to navigate after purchase
@@ -126,7 +132,7 @@ export default function ProgressScreen({ navigation }: any) {
         }
       }
     }
-    
+
     navigation.navigate('PhotoCapture', { weekNumber });
   };
 
@@ -139,7 +145,7 @@ export default function ProgressScreen({ navigation }: any) {
   const handlePaywallPurchaseComplete = async () => {
     // Refresh photos and status after purchase
     loadPhotos();
-    
+
     // If there was a pending photo week, navigate to camera after purchase
     if (pendingPhotoWeek !== null) {
       handlePaywallClose();
@@ -160,7 +166,7 @@ export default function ProgressScreen({ navigation }: any) {
   // Dev Tools
   const handleResetPhotos = async () => {
     if (!user) return;
-    
+
     Alert.alert(
       'Reset All Photos',
       'This will delete all progress photos and reset your signup date. Are you sure?',
@@ -172,22 +178,22 @@ export default function ProgressScreen({ navigation }: any) {
           onPress: async () => {
             try {
               await deleteAllPhotos();
-              
+
               // Reset signup date to today to reset currentWeek to 0
               const today = new Date();
               const photoDay = today.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-              
+
               await updateDoc(doc(db, 'users', user.uid), {
                 signupDate: today.toISOString(),
                 photoDay: photoDay,
                 skinRatings: [], // Reset skin progress ratings
               });
-              
+
               // Update local state
               setSignupDate(today.toISOString());
               setPhotoDay(photoDay);
               setCurrentWeek(0);
-              
+
               await loadPhotos();
               Alert.alert('Success', 'All photos have been deleted and signup date reset. Skin progress has been cleared.');
             } catch (error) {
@@ -207,7 +213,7 @@ export default function ProgressScreen({ navigation }: any) {
       const signup = new Date(signupDate);
       // Move signup date back by 7 days to advance to next week
       const newSignupDate = new Date(signup.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
+
       await updateDoc(doc(db, 'users', user.uid), {
         signupDate: newSignupDate.toISOString(),
       });
@@ -215,7 +221,7 @@ export default function ProgressScreen({ navigation }: any) {
       setSignupDate(newSignupDate.toISOString());
       const weekNum = getCurrentWeekNumber(newSignupDate.toISOString());
       setCurrentWeek(weekNum);
-      
+
       Alert.alert('Success', `Advanced to Week ${weekNum}`);
     } catch (error) {
       Alert.alert('Error', 'Failed to advance week.');
@@ -229,14 +235,14 @@ export default function ProgressScreen({ navigation }: any) {
 
   const handleLeaveReview = async () => {
     if (!user) return;
-    
+
     try {
       // Update last review prompt date
       await updateLastReviewPromptDate(user.uid);
-      
+
       // Request native review dialog
       await requestReview();
-      
+
       // Close modal - don't navigate, just show the native review dialog
       setShowReviewModal(false);
     } catch (error) {
@@ -252,14 +258,14 @@ export default function ProgressScreen({ navigation }: any) {
       navigation.navigate('Feedback');
       return;
     }
-    
+
     try {
       // Update last review prompt date (30 day cooldown)
       await updateLastReviewPromptDate(user.uid);
     } catch (error) {
       console.error('Error updating review prompt date:', error);
     }
-    
+
     setShowReviewModal(false);
     navigation.navigate('Feedback');
   };
@@ -268,15 +274,15 @@ export default function ProgressScreen({ navigation }: any) {
   const hasWeek0Photo = photos.some(p => p.weekNumber === 0);
   const latestWeek = photos.length > 0 ? Math.max(...photos.map(p => p.weekNumber)) : -1;
   const needsWeek0Photo = !hasWeek0Photo && currentWeek >= 0;
-  
+
   // Calculate effective week based on actual photos taken, not artificially advanced signup date
   // This is the week that should be used for "What to Expect" content and other week-based logic
   // If no photos, we're at week 0 (baseline). Otherwise, we're at the latest photo week.
   const effectiveWeek = latestWeek >= 0 ? latestWeek : 0;
-  
+
   // Calculate the next week that should be prompted (next sequential week after latest photo)
   const nextSequentialWeek = latestWeek + 1;
-  
+
   // Show current week prompt ONLY when the next sequential week matches the current week
   // This means it's naturally time for that week's photo
   // For normal users: If they're at Week 1 and it's time for Week 1 photo, currentWeek === 1, nextSequentialWeek === 1
@@ -284,28 +290,28 @@ export default function ProgressScreen({ navigation }: any) {
   //    They would need to advance week by week to match the sequential progression
   const shouldShowCurrentWeekPrompt = hasWeek0Photo && nextSequentialWeek === currentWeek;
   const weekToPrompt = shouldShowCurrentWeekPrompt ? nextSequentialWeek : null;
-  
+
   // Get unique weeks for display (newest first)
   const photoWeeks = Array.from(new Set(photos.map(p => p.weekNumber))).sort((a, b) => b - a);
 
   // Calculate days until next photo
   const getDaysUntilNextPhoto = (): number | null => {
     if (!signupDate || !photoDay) return null;
-    
+
     const signup = new Date(signupDate);
     const now = new Date();
-    
+
     // Calculate days since signup
     const diffTime = now.getTime() - signup.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     // Calculate which day of the current week we're on (0-6)
     const dayOfCurrentWeek = diffDays % 7;
-    
+
     // Days until next week (7 - dayOfCurrentWeek)
     // If dayOfCurrentWeek is 0, we're at the start of a week, so next week is in 7 days
     const daysUntilNext = dayOfCurrentWeek === 0 ? 7 : 7 - dayOfCurrentWeek;
-    
+
     return daysUntilNext;
   };
 
@@ -337,7 +343,7 @@ export default function ProgressScreen({ navigation }: any) {
   // Get phase name from first expectation (they should all be in the same phase range)
   const getPhaseName = (): string | null => {
     if (userExpectations.length === 0) return null;
-    
+
     const firstExpectation = userExpectations[0].expectation;
     if (!firstExpectation) return null;
 
@@ -352,13 +358,33 @@ export default function ProgressScreen({ navigation }: any) {
 
   const phaseName = getPhaseName();
 
+  const renderPromptButton = (label: string) => {
+    if (isPro) {
+      return (
+        <LinearGradient
+          colors={theme.gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.promptButtonContainer}
+        >
+          <Text style={styles.promptButtonPro}>{label}</Text>
+        </LinearGradient>
+      );
+    }
+    return (
+      <View style={styles.promptButtonContainer}>
+        <Text style={styles.promptButton}>{label}</Text>
+      </View>
+    );
+  };
+
   return (
     <>
-    <ScrollView 
-      style={styles.container} 
+    <ScrollView
+      style={styles.container}
       contentContainerStyle={[
         styles.contentContainer,
-        { paddingTop: insets.top + spacing.lg }
+        { paddingTop: insets.top + theme.spacing.lg }
       ]}
     >
       {/* Week 0 Photo Prompt */}
@@ -369,9 +395,7 @@ export default function ProgressScreen({ navigation }: any) {
         >
           <Text style={styles.promptTitle}>Take your baseline photo</Text>
           <Text style={styles.promptBody}>Capture your starting point to track progress over time.</Text>
-          <View style={styles.promptButtonContainer}>
-            <Text style={styles.promptButton}>Take Photo</Text>
-          </View>
+          {renderPromptButton('Take Photo')}
         </TouchableOpacity>
       )}
 
@@ -383,9 +407,7 @@ export default function ProgressScreen({ navigation }: any) {
         >
           <Text style={styles.promptTitle}>Week {weekToPrompt} done. Take a photo.</Text>
           <Text style={styles.promptBody}>Same spot. Same lighting.</Text>
-          <View style={styles.promptButtonContainer}>
-            <Text style={styles.promptButton}>Take Photo</Text>
-          </View>
+          {renderPromptButton('Take Photo')}
         </TouchableOpacity>
       )}
 
@@ -398,7 +420,7 @@ export default function ProgressScreen({ navigation }: any) {
             {daysUntilNextPhoto !== null && !needsWeek0Photo && !(weekToPrompt !== null && (shouldShowPrompt || weekToPrompt <= 4)) && (
               <View style={styles.daysBadge}>
                 <Text style={styles.daysBadgeText}>
-                  {daysUntilNextPhoto === 1 
+                  {daysUntilNextPhoto === 1
                     ? 'Next photo: 1 day'
                     : `Next photo: ${daysUntilNextPhoto} days`}
                 </Text>
@@ -429,7 +451,7 @@ export default function ProgressScreen({ navigation }: any) {
               </View>
             );
           })}
-          
+
           {/* Weekly Summary Button */}
           {signupDate && (
             <TouchableOpacity
@@ -453,7 +475,7 @@ export default function ProgressScreen({ navigation }: any) {
       {photos.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Photos</Text>
-          
+
           <FlatList
             data={photoWeeks}
             horizontal
@@ -466,9 +488,9 @@ export default function ProgressScreen({ navigation }: any) {
               return (
                 <TouchableOpacity
                   style={styles.photoThumbnail}
-                  onPress={() => navigation.navigate('PhotoDetail', { 
-                    weekNumber, 
-                    photoUri: weekPhoto.uri 
+                  onPress={() => navigation.navigate('PhotoDetail', {
+                    weekNumber,
+                    photoUri: weekPhoto.uri
                   })}
                 >
                   <Image source={{ uri: weekPhoto.uri }} style={styles.thumbnailImage} />
@@ -481,9 +503,22 @@ export default function ProgressScreen({ navigation }: any) {
 
           {/* Compare Progress Button */}
           {photos.length >= 2 && (
-            <TouchableOpacity style={styles.compareButton} onPress={handleViewComparison}>
-              <Text style={styles.compareButtonText}>Compare Progress</Text>
-            </TouchableOpacity>
+            isPro ? (
+              <TouchableOpacity onPress={handleViewComparison}>
+                <LinearGradient
+                  colors={theme.gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.compareButton}
+                >
+                  <Text style={styles.compareButtonTextPro}>Compare Progress</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.compareButton} onPress={handleViewComparison}>
+                <Text style={styles.compareButtonText}>Compare Progress</Text>
+              </TouchableOpacity>
+            )
           )}
         </View>
       )}
@@ -518,7 +553,7 @@ export default function ProgressScreen({ navigation }: any) {
         </View>
       )}
     </ScrollView>
-    
+
     {/* Paywall Modal */}
     <PhotoPaywallModal
       visible={showPaywall}
@@ -536,226 +571,242 @@ export default function ProgressScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  contentContainer: {
-    padding: spacing.lg,
-  },
-  promptCard: {
-    backgroundColor: '#303030', // Lighter than surface (#141414) to stand out more
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
-  },
-  promptTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.sm,
-  },
-  promptBody: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-  },
-  promptButtonContainer: {
-    backgroundColor: '#D6D6D6', // Darker background for the button area
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    borderRadius: 4,
-  },
-  promptButton: {
-    ...typography.body,
-    color: '#212121',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-  },
-  photoListContainer: {
-    gap: spacing.md,
-    paddingRight: spacing.lg,
-  },
-  photoThumbnail: {
-    width: 120,
-    marginRight: spacing.md,
-  },
-  thumbnailImage: {
-    width: '100%',
-    aspectRatio: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  expectationCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
-    marginBottom: spacing.lg,
-    position: 'relative',
-  },
-  phaseTitle: {
-    ...typography.headingSmall,
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-    color: colors.text,
-    textAlign: 'center',
-    lineHeight: 36,
-    includeFontPadding: false,
-  },
-  expectationTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  expectationTitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  accordionItem: {
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  accordionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  accordionProblem: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-  },
-  accordionIcon: {
-    ...typography.headingSmall,
-    fontSize: 20,
-    color: colors.text,
-    marginLeft: spacing.sm,
-  },
-  accordionContent: {
-    padding: spacing.md,
-    paddingTop: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  expectationDescription: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  daysBadge: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    marginLeft: spacing.md,
-  },
-  daysBadgeText: {
-    ...typography.label,
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  thumbnailLabel: {
-    ...typography.label,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  compareButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-    alignItems: 'center',
-  },
-  compareButtonText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  devToolsSection: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  devToolsTitle: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    fontSize: 12,
-    textTransform: 'uppercase',
-  },
-  devToolButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    alignItems: 'center',
-  },
-  devToolButtonText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  emptyState: {
-    paddingVertical: spacing.xxl,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    ...typography.headingSmall,
-    marginBottom: spacing.sm,
-  },
-  emptyBody: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  summaryButton: {
-    backgroundColor: colors.buttonAccent,
-    borderWidth: 1,
-    borderColor: colors.buttonAccent,
-    borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.md,
-    alignItems: 'center',
-  },
-  summaryButtonText: {
-    ...typography.body,
-    color: '#000000',
-    fontWeight: '600',
-  },
-  marketingButton: {
-    backgroundColor: colors.surfaceGreen,
-    borderColor: colors.borderGreen,
-  },
-});
+function getStyles(theme: Theme) {
+  const isPro = theme.key === 'pro';
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    contentContainer: {
+      padding: theme.spacing.lg,
+    },
+    promptCard: {
+      backgroundColor: isPro ? theme.colors.surfaceLight : '#303030',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginBottom: theme.spacing.lg,
+      ...(isPro ? theme.shadows.card : {}),
+    },
+    promptTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.sm,
+    },
+    promptBody: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+    },
+    promptButtonContainer: {
+      marginTop: theme.spacing.sm,
+      paddingVertical: theme.spacing.sm,
+      borderTopWidth: isPro ? 0 : 1,
+      borderTopColor: theme.colors.border,
+      borderRadius: isPro ? theme.borderRadius.pill : theme.borderRadius.lg,
+      ...(isPro ? {} : { backgroundColor: '#D6D6D6' }),
+    },
+    promptButton: {
+      ...theme.typography.body,
+      color: '#212121',
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    promptButtonPro: {
+      ...theme.typography.body,
+      color: '#FFFFFF',
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    section: {
+      marginBottom: theme.spacing.lg,
+    },
+    sectionTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+    },
+    photoListContainer: {
+      gap: theme.spacing.md,
+      paddingRight: theme.spacing.lg,
+    },
+    photoThumbnail: {
+      width: 120,
+      marginRight: theme.spacing.md,
+    },
+    thumbnailImage: {
+      width: '100%',
+      aspectRatio: 1,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    expectationCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      paddingTop: theme.spacing.xl,
+      marginBottom: theme.spacing.lg,
+      position: 'relative',
+      ...(isPro ? theme.shadows.card : {}),
+    },
+    phaseTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 28,
+      fontWeight: '700',
+      marginTop: theme.spacing.sm,
+      marginBottom: theme.spacing.xl,
+      color: theme.colors.text,
+      textAlign: 'center',
+      lineHeight: 36,
+      includeFontPadding: false,
+    },
+    expectationTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: theme.spacing.md,
+    },
+    expectationTitle: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    accordionItem: {
+      marginBottom: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+    },
+    accordionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+    },
+    accordionProblem: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+      flex: 1,
+    },
+    accordionIcon: {
+      ...theme.typography.headingSmall,
+      fontSize: 20,
+      color: theme.colors.text,
+      marginLeft: theme.spacing.sm,
+    },
+    accordionContent: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.sm,
+      backgroundColor: theme.colors.background,
+    },
+    expectationDescription: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      lineHeight: 20,
+    },
+    daysBadge: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 12,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: theme.spacing.xs,
+      marginLeft: theme.spacing.md,
+    },
+    daysBadgeText: {
+      ...theme.typography.label,
+      fontSize: 11,
+      color: theme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    thumbnailLabel: {
+      ...theme.typography.label,
+      marginTop: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    compareButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: isPro ? 0 : 1,
+      borderColor: theme.colors.border,
+      borderRadius: isPro ? theme.borderRadius.pill : theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+      alignItems: 'center',
+    },
+    compareButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    compareButtonTextPro: {
+      ...theme.typography.body,
+      color: '#FFFFFF',
+      fontWeight: '700',
+    },
+    devToolsSection: {
+      marginTop: theme.spacing.xl,
+      marginHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    devToolsTitle: {
+      ...theme.typography.label,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.md,
+      fontSize: 12,
+      textTransform: 'uppercase',
+    },
+    devToolButton: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.sm,
+      alignItems: 'center',
+    },
+    devToolButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    emptyState: {
+      paddingVertical: theme.spacing.xxl,
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.sm,
+    },
+    emptyBody: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+    summaryButton: {
+      backgroundColor: theme.colors.accent,
+      borderWidth: 1,
+      borderColor: theme.colors.accent,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      marginTop: theme.spacing.md,
+      alignItems: 'center',
+    },
+    summaryButtonText: {
+      ...theme.typography.body,
+      color: '#000000',
+      fontWeight: '600',
+    },
+    marketingButton: {
+      backgroundColor: isPro ? 'rgba(168, 85, 247, 0.08)' : '#171A17',
+      borderColor: isPro ? 'rgba(168, 85, 247, 0.2)' : '#0D360D',
+    },
+  });
+}

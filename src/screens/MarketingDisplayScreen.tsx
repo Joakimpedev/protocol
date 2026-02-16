@@ -1,7 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView, TouchableOpacity, Platform } from 'react-native';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes/types';
+
+const MONOSPACE_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
 
 export default function MarketingDisplayScreen({ route, navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { data } = route.params;
 
   const getSeverityLabel = (severity: number): string => {
@@ -131,26 +137,26 @@ export default function MarketingDisplayScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl * 2,
+    padding: theme.spacing.xl,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl * 2,
   },
   photosSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
-    paddingVertical: spacing.lg,
+    gap: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
+    paddingVertical: theme.spacing.lg,
   },
   photoContainer: {
     alignItems: 'center',
@@ -159,8 +165,8 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 999,
     borderWidth: 5,
-    borderColor: colors.buttonAccent,
-    backgroundColor: colors.background,
+    borderColor: theme.colors.accentSecondary,
+    backgroundColor: theme.colors.background,
     position: 'relative',
   },
   circle: {
@@ -168,7 +174,7 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: 65,
     overflow: 'hidden',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
   },
   circleImage: {
     width: '100%',
@@ -178,12 +184,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -7,
     alignSelf: 'center',
-    backgroundColor: colors.buttonAccent,
+    backgroundColor: theme.colors.accentSecondary,
     borderWidth: 0,
-    borderColor: colors.buttonAccent,
+    borderColor: theme.colors.accentSecondary,
     borderRadius: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
   },
   weekLabel: {
     fontFamily: MONOSPACE_FONT,
@@ -193,56 +199,56 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   arrowContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
   },
   arrow: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 36,
-    color: colors.buttonAccent,
+    color: theme.colors.accentSecondary,
     fontWeight: '600',
   },
   problemsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: theme.spacing.xl,
   },
   fixingTitle: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.md,
     fontWeight: '600',
   },
   problemsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: theme.spacing.md,
   },
   problemCard: {
     width: '47%',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 2,
     borderRadius: 4,
-    padding: spacing.md,
+    padding: theme.spacing.md,
     minHeight: 100,
   },
   problemTitle: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
     fontWeight: '500',
     lineHeight: 18,
   },
   severityLabel: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 14,
-    color: colors.text,
+    color: theme.colors.text,
     fontWeight: '600',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   severityBarContainer: {
     height: 6,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -251,95 +257,95 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   consistencyCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.buttonAccent,
+    borderColor: theme.colors.accentSecondary,
     borderRadius: 4,
-    padding: spacing.xl,
+    padding: theme.spacing.xl,
     alignItems: 'center',
   },
   logo: {
     width: 48,
     height: 48,
     borderRadius: 12,
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   brandingTitle: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 11,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
     letterSpacing: 0.5,
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   scoreSection: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   statValue: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 38,
     fontWeight: '700',
-    color: colors.text,
+    color: theme.colors.text,
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: theme.spacing.md,
     width: '100%',
   },
   metricBadge: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    padding: spacing.md,
+    padding: theme.spacing.md,
     alignItems: 'center',
   },
   metricBadgeNumber: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.xs / 2,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs / 2,
   },
   metricBadgeLabel: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 10,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
     fontWeight: '500',
   },
   quoteSection: {
-    marginTop: spacing.xl,
-    paddingTop: spacing.xl,
+    marginTop: theme.spacing.xl,
+    paddingTop: theme.spacing.xl,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.border,
   },
   quote: {
-    ...typography.body,
+    ...theme.typography.body,
     fontSize: 16,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: 24,
   },
   altViewButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    padding: spacing.md,
-    marginTop: spacing.xl,
+    padding: theme.spacing.md,
+    marginTop: theme.spacing.xl,
     alignItems: 'center',
     width: '100%',
   },
   altViewButtonText: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 13,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
 });

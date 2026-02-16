@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getAllExercises,
@@ -14,6 +15,9 @@ import { getExercisePreferences, ExercisePreferences } from '../services/exercis
 import { formatDuration } from '../services/routineBuilder';
 
 export default function ExerciseHubScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
@@ -152,7 +156,7 @@ export default function ExerciseHubScreen({ navigation }: any) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.text} />
+        <ActivityIndicator size="large" color={theme.colors.text} />
       </View>
     );
   }
@@ -166,73 +170,74 @@ export default function ExerciseHubScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingTop: spacing.xl + 60,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.lg,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cardCompleted: {
-    opacity: 0.7,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  cardTitle: {
-    ...typography.headingSmall,
-    color: colors.text,
-  },
-  completedCheckmark: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    color: colors.accent,
-  },
-  cardInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    flexWrap: 'wrap',
-  },
-  cardInfoText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginRight: spacing.sm,
-  },
-  cardInfoTextUrgent: {
-    color: colors.error,
-    fontWeight: '600',
-  },
-  cardStatus: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  cardArrow: {
-    marginTop: spacing.sm,
-    alignItems: 'flex-end',
-  },
-  arrowText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 18,
-    color: colors.textSecondary,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.xl + 60,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.lg,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.lg,
+      marginBottom: theme.spacing.md,
+    },
+    cardCompleted: {
+      opacity: 0.7,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    cardTitle: {
+      ...theme.typography.headingSmall,
+      color: theme.colors.text,
+    },
+    completedCheckmark: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      color: theme.colors.accent,
+    },
+    cardInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+      flexWrap: 'wrap',
+    },
+    cardInfoText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginRight: theme.spacing.sm,
+    },
+    cardInfoTextUrgent: {
+      color: theme.colors.error,
+      fontWeight: '600',
+    },
+    cardStatus: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+    },
+    cardArrow: {
+      marginTop: theme.spacing.sm,
+      alignItems: 'flex-end',
+    },
+    arrowText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 18,
+      color: theme.colors.textSecondary,
+    },
+  });
+}

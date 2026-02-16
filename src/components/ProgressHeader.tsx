@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 
 interface ProgressHeaderProps {
   currentScreenIndex: number;
@@ -32,6 +33,8 @@ export const ProgressHeader: React.FC<ProgressHeaderProps> = ({
   currentScreenIndex,
   totalScreens
 }) => {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const progress = getProgressPercentage(currentScreenIndex, totalScreens);
   const animatedProgress = useRef(new Animated.Value(0)).current;
@@ -67,33 +70,35 @@ export const ProgressHeader: React.FC<ProgressHeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.background,
-    zIndex: 1000,
-    paddingBottom: spacing.sm,
-  },
-  progressBarBg: {
-    height: 3,
-    backgroundColor: colors.surface,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 2,
-  },
-  percentText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 10,
-    color: colors.textMuted,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-});
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: theme.spacing.lg,
+      backgroundColor: theme.colors.background,
+      zIndex: 1000,
+      paddingBottom: theme.spacing.sm,
+    },
+    progressBarBg: {
+      height: 3,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 2,
+      overflow: 'hidden',
+    },
+    progressBarFill: {
+      height: '100%',
+      backgroundColor: theme.colors.accent,
+      borderRadius: 2,
+    },
+    percentText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 10,
+      color: theme.colors.textMuted,
+      textAlign: 'right',
+      marginTop: 4,
+    },
+  });
+}

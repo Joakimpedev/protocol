@@ -1,11 +1,11 @@
 /**
  * Photo Paywall Modal Component
- * 
+ *
  * Displays subscription options when user reaches Week 5 and tries to take a photo.
  * Includes photo slider comparison to show progress.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,8 @@ import {
 import { usePostHog } from 'posthog-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { colors, typography, spacing, borderRadius, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { usePremium } from '../contexts/PremiumContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useResponsive } from '../utils/responsive';
@@ -51,6 +52,8 @@ export default function PhotoPaywallModal({
   onClose,
   onPurchaseComplete,
 }: PhotoPaywallModalProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { user } = useAuth();
   const { refreshSubscriptionStatus } = usePremium();
   const posthog = usePostHog();
@@ -69,10 +72,10 @@ export default function PhotoPaywallModal({
   const [legalModalVisible, setLegalModalVisible] = useState(false);
   const [legalModalType, setLegalModalType] = useState<'privacy' | 'terms' | 'faq'>('privacy');
   const insets = useSafeAreaInsets();
-  
+
   // Responsive values
-  const containerPadding = responsive.isNarrow ? spacing.md : spacing.lg;
-  
+  const containerPadding = responsive.isNarrow ? theme.spacing.md : theme.spacing.lg;
+
   // Slider refs and state
   const sliderContainerRef = React.useRef<View>(null);
   const [sliderLayout, setSliderLayout] = useState({ x: 0, width: 0, y: 0 });
@@ -108,7 +111,7 @@ export default function PhotoPaywallModal({
       const photosWithoutWeek0 = allPhotos.filter(p => p.weekNumber !== 0);
       if (photosWithoutWeek0.length > 0) {
         // Get the photo with the highest week number (most recent)
-        const latest = photosWithoutWeek0.reduce((prev, current) => 
+        const latest = photosWithoutWeek0.reduce((prev, current) =>
           current.weekNumber > prev.weekNumber ? current : prev
         );
         setLatestPhoto(latest);
@@ -177,9 +180,9 @@ export default function PhotoPaywallModal({
         const availablePackages = offering.availablePackages;
         console.log('Loaded packages:', availablePackages.length, availablePackages.map(p => p.identifier));
         setPackages(availablePackages);
-        
+
         // Pre-select annual package (default/standard)
-        const annualPackage = availablePackages.find(pkg => 
+        const annualPackage = availablePackages.find(pkg =>
           pkg.packageType === 'ANNUAL' || pkg.identifier.includes('annual') || pkg.identifier.includes('yearly')
         );
         if (annualPackage) {
@@ -202,7 +205,7 @@ export default function PhotoPaywallModal({
   const handlePurchase = async () => {
     if (packages.length === 0) {
       Alert.alert(
-        'Subscription Unavailable', 
+        'Subscription Unavailable',
         'Unable to load subscription options. Please check your internet connection and try again, or contact support if the issue persists.'
       );
       return;
@@ -216,7 +219,7 @@ export default function PhotoPaywallModal({
     setLoading(true);
     try {
       const result = await purchasePackage(selectedPackage);
-      
+
       if (result.success) {
         // Track purchase completed event
         if (posthog && selectedPackage) {
@@ -233,10 +236,10 @@ export default function PhotoPaywallModal({
             price: price,
           });
         }
-        
+
         // Refresh subscription status
         await refreshSubscriptionStatus();
-        
+
         if (onPurchaseComplete) {
           onPurchaseComplete();
         }
@@ -256,7 +259,7 @@ export default function PhotoPaywallModal({
     setLoading(true);
     try {
       const result = await restorePurchases();
-      
+
       if (result.success && result.isPremium) {
         await refreshSubscriptionStatus();
         Alert.alert('Success', 'Purchases restored');
@@ -276,13 +279,13 @@ export default function PhotoPaywallModal({
     // Use localized price from RevenueCat
     const priceString = packageItem.product.priceString;
     const identifier = packageItem.identifier.toLowerCase();
-    
+
     if (identifier.includes('annual') || packageItem.packageType === 'ANNUAL') {
       return `${priceString}/year`;
     } else if (identifier.includes('monthly') || packageItem.packageType === 'MONTHLY') {
       return `${priceString}/month`;
     }
-    
+
     // Fallback to product title if we can't determine type
     return packageItem.product.title || priceString;
   };
@@ -305,13 +308,13 @@ export default function PhotoPaywallModal({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <ScrollView 
+        <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { 
-              paddingTop: insets.top + spacing.lg,
+            {
+              paddingTop: insets.top + theme.spacing.lg,
               paddingHorizontal: responsive.safeHorizontalPadding,
             }
           ]}
@@ -333,9 +336,9 @@ export default function PhotoPaywallModal({
             {/* Photo Slider Comparison */}
             <View style={styles.photoSliderContainer}>
               {loadingData ? (
-                <ActivityIndicator size="large" color={colors.text} style={styles.photoLoading} />
+                <ActivityIndicator size="large" color={theme.colors.text} style={styles.photoLoading} />
               ) : (
-                <View 
+                <View
                   ref={sliderContainerRef}
                   style={styles.sliderWrapper}
                   onLayout={(event) => {
@@ -353,7 +356,7 @@ export default function PhotoPaywallModal({
                   </View>
 
                   {(() => {
-                    const containerWidth = sliderLayout.width || (SCREEN_WIDTH - spacing.lg * 2 - spacing.lg * 2);
+                    const containerWidth = sliderLayout.width || (SCREEN_WIDTH - theme.spacing.lg * 2 - theme.spacing.lg * 2);
                     const sliderX = sliderPosition * containerWidth;
                     const leftImageWidth = sliderX;
                     const rightImageWidth = containerWidth - sliderX;
@@ -363,40 +366,40 @@ export default function PhotoPaywallModal({
                         {/* Left Photo (Week 0) */}
                         <View style={[styles.sliderPhotoContainer, { width: containerWidth }]} pointerEvents="none">
                           {week0Photo ? (
-                            <Image 
-                              source={{ uri: week0Photo.uri }} 
-                              style={[styles.sliderPhoto, { width: containerWidth }]} 
-                              resizeMode="cover" 
+                            <Image
+                              source={{ uri: week0Photo.uri }}
+                              style={[styles.sliderPhoto, { width: containerWidth }]}
+                              resizeMode="cover"
                             />
                           ) : (
                             <View style={styles.placeholderContainer}>
                               <Text style={styles.placeholderText}>Week 0</Text>
                             </View>
                           )}
-                          <Text style={[styles.sliderPhotoLabel, { left: spacing.sm }]}>Week 0</Text>
+                          <Text style={[styles.sliderPhotoLabel, { left: theme.spacing.sm }]}>Week 0</Text>
                         </View>
 
                         {/* Right Photo (Latest) - clipped */}
-                        <View 
+                        <View
                           style={[
-                            styles.sliderPhotoContainer, 
+                            styles.sliderPhotoContainer,
                             styles.sliderPhotoRight,
                             { width: rightImageWidth }
                           ]}
                           pointerEvents="none"
                         >
                           {latestPhoto ? (
-                            <Image 
-                              source={{ uri: latestPhoto.uri }} 
-                              style={[styles.sliderPhoto, { width: containerWidth, marginLeft: -leftImageWidth }]} 
-                              resizeMode="cover" 
+                            <Image
+                              source={{ uri: latestPhoto.uri }}
+                              style={[styles.sliderPhoto, { width: containerWidth, marginLeft: -leftImageWidth }]}
+                              resizeMode="cover"
                             />
                           ) : (
                             <View style={styles.placeholderContainer}>
                               <Text style={styles.placeholderText}>Latest</Text>
                             </View>
                           )}
-                          <Text style={[styles.sliderPhotoLabel, { right: spacing.sm, left: 'auto' }]}>
+                          <Text style={[styles.sliderPhotoLabel, { right: theme.spacing.sm, left: 'auto' }]}>
                             Week {latestPhoto?.weekNumber || 0}
                           </Text>
                         </View>
@@ -445,7 +448,7 @@ export default function PhotoPaywallModal({
                   </View>
                 </View>
 
-                
+
 
                 <View style={styles.tableRow}>
                   <View style={styles.tableCell}>
@@ -503,7 +506,7 @@ export default function PhotoPaywallModal({
           <View style={styles.optionsContainer}>
             {packages.map((pkg) => {
               const isSelected = selectedPackage?.identifier === pkg.identifier;
-              
+
               return (
                 <TouchableOpacity
                   key={pkg.identifier}
@@ -543,7 +546,7 @@ export default function PhotoPaywallModal({
             disabled={loading || packages.length === 0 || !selectedPackage}
           >
             {loading ? (
-              <ActivityIndicator color={colors.background} />
+              <ActivityIndicator color={theme.colors.background} />
             ) : packages.length === 0 ? (
               <Text style={styles.purchaseButtonText}>Loading subscription options...</Text>
             ) : (
@@ -612,395 +615,396 @@ export default function PhotoPaywallModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollView: {
-    flex: 1,
-    width: '100%',
-  },
-  scrollContent: {
-    // paddingHorizontal is set dynamically
-    paddingBottom: spacing.lg,
-    justifyContent: 'center',
-    minHeight: '100%',
-  },
-  container: {
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    // padding is set dynamically
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  titleSection: {
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  mainTitle: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 24,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  consistencyScore: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '600',
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  photoSliderContainer: {
-    marginBottom: spacing.xl,
-    width: '100%',
-  },
-  photoLoading: {
-    paddingVertical: spacing.xl,
-    width: '100%',
-  },
-  sliderWrapper: {
-    width: '100%',
-    aspectRatio: 1,
-    position: 'relative',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    zIndex: 1,
-  },
-  sliderBanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  sliderBannerInner: {
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderBottomLeftRadius: borderRadius.md,
-    borderBottomRightRadius: borderRadius.md,
-  },
-  sliderBannerText: {
-    ...typography.label,
-    fontSize: 11,
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-  },
-  sliderPhotoContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: '100%',
-    overflow: 'hidden',
-  },
-  sliderPhotoRight: {
-    right: 0,
-    left: 'auto',
-  },
-  sliderPhoto: {
-    height: '100%',
-  },
-  sliderPhotoLabel: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 2,
-    color: '#FFFFFF',
-    fontSize: 11,
-  },
-  placeholderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  placeholderText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  sliderHandle: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  sliderHandleLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: colors.text,
-  },
-  sliderHandleCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.text,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 2,
-  },
-  sliderHandleArrowLeft: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderRightWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderRightColor: colors.background,
-  },
-  sliderHandleArrowRight: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 5,
-    borderBottomWidth: 5,
-    borderLeftWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: colors.background,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-  sellSection: {
-    marginBottom: spacing.lg,
-  },
-  sellHeadline: {
-    ...typography.headingSmall,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  comparisonTable: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
-    marginTop: spacing.md,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tableHeaderCell: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  tableHeaderCellFull: {
-    backgroundColor: TABLE_FULL_PROTOCOL_HEADER_BG,
-    borderRightWidth: 0,
-  },
-  tableHeaderText: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 24,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  tableHeaderTextFull: {
-    fontFamily: MONOSPACE_FONT,
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 24,
-    color: colors.background,
-    textAlign: 'center',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  tableCell: {
-    flex: 1,
-    padding: spacing.md,
-    backgroundColor: colors.background,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  tableCellFull: {
-    backgroundColor: colors.background,
-    borderRightWidth: 0,
-  },
-  tableCellText: {
-    ...typography.body,
-    color: colors.text,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  tableCellTextFull: {
-    ...typography.body,
-    color: '#00cc00',
-    fontWeight: '600',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  benefitsSection: {
-    marginBottom: spacing.lg,
-  },
-  benefitsTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.md,
-    color: colors.text,
-  },
-  benefitsList: {
-    gap: spacing.xs,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.xs,
-  },
-  benefitBullet: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginRight: spacing.sm,
-    marginTop: 2,
-  },
-  benefitText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  optionsContainer: {
-    marginBottom: spacing.lg,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  optionSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.surface,
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionTitle: {
-    ...typography.body,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  optionSubtitle: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.md,
-  },
-  checkmarkText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  purchaseButton: {
-    backgroundColor: colors.accentSecondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  purchaseButtonDisabled: {
-    opacity: 0.5,
-  },
-  purchaseButtonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.background,
-  },
-  declineButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  declineButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  restoreButton: {
-    padding: spacing.md,
-    alignItems: 'center',
-  },
-  restoreText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 12,
-  },
-  legalSection: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  autoRenewalText: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 11,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-    lineHeight: 16,
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  legalLink: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    fontSize: 11,
-    textDecorationLine: 'underline',
-  },
-  legalLinkSeparator: {
-    ...typography.bodySmall,
-    color: colors.textMuted,
-    fontSize: 11,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollView: {
+      flex: 1,
+      width: '100%',
+    },
+    scrollContent: {
+      // paddingHorizontal is set dynamically
+      paddingBottom: theme.spacing.lg,
+      justifyContent: 'center',
+      minHeight: '100%',
+    },
+    container: {
+      backgroundColor: theme.colors.background,
+      borderRadius: theme.borderRadius.lg,
+      // padding is set dynamically
+      width: '100%',
+      maxWidth: 400,
+      alignSelf: 'center',
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    titleSection: {
+      marginBottom: theme.spacing.xl,
+      marginTop: theme.spacing.lg,
+      alignItems: 'center',
+    },
+    mainTitle: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 24,
+      fontWeight: '600',
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+      textAlign: 'center',
+    },
+    subtitle: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    consistencyScore: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '600',
+      marginTop: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    photoSliderContainer: {
+      marginBottom: theme.spacing.xl,
+      width: '100%',
+    },
+    photoLoading: {
+      paddingVertical: theme.spacing.xl,
+      width: '100%',
+    },
+    sliderWrapper: {
+      width: '100%',
+      aspectRatio: 1,
+      position: 'relative',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      zIndex: 1,
+    },
+    sliderBanner: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 20,
+    },
+    sliderBannerInner: {
+      backgroundColor: theme.colors.overlay,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
+      borderBottomLeftRadius: theme.borderRadius.md,
+      borderBottomRightRadius: theme.borderRadius.md,
+    },
+    sliderBannerText: {
+      ...theme.typography.label,
+      fontSize: 11,
+      color: '#FFFFFF',
+      textTransform: 'uppercase',
+    },
+    sliderPhotoContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      height: '100%',
+      overflow: 'hidden',
+    },
+    sliderPhotoRight: {
+      right: 0,
+      left: 'auto',
+    },
+    sliderPhoto: {
+      height: '100%',
+    },
+    sliderPhotoLabel: {
+      position: 'absolute',
+      bottom: theme.spacing.sm,
+      backgroundColor: theme.colors.overlay,
+      paddingHorizontal: theme.spacing.sm,
+      paddingVertical: 2,
+      borderRadius: 2,
+      color: '#FFFFFF',
+      fontSize: 11,
+    },
+    placeholderContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+    },
+    placeholderText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    sliderHandle: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      width: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 10,
+    },
+    sliderHandleLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: theme.colors.text,
+    },
+    sliderHandleCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: theme.colors.text,
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 2,
+    },
+    sliderHandleArrowLeft: {
+      width: 0,
+      height: 0,
+      borderTopWidth: 5,
+      borderBottomWidth: 5,
+      borderRightWidth: 6,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderRightColor: theme.colors.background,
+    },
+    sliderHandleArrowRight: {
+      width: 0,
+      height: 0,
+      borderTopWidth: 5,
+      borderBottomWidth: 5,
+      borderLeftWidth: 6,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderLeftColor: theme.colors.background,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginVertical: theme.spacing.lg,
+    },
+    sellSection: {
+      marginBottom: theme.spacing.lg,
+    },
+    sellHeadline: {
+      ...theme.typography.headingSmall,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    comparisonTable: {
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      overflow: 'hidden',
+      marginTop: theme.spacing.md,
+    },
+    tableHeader: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tableHeaderCell: {
+      flex: 1,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderRightWidth: 1,
+      borderRightColor: theme.colors.border,
+    },
+    tableHeaderCellFull: {
+      backgroundColor: TABLE_FULL_PROTOCOL_HEADER_BG,
+      borderRightWidth: 0,
+    },
+    tableHeaderText: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 24,
+      color: theme.colors.text,
+      textAlign: 'center',
+    },
+    tableHeaderTextFull: {
+      fontFamily: theme.typography.heading.fontFamily,
+      fontSize: 15,
+      fontWeight: '600',
+      lineHeight: 24,
+      color: theme.colors.background,
+      textAlign: 'center',
+    },
+    tableRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    tableRowLast: {
+      borderBottomWidth: 0,
+    },
+    tableCell: {
+      flex: 1,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.background,
+      borderRightWidth: 1,
+      borderRightColor: theme.colors.border,
+    },
+    tableCellFull: {
+      backgroundColor: theme.colors.background,
+      borderRightWidth: 0,
+    },
+    tableCellText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    tableCellTextFull: {
+      ...theme.typography.body,
+      color: '#00cc00',
+      fontWeight: '600',
+      fontSize: 14,
+      textAlign: 'center',
+    },
+    benefitsSection: {
+      marginBottom: theme.spacing.lg,
+    },
+    benefitsTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.md,
+      color: theme.colors.text,
+    },
+    benefitsList: {
+      gap: theme.spacing.xs,
+    },
+    benefitItem: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: theme.spacing.xs,
+    },
+    benefitBullet: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginRight: theme.spacing.sm,
+      marginTop: 2,
+    },
+    benefitText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      flex: 1,
+    },
+    optionsContainer: {
+      marginBottom: theme.spacing.lg,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.sm,
+      backgroundColor: theme.colors.surface,
+    },
+    optionSelected: {
+      borderColor: theme.colors.accent,
+      backgroundColor: theme.colors.surface,
+    },
+    optionContent: {
+      flex: 1,
+    },
+    optionTitle: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      marginBottom: theme.spacing.xs,
+    },
+    optionSubtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+    checkmark: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: theme.colors.accent,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: theme.spacing.md,
+    },
+    checkmarkText: {
+      color: theme.colors.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    purchaseButton: {
+      backgroundColor: theme.colors.accentSecondary,
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    purchaseButtonDisabled: {
+      opacity: 0.5,
+    },
+    purchaseButtonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.background,
+    },
+    declineButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.sm,
+    },
+    declineButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    restoreButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+    },
+    restoreText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 12,
+    },
+    legalSection: {
+      marginTop: theme.spacing.lg,
+      paddingTop: theme.spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    autoRenewalText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 11,
+      textAlign: 'center',
+      marginBottom: theme.spacing.sm,
+      lineHeight: 16,
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    legalLink: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontSize: 11,
+      textDecorationLine: 'underline',
+    },
+    legalLinkSeparator: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontSize: 11,
+    },
+  });
+}

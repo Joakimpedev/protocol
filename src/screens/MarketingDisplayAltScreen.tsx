@@ -1,7 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, SafeAreaView, TouchableOpacity, Platform } from 'react-native';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes/types';
+
+const MONOSPACE_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
 
 export default function MarketingDisplayAltScreen({ route, navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { data } = route.params;
 
   return (
@@ -64,27 +70,27 @@ export default function MarketingDisplayAltScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: spacing.xl,
-    paddingTop: spacing.xl * 2,
-    paddingBottom: spacing.xl * 2,
+    padding: theme.spacing.xl,
+    paddingTop: theme.spacing.xl * 2,
+    paddingBottom: theme.spacing.xl * 2,
     alignItems: 'center',
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl * 2,
-    marginTop: spacing.xl,
-    gap: spacing.lg,
+    marginBottom: theme.spacing.xl * 2,
+    marginTop: theme.spacing.xl,
+    gap: theme.spacing.lg,
   },
   protocolSection: {
     alignItems: 'center',
@@ -94,9 +100,9 @@ const styles = StyleSheet.create({
     fontFamily: MONOSPACE_FONT,
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     letterSpacing: 2,
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   logo: {
     width: 44,
@@ -106,7 +112,7 @@ const styles = StyleSheet.create({
   separator: {
     width: 1,
     height: 60,
-    backgroundColor: colors.accent,
+    backgroundColor: theme.colors.accent,
   },
   daysSection: {
     alignItems: 'center',
@@ -116,29 +122,29 @@ const styles = StyleSheet.create({
     fontFamily: MONOSPACE_FONT,
     fontSize: 26,
     fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.xs / 2,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.xs / 2,
   },
   completedText: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 16,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     letterSpacing: 1,
   },
   photoSection: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: theme.spacing.lg,
   },
   lastPhoto: {
-    marginBottom: spacing.xl * 3,
+    marginBottom: theme.spacing.xl * 3,
   },
   circleContainer: {
     padding: 5,
     borderRadius: 999,
     borderWidth: 6,
-    borderColor: colors.buttonAccent,
-    backgroundColor: colors.background,
+    borderColor: theme.colors.accentSecondary,
+    backgroundColor: theme.colors.background,
     position: 'relative',
   },
   circle: {
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     overflow: 'hidden',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
   },
   circleImage: {
     width: '100%',
@@ -156,11 +162,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -7,
     alignSelf: 'center',
-    backgroundColor: colors.buttonAccent,
+    backgroundColor: theme.colors.accentSecondary,
     borderWidth: 0,
     borderRadius: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
   },
   weekLabel: {
     fontFamily: MONOSPACE_FONT,
@@ -170,18 +176,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   backButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    padding: spacing.md,
+    padding: theme.spacing.md,
     alignItems: 'center',
     width: '100%',
   },
   backButtonText: {
     fontFamily: MONOSPACE_FONT,
     fontSize: 13,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
 });

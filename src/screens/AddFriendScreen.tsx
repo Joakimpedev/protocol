@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { useAuth } from '../contexts/AuthContext';
 import { sendFriendRequest, getUserIdFromFriendCode } from '../services/friendService';
 
 export default function AddFriendScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { user } = useAuth();
   const [friendCode, setFriendCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,7 +60,7 @@ export default function AddFriendScreen({ navigation }: any) {
           value={friendCode}
           onChangeText={(text) => setFriendCode(text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
           placeholder="ABCD12"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           maxLength={6}
           autoCapitalize="characters"
           autoCorrect={false}
@@ -70,7 +74,7 @@ export default function AddFriendScreen({ navigation }: any) {
         disabled={loading || !friendCode.trim()}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={colors.text} />
+          <ActivityIndicator size="small" color={theme.colors.text} />
         ) : (
           <Text style={styles.buttonText}>Send Request</Text>
         )}
@@ -85,74 +89,71 @@ export default function AddFriendScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: spacing.lg,
-    paddingTop: 120,
-  },
-  header: {
-    marginBottom: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.sm,
-  },
-  subheading: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-  },
-  inputContainer: {
-    marginBottom: spacing.lg,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    ...typography.headingSmall,
-    fontFamily: MONOSPACE_FONT,
-    color: colors.text,
-    textAlign: 'center',
-    letterSpacing: 4,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  infoContainer: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 4,
-  },
-  infoText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-});
-
-
-
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.lg,
+      paddingTop: 120,
+    },
+    header: {
+      marginBottom: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.sm,
+    },
+    subheading: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+    },
+    inputContainer: {
+      marginBottom: theme.spacing.lg,
+    },
+    input: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      ...theme.typography.headingSmall,
+      fontFamily: theme.typography.heading.fontFamily,
+      color: theme.colors.text,
+      textAlign: 'center',
+      letterSpacing: 4,
+    },
+    button: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      marginBottom: theme.spacing.lg,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      ...theme.typography.body,
+      fontWeight: '600',
+      color: theme.colors.text,
+    },
+    infoContainer: {
+      marginTop: theme.spacing.md,
+      padding: theme.spacing.md,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+    },
+    infoText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+    },
+  });
+}

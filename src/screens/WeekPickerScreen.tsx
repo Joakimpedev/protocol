@@ -1,20 +1,18 @@
 /**
  * Week Picker Screen
- * 
+ *
  * Grid view of all photos for selecting a week
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, FlatList, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { loadAllPhotos, ProgressPhoto } from '../services/photoService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const NUM_COLUMNS = 3;
-const GRID_PADDING = spacing.md * 2;
-const GRID_GAP = spacing.xs * 2;
-const ITEM_SIZE = (SCREEN_WIDTH - GRID_PADDING - (GRID_GAP * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
 
 interface WeekPickerScreenProps {
   route: {
@@ -27,6 +25,13 @@ interface WeekPickerScreenProps {
 }
 
 export default function WeekPickerScreen({ route, navigation }: WeekPickerScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
+  const GRID_PADDING = theme.spacing.md * 2;
+  const GRID_GAP = theme.spacing.xs * 2;
+  const ITEM_SIZE = (SCREEN_WIDTH - GRID_PADDING - (GRID_GAP * (NUM_COLUMNS - 1))) / NUM_COLUMNS;
+
   const { currentWeek, isTopPhoto } = route.params;
   const insets = useSafeAreaInsets();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
@@ -79,7 +84,7 @@ export default function WeekPickerScreen({ route, navigation }: WeekPickerScreen
         renderItem={({ item }) => {
           const photo = getPhotoForWeek(item);
           const isSelected = currentWeek === item;
-          
+
           return (
             <TouchableOpacity
               style={[
@@ -107,72 +112,73 @@ export default function WeekPickerScreen({ route, navigation }: WeekPickerScreen
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    minWidth: 60,
-  },
-  backButtonText: {
-    ...typography.body,
-    color: colors.text,
-  },
-  headerTitle: {
-    ...typography.headingSmall,
-    fontSize: 18,
-  },
-  gridContainer: {
-    padding: spacing.md,
-  },
-  gridItem: {
-    margin: spacing.xs,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  gridItemSelected: {
-    borderColor: colors.text,
-    borderWidth: 3,
-  },
-  gridPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  gridLabel: {
-    ...typography.label,
-    position: 'absolute',
-    bottom: spacing.xs,
-    left: spacing.xs,
-    backgroundColor: colors.overlay,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: 2,
-    color: '#FFFFFF',
-    fontSize: 10,
-  },
-  gridPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  gridPlaceholderText: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontSize: 12,
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: theme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    backButton: {
+      minWidth: 60,
+    },
+    backButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+    },
+    headerTitle: {
+      ...theme.typography.headingSmall,
+      fontSize: 18,
+    },
+    gridContainer: {
+      padding: theme.spacing.md,
+    },
+    gridItem: {
+      margin: theme.spacing.xs,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 2,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      overflow: 'hidden',
+    },
+    gridItemSelected: {
+      borderColor: theme.colors.text,
+      borderWidth: 3,
+    },
+    gridPhoto: {
+      width: '100%',
+      height: '100%',
+    },
+    gridLabel: {
+      ...theme.typography.label,
+      position: 'absolute',
+      bottom: theme.spacing.xs,
+      left: theme.spacing.xs,
+      backgroundColor: theme.colors.overlay,
+      paddingHorizontal: theme.spacing.xs,
+      paddingVertical: 2,
+      borderRadius: 2,
+      color: '#FFFFFF',
+      fontSize: 10,
+    },
+    gridPlaceholder: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.colors.background,
+    },
+    gridPlaceholderText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      fontSize: 12,
+    },
+  });
+}

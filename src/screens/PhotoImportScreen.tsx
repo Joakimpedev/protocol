@@ -1,6 +1,6 @@
 /**
  * Photo Import Screen (Dev Mode)
- * 
+ *
  * Allows importing photos from gallery with adjustment tools:
  * - Rotation slider (minimal increments)
  * - Zoom slider (max 30%)
@@ -9,7 +9,7 @@
  * - Square crop preview
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { colors, typography, spacing } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import FaceOutlineOverlay from '../components/FaceOutlineOverlay';
 import { saveProgressPhoto } from '../services/photoService';
 import Slider from '@react-native-community/slider';
@@ -48,6 +49,9 @@ interface PhotoImportScreenProps {
 }
 
 export default function PhotoImportScreen({ route, navigation }: PhotoImportScreenProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const { weekNumber } = route.params;
   const insets = useSafeAreaInsets();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -58,7 +62,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
   const [isProcessing, setIsProcessing] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const [displayImageSize, setDisplayImageSize] = useState({ width: PREVIEW_SIZE, height: PREVIEW_SIZE });
-  
+
   // Use refs to track current translate values to avoid stale closures
   const translateXRef = useRef(0);
   const translateYRef = useRef(0);
@@ -88,7 +92,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
         // gestureState.dx/dy are relative to the start of the gesture
         const newX = gestureStartRef.current.x + gestureState.dx;
         const newY = gestureStartRef.current.y + gestureState.dy;
-        
+
         // No constraints - allow free panning
         setTranslateX(newX);
         setTranslateY(newY);
@@ -97,7 +101,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
         // Finalize the position without constraints
         const newX = gestureStartRef.current.x + gestureState.dx;
         const newY = gestureStartRef.current.y + gestureState.dy;
-        
+
         setTranslateX(newX);
         setTranslateY(newY);
         // Update refs to the final position
@@ -140,27 +144,27 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         setSelectedImage(uri);
-        
+
         // Get image dimensions and calculate display size
         Image.getSize(uri, (width, height) => {
           setImageDimensions({ width, height });
-          
+
           // Calculate display size: width always matches preview width (touches sides)
           // Height is calculated to maintain aspect ratio (can be taller than preview)
           const aspectRatio = width / height;
           const displayWidth = PREVIEW_SIZE;
           const displayHeight = PREVIEW_SIZE / aspectRatio;
-          
+
           setDisplayImageSize({ width: displayWidth, height: displayHeight });
-          
+
           // Reset transforms and center image initially
           setRotation(0);
           setZoom(1.0);
-          
+
           // Center the image initially (for tall images, center vertically; for wide images, center horizontally)
           let initialX = 0;
           let initialY = 0;
-          
+
           if (aspectRatio < 1) {
             // Portrait: center vertically (image is taller than square)
             initialY = (PREVIEW_SIZE - displayHeight) / 2;
@@ -170,7 +174,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
             // But if image is very wide, we might need to handle this differently
             initialX = 0;
           }
-          
+
           setTranslateX(initialX);
           setTranslateY(initialY);
           translateXRef.current = initialX;
@@ -202,19 +206,19 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
     setTranslateY(0);
     translateXRef.current = 0;
     translateYRef.current = 0;
-    
+
     // Re-center the image if needed
     if (selectedImage && imageDimensions.width > 0) {
       const aspectRatio = imageDimensions.width / imageDimensions.height;
       let initialX = 0;
       let initialY = 0;
-      
+
       if (aspectRatio < 1) {
         // Portrait: center vertically
         const displayHeight = PREVIEW_SIZE / aspectRatio;
         initialY = (PREVIEW_SIZE - displayHeight) / 2;
       }
-      
+
       setTranslateX(initialX);
       setTranslateY(initialY);
       translateXRef.current = initialX;
@@ -230,14 +234,14 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
 
       const squareSize = 1080;
       const { width: origWidth, height: origHeight } = imageDimensions;
-      
+
       // Step 1: Resize original image to a large size (maintaining aspect ratio)
       // Use the larger dimension to ensure we have enough pixels
       const maxDimension = Math.max(origWidth, origHeight);
       const scaleFactor = squareSize * 2 / maxDimension; // Use 2x square size to have room for transforms
       const resizedWidth = Math.round(origWidth * scaleFactor);
       const resizedHeight = Math.round(origHeight * scaleFactor);
-      
+
       const resized = await ImageManipulator.manipulateAsync(
         selectedImage,
         [{ resize: { width: resizedWidth, height: resizedHeight } }],
@@ -265,98 +269,33 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
       }
 
       // Step 4: Calculate crop position to extract the square visible in preview
-      // 
-      // Strategy: Calculate what region of the original image is visible in the preview square,
-      // then apply the same transformations to extract that exact region.
-      // 
-      // Key insight: The preview shows a square viewport. We need to find what square region
-      // of the processed (rotated, zoomed) image corresponds to that viewport.
-      //
-      // Transform order in display: translate -> rotate -> scale
-      // Transform order in processing: resize -> rotate -> zoom (resize) -> crop
-      //
-      // The preview square is PREVIEW_SIZE x PREVIEW_SIZE
-      // The image is displayed at displayImageSize, then transformed
-      
-      // Calculate scale factors
-      // displayImageSize represents the original image scaled to fit preview width
-      // displayImageSize.width = PREVIEW_SIZE (always)
       const displayToOriginalScaleX = imageDimensions.width / displayImageSize.width;
       const displayToOriginalScaleY = imageDimensions.height / displayImageSize.height;
-      
-      // Calculate scale from original to processed (after resize, rotate, zoom)
-      // The processed image has been: resized (for quality) -> rotated -> zoomed
+
       const originalToProcessedScaleX = zoomed.width / imageDimensions.width;
       const originalToProcessedScaleY = zoomed.height / imageDimensions.height;
-      
-      // Calculate what region of the processed image corresponds to the preview square
-      //
-      // Key insight: The preview shows displayImageSize, then applies translate -> rotate -> zoom
-      // We need to find what square region of the processed image matches the preview square
-      
-      // Calculate what point in the image is at the preview center
-      // 
-      // The preview center is fixed at (PREVIEW_SIZE/2, PREVIEW_SIZE/2) in preview coordinates.
-      // The image is displayed at displayImageSize, which has width = PREVIEW_SIZE.
-      // 
-      // In image display coordinates, the preview center is at:
-      // - X: PREVIEW_SIZE / 2 (same as imageCenterX since width = PREVIEW_SIZE)
-      // - Y: PREVIEW_SIZE / 2 (this is the key - it's the preview center, not the image center)
-      //
-      // When the image is translated by translateX/Y, it moves. The point at the fixed preview center
-      // comes from a different point in the image. Since the image moves, we subtract the translation:
+
       const previewCenterInImageDisplayX = PREVIEW_SIZE / 2;
       const previewCenterInImageDisplayY = PREVIEW_SIZE / 2;
-      
-      // After translation, the point in the image that's at the preview center is:
+
       const pointAtPreviewCenterX = previewCenterInImageDisplayX - translateX;
       const pointAtPreviewCenterY = previewCenterInImageDisplayY - translateY;
-      
-      // Convert from display coordinates to original image coordinates
+
       const pointAtPreviewCenterOriginalX = pointAtPreviewCenterX * displayToOriginalScaleX;
       const pointAtPreviewCenterOriginalY = pointAtPreviewCenterY * displayToOriginalScaleY;
-      
-      // Convert from original to processed (resized -> rotated -> zoomed) coordinates
+
       const pointAtPreviewCenterProcessedX = pointAtPreviewCenterOriginalX * originalToProcessedScaleX;
       const pointAtPreviewCenterProcessedY = pointAtPreviewCenterOriginalY * originalToProcessedScaleY;
-      
-      // Calculate the size of the preview square in processed coordinates
-      // 
-      // The preview shows: displayImageSize (width = PREVIEW_SIZE), then zoomed by zoom
-      // The processed image is: original -> resized -> rotated -> zoomed
-      //
-      // In the preview, when zoomed, the image appears larger.
-      // The PREVIEW_SIZE square covers a smaller portion of the zoomed image.
-      // Specifically, it covers PREVIEW_SIZE / zoom of the zoomed display size.
-      //
-      // To find the square size in processed coordinates:
-      // 1. Square in preview: PREVIEW_SIZE (in preview coordinates)
-      // 2. Square in zoomed display: PREVIEW_SIZE / zoom (smaller when zoomed)
-      // 3. Convert to original image: (PREVIEW_SIZE / zoom) * displayToOriginalScaleX
-      // 4. Convert to processed: (PREVIEW_SIZE / zoom) * displayToOriginalScaleX * originalToProcessedScaleX
-      //
-      // originalToProcessedScaleX = (resized.width * zoom) / imageDimensions.width
-      // But resized.width = imageDimensions.width * resizeScaleFactor
-      // So originalToProcessedScaleX = resizeScaleFactor * zoom
-      //
-      // Therefore: squareSize = (PREVIEW_SIZE / zoom) * displayToOriginalScaleX * (resizeScaleFactor * zoom)
-      // = PREVIEW_SIZE * displayToOriginalScaleX * resizeScaleFactor
-      //
-      // This means the square size in processed coordinates doesn't depend on zoom directly,
-      // because the processed image is already zoomed, so we extract a square that corresponds
-      // to PREVIEW_SIZE in the original display, scaled by the resize factor.
+
       const resizeScaleFactor = resized.width / imageDimensions.width;
       const squareSizeInProcessedX = PREVIEW_SIZE * displayToOriginalScaleX * resizeScaleFactor;
       const squareSizeInProcessedY = PREVIEW_SIZE * displayToOriginalScaleY * resizeScaleFactor;
-      
-      // Use the smaller dimension to ensure we stay within bounds
+
       const squareSizeInProcessed = Math.min(squareSizeInProcessedX, squareSizeInProcessedY);
-      
-      // Calculate crop position (top-left corner)
-      // The crop should be centered at pointAtPreviewCenterProcessed
+
       const cropCenterX = pointAtPreviewCenterProcessedX;
       const cropCenterY = pointAtPreviewCenterProcessedY;
-      
+
       // Debug logging
       console.log('Photo Import Debug:', {
         translateX,
@@ -380,10 +319,10 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
         zoomedWidth: zoomed.width,
         zoomedHeight: zoomed.height,
       });
-      
+
       const finalCropX = Math.max(0, Math.min(cropCenterX - squareSizeInProcessed / 2, zoomed.width - squareSizeInProcessed));
       const finalCropY = Math.max(0, Math.min(cropCenterY - squareSizeInProcessed / 2, zoomed.height - squareSizeInProcessed));
-      
+
       // Ensure we have a valid crop size that fits within the image
       const actualCropSize = Math.min(
         squareSizeInProcessed,
@@ -392,8 +331,6 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
       );
 
       // Step 5: Final crop to square and flip
-      // Crop the calculated region (which matches the preview square)
-      // Then resize to target squareSize to ensure consistent output size
       const finalImage = await ImageManipulator.manipulateAsync(
         zoomed.uri,
         [
@@ -457,7 +394,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
 
   return (
     <View style={styles.container}>
-      <View style={[styles.previewContainer, { marginTop: insets.top + spacing.lg }]}>
+      <View style={[styles.previewContainer, { marginTop: insets.top + theme.spacing.lg }]}>
         <View style={styles.imageWrapper} {...panResponder.panHandlers}>
           <Animated.View
             style={[
@@ -497,9 +434,9 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
             maximumValue={MAX_ROTATION}
             value={rotation}
             onValueChange={handleRotationChange}
-            minimumTrackTintColor={colors.text}
-            maximumTrackTintColor={colors.border}
-            thumbTintColor={colors.text}
+            minimumTrackTintColor={theme.colors.text}
+            maximumTrackTintColor={theme.colors.border}
+            thumbTintColor={theme.colors.text}
             step={ROTATION_STEP}
           />
         </View>
@@ -515,9 +452,9 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
             maximumValue={MAX_ZOOM}
             value={zoom}
             onValueChange={handleZoomChange}
-            minimumTrackTintColor={colors.text}
-            maximumTrackTintColor={colors.border}
-            thumbTintColor={colors.text}
+            minimumTrackTintColor={theme.colors.text}
+            maximumTrackTintColor={theme.colors.border}
+            thumbTintColor={theme.colors.text}
             step={0.01}
           />
         </View>
@@ -542,7 +479,7 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
             disabled={isProcessing}
           >
             {isProcessing ? (
-              <ActivityIndicator color={colors.background} />
+              <ActivityIndicator color={theme.colors.background} />
             ) : (
               <Text style={styles.useButtonText}>Use Photo</Text>
             )}
@@ -553,137 +490,138 @@ export default function PhotoImportScreen({ route, navigation }: PhotoImportScre
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  pickerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  heading: {
-    ...typography.heading,
-    marginBottom: spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...typography.body,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.xl,
-  },
-  pickButton: {
-    backgroundColor: colors.text,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 4,
-    marginBottom: spacing.md,
-  },
-  pickButtonText: {
-    ...typography.body,
-    color: colors.background,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  cancelButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  previewContainer: {
-    width: PREVIEW_SIZE,
-    height: PREVIEW_SIZE,
-    alignSelf: 'center',
-    position: 'relative',
-    backgroundColor: colors.surface,
-    overflow: 'hidden',
-  },
-  imageWrapper: {
-    width: PREVIEW_SIZE,
-    height: PREVIEW_SIZE,
-    position: 'absolute',
-    overflow: 'hidden',
-  },
-  imageContainer: {
-    // Size will be set dynamically based on displayImageSize
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    pointerEvents: 'none',
-  },
-  controlsContainer: {
-    padding: spacing.lg,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  controlRow: {
-    marginBottom: spacing.lg,
-  },
-  controlLabel: {
-    ...typography.bodySmall,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  instructionText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    fontStyle: 'italic',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  resetButton: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.md,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  resetButtonText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  useButton: {
-    flex: 1,
-    backgroundColor: colors.text,
-    paddingVertical: spacing.md,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  useButtonText: {
-    ...typography.body,
-    color: colors.background,
-    fontWeight: '600',
-  },
-});
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    pickerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.xl,
+    },
+    heading: {
+      ...theme.typography.heading,
+      marginBottom: theme.spacing.md,
+      textAlign: 'center',
+    },
+    description: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.xl,
+    },
+    pickButton: {
+      backgroundColor: theme.colors.text,
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.xl,
+      borderRadius: theme.borderRadius.lg,
+      marginBottom: theme.spacing.md,
+    },
+    pickButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.background,
+      fontWeight: '600',
+    },
+    cancelButton: {
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.xl,
+    },
+    cancelButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+    },
+    previewContainer: {
+      width: PREVIEW_SIZE,
+      height: PREVIEW_SIZE,
+      alignSelf: 'center',
+      position: 'relative',
+      backgroundColor: theme.colors.surface,
+      overflow: 'hidden',
+    },
+    imageWrapper: {
+      width: PREVIEW_SIZE,
+      height: PREVIEW_SIZE,
+      position: 'absolute',
+      overflow: 'hidden',
+    },
+    imageContainer: {
+      // Size will be set dynamically based on displayImageSize
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    previewImage: {
+      width: '100%',
+      height: '100%',
+    },
+    overlayContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      justifyContent: 'center',
+      alignItems: 'center',
+      pointerEvents: 'none',
+    },
+    controlsContainer: {
+      padding: theme.spacing.lg,
+      backgroundColor: theme.colors.background,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+    },
+    controlRow: {
+      marginBottom: theme.spacing.lg,
+    },
+    controlLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      marginBottom: theme.spacing.sm,
+    },
+    slider: {
+      width: '100%',
+      height: 40,
+    },
+    instructionText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: theme.spacing.md,
+      fontStyle: 'italic',
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.md,
+      marginTop: theme.spacing.md,
+    },
+    resetButton: {
+      flex: 1,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+    },
+    resetButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.text,
+      fontWeight: '600',
+    },
+    useButton: {
+      flex: 1,
+      backgroundColor: theme.colors.text,
+      paddingVertical: theme.spacing.md,
+      borderRadius: theme.borderRadius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    useButtonText: {
+      ...theme.typography.body,
+      color: theme.colors.background,
+      fontWeight: '600',
+    },
+  });
+}

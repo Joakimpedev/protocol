@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,13 @@ import {
   TextInput,
   Image,
   Alert,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { colors, typography, spacing, MONOSPACE_FONT } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes/types';
+
+const MONOSPACE_FONT = Platform.select({ ios: 'Menlo', android: 'monospace' });
 
 interface Problem {
   text: string;
@@ -30,6 +34,9 @@ interface MarketingData {
 }
 
 export default function MarketingBuilderScreen({ navigation }: any) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
+
   const [data, setData] = useState<MarketingData>({
     beforePhoto: null,
     afterPhoto: null,
@@ -130,7 +137,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
                 value={data.beforeWeek}
                 onChangeText={(text) => setData({ ...data, beforeWeek: text })}
                 placeholder="Week number"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
               />
             </View>
@@ -154,7 +161,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
                 value={data.afterWeek}
                 onChangeText={(text) => setData({ ...data, afterWeek: text })}
                 placeholder="Week number"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 keyboardType="numeric"
               />
             </View>
@@ -202,7 +209,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
                 value={newProblem}
                 onChangeText={setNewProblem}
                 placeholder="Add new problem"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={theme.colors.textMuted}
                 onSubmitEditing={addProblem}
               />
               <View style={styles.severityPicker}>
@@ -241,7 +248,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
             value={data.consistencyScore}
             onChangeText={(text) => setData({ ...data, consistencyScore: text })}
             placeholder="9.4"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             keyboardType="decimal-pad"
           />
 
@@ -251,7 +258,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
             value={data.daysCompleted}
             onChangeText={(text) => setData({ ...data, daysCompleted: text })}
             placeholder="84"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             keyboardType="numeric"
           />
 
@@ -261,7 +268,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
             value={data.adherencePercent}
             onChangeText={(text) => setData({ ...data, adherencePercent: text })}
             placeholder="95"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             keyboardType="numeric"
           />
         </View>
@@ -274,7 +281,7 @@ export default function MarketingBuilderScreen({ navigation }: any) {
             value={data.quote}
             onChangeText={(text) => setData({ ...data, quote: text })}
             placeholder="Add a quote or tagline"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             multiline
             numberOfLines={3}
           />
@@ -288,49 +295,49 @@ export default function MarketingBuilderScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl * 2,
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl * 2,
   },
   heading: {
-    ...typography.heading,
-    marginBottom: spacing.xs,
+    ...theme.typography.heading,
+    marginBottom: theme.spacing.xs,
   },
   subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.lg,
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: theme.spacing.xl,
   },
   sectionTitle: {
-    ...typography.headingSmall,
+    ...theme.typography.headingSmall,
     fontSize: 18,
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
   },
   label: {
-    ...typography.label,
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
+    ...theme.typography.label,
+    marginBottom: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
   input: {
-    ...typography.body,
-    backgroundColor: colors.surface,
+    ...theme.typography.body,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    padding: spacing.md,
-    color: colors.text,
-    marginBottom: spacing.sm,
+    padding: theme.spacing.md,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
   },
   textArea: {
     minHeight: 80,
@@ -338,33 +345,33 @@ const styles = StyleSheet.create({
   },
   photoRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: theme.spacing.md,
   },
   photoContainer: {
     flex: 1,
   },
   helperText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
+    ...theme.typography.bodySmall,
+    color: theme.colors.textSecondary,
     fontStyle: 'italic',
-    marginBottom: spacing.md,
+    marginBottom: theme.spacing.md,
     textAlign: 'center',
   },
   photoButton: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
     overflow: 'hidden',
   },
   photoButtonText: {
-    ...typography.body,
-    color: colors.textSecondary,
+    ...theme.typography.body,
+    color: theme.colors.textSecondary,
   },
   circularPreview: {
     width: '100%',
@@ -380,79 +387,79 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    marginBottom: spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   problemText: {
-    ...typography.body,
-    color: colors.text,
-    marginBottom: spacing.sm,
+    ...theme.typography.body,
+    color: theme.colors.text,
+    marginBottom: theme.spacing.sm,
   },
   severityPicker: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: theme.spacing.xs,
     flexWrap: 'wrap',
   },
   severityButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   severityButtonActive: {
-    backgroundColor: colors.surface,
-    borderColor: colors.accent,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.accent,
   },
   severityButtonText: {
-    ...typography.bodySmall,
+    ...theme.typography.bodySmall,
     fontSize: 11,
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   severityButtonTextActive: {
-    color: colors.text,
+    color: theme.colors.text,
     fontWeight: '600',
   },
   removeButton: {
-    ...typography.bodySmall,
-    color: colors.error,
+    ...theme.typography.bodySmall,
+    color: theme.colors.error,
     textDecorationLine: 'underline',
   },
   addProblemContainer: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: theme.spacing.sm,
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 4,
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
   addButtonText: {
-    ...typography.body,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: colors.text,
+    color: theme.colors.text,
   },
   previewButton: {
-    backgroundColor: colors.surfaceGreen,
+    backgroundColor: '#171A17',
     borderWidth: 1,
-    borderColor: colors.borderGreen,
+    borderColor: '#0D360D',
     borderRadius: 4,
-    padding: spacing.lg,
+    padding: theme.spacing.lg,
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: theme.spacing.lg,
   },
   previewButtonText: {
-    ...typography.body,
+    ...theme.typography.body,
     fontWeight: '600',
-    color: colors.text,
+    color: theme.colors.text,
   },
 });

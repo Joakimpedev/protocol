@@ -1,6 +1,6 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { colors } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
 import ProgressScreen from '../screens/ProgressScreen';
 import PhotoCaptureScreen from '../screens/PhotoCaptureScreen';
 import PhotoImportScreen from '../screens/PhotoImportScreen';
@@ -23,203 +23,170 @@ import MarketingDisplayAltScreen from '../screens/MarketingDisplayAltScreen';
 const Stack = createNativeStackNavigator();
 
 export default function ProgressStackNavigator() {
+  const theme = useTheme();
+
+  const headerStyle = {
+    backgroundColor: theme.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  };
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
+        contentStyle: { backgroundColor: theme.colors.background },
       }}
     >
       <Stack.Screen name="ProgressMain" component={ProgressScreen} />
-      <Stack.Screen 
-        name="PhotoCapture" 
+      <Stack.Screen
+        name="PhotoCapture"
         component={PhotoCaptureScreen}
         options={{
           headerShown: false,
           presentation: 'fullScreenModal',
         }}
       />
-      <Stack.Screen 
-        name="PhotoImport" 
+      <Stack.Screen
+        name="PhotoImport"
         component={PhotoImportScreen}
         options={{
           headerShown: false,
           presentation: 'fullScreenModal',
         }}
       />
-      <Stack.Screen 
-        name="PhotoPreview" 
+      <Stack.Screen
+        name="PhotoPreview"
         component={PhotoPreviewScreen}
         options={{
           headerShown: false,
           presentation: 'modal',
         }}
       />
-      <Stack.Screen 
-        name="WhatToExpect" 
+      <Stack.Screen
+        name="WhatToExpect"
         component={WhatToExpectScreen}
         options={{
           headerShown: false,
           presentation: 'modal',
         }}
       />
-      <Stack.Screen 
-        name="PhotoComparison" 
+      <Stack.Screen
+        name="PhotoComparison"
         component={PhotoComparisonScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Progress',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="PhotoDetail" 
+      <Stack.Screen
+        name="PhotoDetail"
         component={PhotoDetailScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="WeekPicker" 
+      <Stack.Screen
+        name="WeekPicker"
         component={WeekPickerScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen 
-        name="WeeklySummary" 
+      <Stack.Screen
+        name="WeeklySummary"
         component={WeeklySummaryScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Progress',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="PremiumInsight" 
+      <Stack.Screen
+        name="PremiumInsight"
         component={PremiumInsightScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Summary',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="PrivacyPolicy" 
+      <Stack.Screen
+        name="PrivacyPolicy"
         component={PrivacyPolicyScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="FAQ" 
+      <Stack.Screen
+        name="FAQ"
         component={FAQScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="TermsOfUse" 
+      <Stack.Screen
+        name="TermsOfUse"
         component={TermsOfUseScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
-        })}
+        }}
       />
-      <Stack.Screen 
-        name="Settings" 
+      <Stack.Screen
+        name="Settings"
         component={SettingsScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Progress',
-        })}
+        }}
       />
       <Stack.Screen
         name="Feedback"
         component={FeedbackScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: false,
           presentation: 'modal',
-        })}
+        }}
       />
       <Stack.Screen
         name="MarketingBuilder"
         component={MarketingBuilderScreen}
-        options={({ navigation }) => ({
+        options={{
           headerShown: true,
-          headerStyle: {
-            backgroundColor: colors.background,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          },
-          headerTintColor: colors.text,
+          headerStyle,
+          headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Progress',
-        })}
+        }}
       />
       <Stack.Screen
         name="MarketingDisplay"
         component={MarketingDisplayScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="MarketingDisplayAlt"
         component={MarketingDisplayAltScreen}
-        options={{
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
 }
-

@@ -1,13 +1,14 @@
 /**
  * Subtle Premium Prompt Component
- * 
+ *
  * Non-aggressive premium upsell prompts for use in free tier features
  * Should appear before Week 5 paywall to encourage upgrades
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors, typography, spacing, borderRadius } from '../constants/theme';
+import { useTheme } from '../hooks/useTheme';
+import { Theme } from '../constants/themes';
 import { usePremium } from '../contexts/PremiumContext';
 import PaywallModal from './PaywallModal';
 
@@ -24,6 +25,8 @@ export default function SubtlePremiumPrompt({
   onUpgrade,
   variant = 'default',
 }: SubtlePremiumPromptProps) {
+  const theme = useTheme();
+  const styles = useMemo(() => getStyles(theme), [theme]);
   const { isPremium } = usePremium();
   const [showPaywall, setShowPaywall] = React.useState(false);
 
@@ -72,54 +75,51 @@ export default function SubtlePremiumPrompt({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surface,
-    marginTop: spacing.md,
-  },
-  message: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  button: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.sm,
-    alignSelf: 'flex-start',
-  },
-  buttonText: {
-    ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  minimalContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-  },
-  minimalText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  minimalCta: {
-    ...typography.bodySmall,
-    color: colors.text,
-    fontWeight: '500',
-    marginLeft: spacing.md,
-    textDecorationLine: 'underline',
-  },
-});
-
-
-
-
-
+function getStyles(theme: Theme) {
+  return StyleSheet.create({
+    container: {
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.surface,
+      marginTop: theme.spacing.md,
+    },
+    message: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.sm,
+    },
+    button: {
+      paddingVertical: theme.spacing.sm,
+      paddingHorizontal: theme.spacing.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.sm,
+      alignSelf: 'flex-start',
+    },
+    buttonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: '500',
+    },
+    minimalContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: theme.spacing.sm,
+    },
+    minimalText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      flex: 1,
+    },
+    minimalCta: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.text,
+      fontWeight: '500',
+      marginLeft: theme.spacing.md,
+      textDecorationLine: 'underline',
+    },
+  });
+}
