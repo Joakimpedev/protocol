@@ -64,5 +64,5 @@ expo-env.d.ts
 .env.local
 
 # API Keys
-src/config/openai.ts
+# src/config/openai.ts - no longer gitignored; key comes from EAS secrets via process.env
 
