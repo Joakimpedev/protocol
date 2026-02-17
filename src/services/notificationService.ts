@@ -4,10 +4,54 @@
  */
 
 import * as Notifications from 'expo-notifications';
+import * as QuickActions from 'expo-quick-actions';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MewingSettings } from './exerciseService';
 import { doc, getDoc, updateDoc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
+
+const ABANDONED_CART_KEY = '@protocol_abandoned_cart_fired';
+
+// How many daily follow-up notifications to schedule after the initial 10-min one
+const ABANDONED_CART_FOLLOWUP_DAYS = 7;
+
+// Notification copy for the abandoned cart sequence
+// Index 0 = the 10 min notification, index 1+ = daily follow-ups (cycles if > array length)
+const ABANDONED_CART_MESSAGES = [
+  {
+    title: '🔥 40% OFF - ONE TIME OFFER',
+    body: 'Your protocol is ready. Get 40% off LIFETIME access before this expires.',
+  },
+  {
+    title: '⏳ Your 40% OFF is expiring',
+    body: 'Your personalized protocol is waiting. Claim 40% off lifetime access now.',
+  },
+  {
+    title: '🚀 Still thinking about it?',
+    body: 'Your custom protocol won\'t last forever. Lock in 40% off lifetime access today.',
+  },
+  {
+    title: '💎 Last chance: 40% OFF',
+    body: 'Don\'t let your protocol slip away. 40% off lifetime — one-time deal.',
+  },
+  {
+    title: '🔥 Your 40% OFF is still available',
+    body: 'Most people see results in 2 weeks. Start today with 40% off lifetime.',
+  },
+  {
+    title: '⚡ Don\'t miss out',
+    body: 'Your personalized protocol is still waiting. 40% off lifetime — claim it now.',
+  },
+  {
+    title: '🏆 Your glow-up is one tap away',
+    body: 'Lock in 40% off lifetime access. Your protocol is ready to go.',
+  },
+  {
+    title: '🔒 Final reminder: 40% OFF',
+    body: 'This is your last reminder. Get lifetime access at 40% off before it\'s gone.',
+  },
+];
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -1028,4 +1072,147 @@ export function listenForFriendCompletions(
   });
 }
 
+/**
+ * Schedule the full abandoned cart notification sequence in one batch.
+ *
+ * - Notification 0: fires after 10 minutes
+ * - Notification 1: fires 24 h after the 10-min one (~24 h 10 min from now)
+ * - Notification 2: fires 24 h after that (~48 h 10 min from now)
+ * - ... up to ABANDONED_CART_FOLLOWUP_DAYS daily follow-ups
+ *
+ * All are scheduled upfront so they fire even if the user never opens the app.
+ * One-time guard: once the batch is scheduled it won't re-schedule.
+ * Cancelled on purchase via cancelAbandonedCartNotification().
+ */
+export async function scheduleAbandonedCartNotification(): Promise<void> {
+  try {
+    // One-time guard — don't re-schedule if already queued
+    const alreadyScheduled = await AsyncStorage.getItem(ABANDONED_CART_KEY);
+    if (alreadyScheduled === 'true') {
+      console.log('[AbandonedCart] Already scheduled, skipping');
+      return;
+    }
 
+    const enabled = await areNotificationsEnabled();
+    if (!enabled) {
+      console.log('[AbandonedCart] Notifications not enabled, skipping');
+      return;
+    }
+
+    // Mark as scheduled immediately
+    await AsyncStorage.setItem(ABANDONED_CART_KEY, 'true');
+
+    const TEN_MINUTES = 600;
+    const TWENTY_FOUR_HOURS = 86400;
+
+    // Schedule notification 0: 10 minutes from now
+    const firstMessage = ABANDONED_CART_MESSAGES[0];
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'abandoned-cart-0',
+      content: {
+        title: firstMessage.title,
+        body: firstMessage.body,
+        sound: true,
+        data: { type: 'abandoned-cart' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: TEN_MINUTES,
+        ...(Platform.OS === 'android' && { channelId: 'default' }),
+      },
+    });
+    console.log('[AbandonedCart] Scheduled #0 at 10 minutes');
+
+    // Schedule follow-ups: each 24h after the previous, starting 24h after the 10-min one
+    for (let i = 1; i <= ABANDONED_CART_FOLLOWUP_DAYS; i++) {
+      const delaySeconds = TEN_MINUTES + (TWENTY_FOUR_HOURS * i);
+      const messageIndex = i % ABANDONED_CART_MESSAGES.length;
+      const message = ABANDONED_CART_MESSAGES[messageIndex];
+
+      await Notifications.scheduleNotificationAsync({
+        identifier: `abandoned-cart-${i}`,
+        content: {
+          title: message.title,
+          body: message.body,
+          sound: true,
+          data: { type: 'abandoned-cart' },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: delaySeconds,
+          ...(Platform.OS === 'android' && { channelId: 'default' }),
+        },
+      });
+      console.log(`[AbandonedCart] Scheduled #${i} at ${Math.round(delaySeconds / 3600)}h`);
+    }
+
+    console.log(`[AbandonedCart] Full sequence scheduled: 1 + ${ABANDONED_CART_FOLLOWUP_DAYS} follow-ups`);
+  } catch (error) {
+    console.error('[AbandonedCart] Error scheduling notification:', error);
+  }
+}
+
+/**
+ * Cancel all abandoned cart notifications and reset the guard.
+ * Called when user purchases or joins a room.
+ */
+export async function cancelAbandonedCartNotification(): Promise<void> {
+  try {
+    // Cancel all notifications in the sequence
+    for (let i = 0; i <= ABANDONED_CART_FOLLOWUP_DAYS; i++) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(`abandoned-cart-${i}`);
+      } catch {
+        // Ignore if this one doesn't exist
+      }
+    }
+    await AsyncStorage.removeItem(ABANDONED_CART_KEY);
+    console.log('[AbandonedCart] All notifications cancelled and guard reset');
+  } catch (error) {
+    // Ignore errors
+  }
+}
+
+/**
+ * Check if abandoned cart notification has already been fired at least once
+ */
+export async function hasAbandonedCartFired(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(ABANDONED_CART_KEY);
+    return value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Set the "40% Off" home screen quick action (long-press app icon)
+ */
+export function setAbandonedCartQuickAction(): void {
+  try {
+    QuickActions.setItems([
+      {
+        id: 'abandoned-cart-offer',
+        title: '40% Off Lifetime',
+        subtitle: 'One-time offer — claim now',
+        icon: Platform.OS === 'ios' ? 'symbol:flame.fill' : undefined,
+        params: { type: 'abandoned-cart' },
+      },
+    ]);
+    console.log('[AbandonedCart] Quick action set');
+  } catch (error) {
+    console.warn('[AbandonedCart] Failed to set quick action:', error);
+  }
+}
+
+/**
+ * Remove the abandoned cart quick action (after purchase/room join)
+ */
+export function clearAbandonedCartQuickAction(): void {
+  try {
+    QuickActions.setItems([]);
+    console.log('[AbandonedCart] Quick action cleared');
+  } catch (error) {
+    // Ignore
+  }
+}

@@ -5,6 +5,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { clearOnboardingProgress } from '../utils/onboardingStorage';
 import { clearV2Progress } from './OnboardingV2Navigator';
 import * as Notifications from 'expo-notifications';
+import { useQuickActionCallback } from 'expo-quick-actions/hooks';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useDevMode } from '../contexts/DevModeContext';
@@ -31,6 +32,13 @@ export default function RootNavigator() {
   const notificationListener = useRef<any>(null);
   const responseListener = useRef<any>(null);
   const prevShowOnboardingRef = useRef<boolean | null>(null);
+
+  // Handle quick action tap (long-press app icon → "40% Off Lifetime")
+  useQuickActionCallback((action) => {
+    if (action?.params?.type === 'abandoned-cart' && navigationRef.current) {
+      navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
+    }
+  });
 
   // When we were already showing onboarding and user changes (e.g. anonymous sign-in),
   // keep isReady=true to avoid unmounting OnboardingNavigator (prevents kickback to Welcome)
@@ -113,7 +121,12 @@ export default function RootNavigator() {
 
       responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data;
-        
+
+        if (data?.type === 'abandoned-cart' && navigationRef.current) {
+          navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
+          return;
+        }
+
         if (data?.type === 'weekly-summary' && navigationRef.current) {
           // Navigate to weekly summary screen
           if (data?.summaryScreen) {

@@ -35,7 +35,7 @@ export default function NotificationsAskScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2FriendCode');
+    navigation.navigate('V2Gender');
   };
 
   return (

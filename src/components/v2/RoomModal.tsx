@@ -24,6 +24,7 @@ import {
 } from '../../services/referralService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDevMode } from '../../contexts/DevModeContext';
+import { cancelAbandonedCartNotification, clearAbandonedCartQuickAction } from '../../services/notificationService';
 
 interface RoomModalProps {
   visible: boolean;
@@ -98,6 +99,7 @@ export default function RoomModal({
     try {
       const uid = await ensureUid();
       const newRoom = await createRoom(uid, nameInput.trim());
+      cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
       setRoom(newRoom);
       setMode('room');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -125,6 +127,7 @@ export default function RoomModal({
       const uid = await ensureUid();
       const result = await joinRoom(codeInput.toUpperCase(), uid, codeNameInput.trim());
       if (result.success) {
+        cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         // Refresh to show the room they just joined
         const joinedRoom = await getUserRoom(uid);

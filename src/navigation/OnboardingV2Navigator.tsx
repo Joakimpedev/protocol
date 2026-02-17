@@ -15,10 +15,11 @@ import { preloadOnboardingAssets } from '../utils/onboardingAssetPreloader';
 
 // Screen imports
 import HeroScreen from '../screens/onboarding-v2/HeroScreen';
+import GenderScreen from '../screens/onboarding-v2/GenderScreen';
+import AspirationScreen from '../screens/onboarding-v2/AspirationScreen';
 import FaceScanScreen from '../screens/onboarding-v2/FaceScanScreen';
 import GetRatingScreen from '../screens/onboarding-v2/GetRatingScreen';
 import PersonalizedRoutineScreen from '../screens/onboarding-v2/PersonalizedRoutineScreen';
-import GenderScreen from '../screens/onboarding-v2/GenderScreen';
 import SelfieScreen from '../screens/onboarding-v2/SelfieScreen';
 import ConcernsScreen from '../screens/onboarding-v2/ConcernsScreen';
 import SkinConcernsScreen from '../screens/onboarding-v2/SkinConcernsScreen';
@@ -38,14 +39,17 @@ import ProPaywallScreen from '../screens/onboarding-v2/ProPaywallScreen';
 import FaceRatingScreen from '../screens/FaceRatingScreen';
 import V2ProtocolOverviewScreen from '../screens/onboarding-v2/V2ProtocolOverviewScreen';
 import V2ShoppingScreen from '../screens/onboarding-v2/V2ShoppingScreen';
+import AbandonedCartOfferScreen from '../screens/onboarding-v2/AbandonedCartOfferScreen';
 
 const Stack = createNativeStackNavigator();
 
 const SCREEN_ORDER_V2 = [
   'V2Hero',
+  'V2FriendCode',
+  'V2Aspiration',
   'V2FaceScan',
-  'V2GetRating',
   'V2PersonalizedRoutine',
+  'V2NotificationsAsk',
   'V2Gender',
   'V2Concerns',
   'V2SkinConcerns',
@@ -56,10 +60,8 @@ const SCREEN_ORDER_V2 = [
   'V2TransformationStory',
   'V2Journey',
   'V2GrowthChart',
-  'V2Selfie',
   'V2ReviewAsk',
-  'V2NotificationsAsk',
-  'V2FriendCode',
+  'V2Selfie',
   'V2FakeAnalysis',
   'V2ResultsPaywall',
 ];
@@ -107,6 +109,9 @@ async function loadV2Progress(): Promise<{ currentScreen: string; screenIndex: n
     }
     if (progress.currentScreen === 'V2DatingGoals') {
       progress.currentScreen = 'V2LifeImpact';
+    }
+    if (progress.currentScreen === 'V2GetRating') {
+      progress.currentScreen = 'V2FaceScan';
     }
     return progress;
   } catch (error) {
@@ -166,10 +171,11 @@ function OnboardingV2Content({ route }: { route: any }) {
         }}
       >
         <Stack.Screen name="V2Hero" component={HeroScreen} />
+        <Stack.Screen name="V2Gender" component={GenderScreen} />
+        <Stack.Screen name="V2Aspiration" component={AspirationScreen} />
         <Stack.Screen name="V2FaceScan" component={FaceScanScreen} />
         <Stack.Screen name="V2GetRating" component={GetRatingScreen} />
         <Stack.Screen name="V2PersonalizedRoutine" component={PersonalizedRoutineScreen} />
-        <Stack.Screen name="V2Gender" component={GenderScreen} />
         <Stack.Screen name="V2Concerns" component={ConcernsScreen} />
         <Stack.Screen name="V2SkinConcerns" component={SkinConcernsScreen} />
         <Stack.Screen name="V2SelfRating" component={SelfRatingScreen} />
@@ -189,6 +195,7 @@ function OnboardingV2Content({ route }: { route: any }) {
         <Stack.Screen name="V2FaceRating" component={FaceRatingScreen} />
         <Stack.Screen name="V2ProtocolOverview" component={V2ProtocolOverviewScreen} />
         <Stack.Screen name="V2Shopping" component={V2ShoppingScreen} />
+        <Stack.Screen name="V2AbandonedCartOffer" component={AbandonedCartOfferScreen} />
       </Stack.Navigator>
       <View style={styles.devToolsOverlay} pointerEvents="box-none">
         <DevNavTools screenOrder={SCREEN_ORDER_V2} currentScreenIndex={currentScreenIndex} />

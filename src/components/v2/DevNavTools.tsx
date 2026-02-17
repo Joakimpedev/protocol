@@ -44,6 +44,12 @@ export default function DevNavTools({ screenOrder, currentScreenIndex }: DevNavT
     );
   };
 
+  const handleGoToAbandonedCart = () => {
+    navigation.dispatch(
+      CommonActions.navigate({ name: 'V2AbandonedCartOffer' })
+    );
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity
@@ -55,6 +61,9 @@ export default function DevNavTools({ screenOrder, currentScreenIndex }: DevNavT
       </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={handleBackToStart}>
         <Text style={styles.buttonText}>↩ Start</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={handleGoToAbandonedCart}>
+        <Text style={styles.buttonText}>🔥 Cart Offer</Text>
       </TouchableOpacity>
     </View>
   );

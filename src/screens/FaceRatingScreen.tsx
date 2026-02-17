@@ -9,6 +9,12 @@ import {
   Easing,
   Dimensions,
   TouchableWithoutFeedback,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, collection, setDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
@@ -25,6 +31,7 @@ import {
   FaceAnalysisResult,
 } from '../services/faceAnalysisService';
 import { useOnboardingTracking } from '../hooks/useOnboardingTracking';
+import { useDevMode } from '../contexts/DevModeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -53,9 +60,12 @@ function getScoreColor(score: number): string {
 
 // ─── Scanning Animation Component ────────────────────────────────────────────
 
-function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: string }; theme: Theme }) {
+function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: string | null }; theme: Theme }) {
   const scanStyles = useMemo(() => getScanStyles(theme), [theme]);
-  const PHOTO_WIDTH = (SCREEN_WIDTH - theme.spacing.lg * 2 - theme.spacing.md) / 2;
+  const hasSide = photos.sideUri != null;
+  const PHOTO_WIDTH = hasSide
+    ? (SCREEN_WIDTH - theme.spacing.lg * 2 - theme.spacing.md) / 2
+    : SCREEN_WIDTH * 0.55;
   const PHOTO_HEIGHT = PHOTO_WIDTH * 1.35;
 
   const scanLineY = useRef(new Animated.Value(0)).current;
@@ -178,7 +188,7 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
     <View style={scanStyles.container}>
       <Text style={scanStyles.title}>Analyzing Your Face</Text>
 
-      <View style={scanStyles.photosRow}>
+      <View style={[scanStyles.photosRow, !hasSide && scanStyles.photosRowCentered]}>
         {/* Front photo */}
         <View style={scanStyles.photoWrapper}>
           <Animated.View style={[scanStyles.glowBorder, { opacity: pulse }]}>
@@ -191,7 +201,6 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
           </Animated.View>
           <View style={[scanStyles.photoFrame, { width: PHOTO_WIDTH, height: PHOTO_HEIGHT }]}>
             <Image source={{ uri: photos.frontUri }} style={{ width: PHOTO_WIDTH, height: PHOTO_HEIGHT, resizeMode: 'cover' }} />
-            {/* Scan line */}
             <Animated.View
               style={[
                 scanStyles.scanLine,
@@ -205,8 +214,7 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
                 style={scanStyles.scanLineGradient}
               />
             </Animated.View>
-            {/* Dots */}
-            {dotPositions.slice(0, 4).map((pos, i) => (
+            {dotPositions.slice(0, hasSide ? 4 : 8).map((pos, i) => (
               <Animated.View
                 key={`fd${i}`}
                 style={[
@@ -215,8 +223,7 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
                 ]}
               />
             ))}
-            {/* Lines */}
-            {lineConfigs.slice(0, 2).map((cfg, i) => (
+            {lineConfigs.slice(0, hasSide ? 2 : 4).map((cfg, i) => (
               <Animated.View
                 key={`fl${i}`}
                 style={[
@@ -231,7 +238,6 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
                 ]}
               />
             ))}
-            {/* Corner brackets */}
             <View style={[scanStyles.corner, scanStyles.cornerTL]} />
             <View style={[scanStyles.corner, scanStyles.cornerTR]} />
             <View style={[scanStyles.corner, scanStyles.cornerBL]} />
@@ -240,66 +246,64 @@ function ScanningView({ photos, theme }: { photos: { frontUri: string; sideUri: 
           <Text style={scanStyles.photoLabel}>Front</Text>
         </View>
 
-        {/* Side photo */}
-        <View style={scanStyles.photoWrapper}>
-          <Animated.View style={[scanStyles.glowBorder, { opacity: pulse }]}>
-            <LinearGradient
-              colors={[theme.colors.accentSecondary + '60', theme.colors.accentCyan + '60']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={scanStyles.glowGradient}
-            />
-          </Animated.View>
-          <View style={[scanStyles.photoFrame, { width: PHOTO_WIDTH, height: PHOTO_HEIGHT }]}>
-            <Image source={{ uri: photos.sideUri }} style={{ width: PHOTO_WIDTH, height: PHOTO_HEIGHT, resizeMode: 'cover' }} />
-            {/* Scan line */}
-            <Animated.View
-              style={[
-                scanStyles.scanLine,
-                { transform: [{ translateY: scanTranslateY }] },
-              ]}
-            >
+        {/* Side photo — only if captured */}
+        {hasSide && (
+          <View style={scanStyles.photoWrapper}>
+            <Animated.View style={[scanStyles.glowBorder, { opacity: pulse }]}>
               <LinearGradient
-                colors={['transparent', theme.colors.accent + '80', 'transparent']}
+                colors={[theme.colors.accentSecondary + '60', theme.colors.accentCyan + '60']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={scanStyles.scanLineGradient}
+                end={{ x: 1, y: 1 }}
+                style={scanStyles.glowGradient}
               />
             </Animated.View>
-            {/* Dots */}
-            {dotPositions.slice(4).map((pos, i) => (
+            <View style={[scanStyles.photoFrame, { width: PHOTO_WIDTH, height: PHOTO_HEIGHT }]}>
+              <Image source={{ uri: photos.sideUri! }} style={{ width: PHOTO_WIDTH, height: PHOTO_HEIGHT, resizeMode: 'cover' }} />
               <Animated.View
-                key={`sd${i}`}
                 style={[
-                  scanStyles.dot,
-                  { top: pos.top as any, left: pos.left as any, opacity: dotOpacities[i + 4] },
+                  scanStyles.scanLine,
+                  { transform: [{ translateY: scanTranslateY }] },
                 ]}
-              />
-            ))}
-            {/* Lines */}
-            {lineConfigs.slice(2).map((cfg, i) => (
-              <Animated.View
-                key={`sl${i}`}
-                style={[
-                  scanStyles.connectionLine,
-                  {
-                    top: cfg.top as any,
-                    left: cfg.left as any,
-                    width: cfg.width,
-                    transform: [{ rotate: cfg.rotate }],
-                    opacity: lineOpacities[i + 2],
-                  },
-                ]}
-              />
-            ))}
-            {/* Corner brackets */}
-            <View style={[scanStyles.corner, scanStyles.cornerTL]} />
-            <View style={[scanStyles.corner, scanStyles.cornerTR]} />
-            <View style={[scanStyles.corner, scanStyles.cornerBL]} />
-            <View style={[scanStyles.corner, scanStyles.cornerBR]} />
+              >
+                <LinearGradient
+                  colors={['transparent', theme.colors.accent + '80', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={scanStyles.scanLineGradient}
+                />
+              </Animated.View>
+              {dotPositions.slice(4).map((pos, i) => (
+                <Animated.View
+                  key={`sd${i}`}
+                  style={[
+                    scanStyles.dot,
+                    { top: pos.top as any, left: pos.left as any, opacity: dotOpacities[i + 4] },
+                  ]}
+                />
+              ))}
+              {lineConfigs.slice(2).map((cfg, i) => (
+                <Animated.View
+                  key={`sl${i}`}
+                  style={[
+                    scanStyles.connectionLine,
+                    {
+                      top: cfg.top as any,
+                      left: cfg.left as any,
+                      width: cfg.width,
+                      transform: [{ rotate: cfg.rotate }],
+                      opacity: lineOpacities[i + 2],
+                    },
+                  ]}
+                />
+              ))}
+              <View style={[scanStyles.corner, scanStyles.cornerTL]} />
+              <View style={[scanStyles.corner, scanStyles.cornerTR]} />
+              <View style={[scanStyles.corner, scanStyles.cornerBL]} />
+              <View style={[scanStyles.corner, scanStyles.cornerBR]} />
+            </View>
+            <Text style={scanStyles.photoLabel}>Side</Text>
           </View>
-          <Text style={scanStyles.photoLabel}>Side</Text>
-        </View>
+        )}
       </View>
 
       {/* Status text */}
@@ -325,12 +329,18 @@ export default function FaceRatingScreen({ navigation }: any) {
   const { user } = useAuth();
   const { data } = useOnboarding();
 
+  const { isDevModeEnabled } = useDevMode();
   const [result, setResult] = useState<FaceAnalysisResult | null>(null);
-  const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string } | null>(null);
+  const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [frontOnly, setFrontOnly] = useState(false);
   const lastTapRef = useRef(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Dev mode editing
+  const [devModalVisible, setDevModalVisible] = useState(false);
+  const [devEdits, setDevEdits] = useState<Record<string, string>>({});
 
   const handleFrontDoubleTap = useCallback(() => {
     const now = Date.now();
@@ -388,7 +398,7 @@ export default function FaceRatingScreen({ navigation }: any) {
       // If no cached result, call GPT-4o Vision API
       if (!analysisResult) {
         const gender = data.gender || 'male';
-        analysisResult = await analyzeFace(savedPhotos.frontUri, savedPhotos.sideUri, gender);
+        analysisResult = await analyzeFace(savedPhotos.frontUri, savedPhotos.sideUri ?? null, gender);
 
         // Save to Firestore
         if (user?.uid) {
@@ -513,9 +523,54 @@ export default function FaceRatingScreen({ navigation }: any) {
   };
 
   const handleContinue = async () => {
-    // Navigate to protocol overview instead of completing onboarding.
-    // routineStarted will be set after the shopping screen.
     navigation.navigate('V2ProtocolOverview');
+  };
+
+  const openDevModal = () => {
+    if (!result) return;
+    const edits: Record<string, string> = { overall: result.overall.toFixed(1) };
+    BREAKDOWN_CATEGORIES.forEach(cat => {
+      const val = typeof result[cat.key] === 'number' ? (result[cat.key] as number) : 0;
+      edits[cat.key] = val.toFixed(1);
+    });
+    setDevEdits(edits);
+    setDevModalVisible(true);
+  };
+
+  const applyDevEdits = () => {
+    if (!result) return;
+    const updated = { ...result };
+    const parseVal = (s: string) => { const n = parseFloat(s); return isNaN(n) ? 0 : Math.min(10, Math.max(0, n)); };
+    updated.overall = parseVal(devEdits.overall);
+    BREAKDOWN_CATEGORIES.forEach(cat => {
+      (updated as any)[cat.key] = parseVal(devEdits[cat.key]);
+    });
+    // Recalculate potential from updated scores
+    let potentialSum = 0;
+    BREAKDOWN_CATEGORIES.forEach(cat => {
+      const score = typeof updated[cat.key] === 'number' ? (updated[cat.key] as number) : 0;
+      potentialSum += getCategoryPotential(score, cat.improvability);
+    });
+    updated.potential = Math.min(9.5, potentialSum / BREAKDOWN_CATEGORIES.length);
+    setResult(updated);
+    setDevModalVisible(false);
+    // Reset animations to 0, scroll to top, then replay after 500ms
+    overallAnim.setValue(0);
+    potentialBarAnim.setValue(0);
+    barAnims.forEach(a => a.setValue(0));
+    rowFades.forEach(a => a.setValue(0));
+    headerFade.setValue(0);
+    photoFade.setValue(0);
+    photoSlide.setValue(20);
+    scoreCardFade.setValue(0);
+    scoreCardSlide.setValue(20);
+    breakdownFade.setValue(0);
+    adviceFade.setValue(0);
+    buttonFade.setValue(0);
+    buttonSlide.setValue(40);
+    setDisplayOverall('0.0');
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setTimeout(() => runEntryAnimations(updated), 500);
   };
 
   // ─── Loading: Scanning Animation ────────────────────────────────────────────
@@ -573,6 +628,7 @@ export default function FaceRatingScreen({ navigation }: any) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -583,9 +639,9 @@ export default function FaceRatingScreen({ navigation }: any) {
 
         {/* Photos */}
         <Animated.View style={[styles.photosSection, { opacity: photoFade, transform: [{ translateY: photoSlide }] }]}>
-          <View style={[styles.photosRow, frontOnly && styles.photosRowCentered]}>
-            <TouchableWithoutFeedback onPress={handleFrontDoubleTap}>
-              <View style={[styles.photoCard, frontOnly && styles.photoCardSolo, { height: PHOTO_HEIGHT * 0.7 }]}>
+          <View style={[styles.photosRow, (frontOnly || !photos!.sideUri) && styles.photosRowCentered]}>
+            <TouchableWithoutFeedback onPress={photos!.sideUri ? handleFrontDoubleTap : undefined}>
+              <View style={[styles.photoCard, (frontOnly || !photos!.sideUri) && styles.photoCardSolo, { height: PHOTO_HEIGHT * 0.7 }]}>
                 <Image source={{ uri: photos!.frontUri }} style={styles.photo} />
                 <LinearGradient
                   colors={['transparent', 'rgba(0,0,0,0.6)']}
@@ -594,7 +650,7 @@ export default function FaceRatingScreen({ navigation }: any) {
                 <Text style={styles.photoTag}>FRONT</Text>
               </View>
             </TouchableWithoutFeedback>
-            {!frontOnly && (
+            {!frontOnly && photos!.sideUri && (
               <View style={[styles.photoCard, { height: PHOTO_HEIGHT * 0.7 }]}>
                 <Image source={{ uri: photos!.sideUri }} style={styles.photo} />
                 <LinearGradient
@@ -714,7 +770,66 @@ export default function FaceRatingScreen({ navigation }: any) {
         <Animated.View style={[styles.buttonContainer, { opacity: buttonFade, transform: [{ translateY: buttonSlide }] }]}>
           <GradientButton title="Start Your Protocol" onPress={handleContinue} />
         </Animated.View>
+
+        {/* Dev Mode Button */}
+        {isDevModeEnabled && result && (
+          <TouchableOpacity style={styles.devButton} onPress={openDevModal} activeOpacity={0.7}>
+            <Text style={styles.devButtonText}>Edit Scores</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      {/* Dev Mode Modal */}
+      {isDevModeEnabled && (
+        <Modal visible={devModalVisible} transparent animationType="slide">
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <KeyboardAvoidingView
+              style={styles.devOverlay}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.devModal}>
+                  <Text style={styles.devModalTitle}>Edit Scores</Text>
+                  <ScrollView
+                    style={styles.devScroll}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    <Text style={styles.devLabel}>Overall</Text>
+                    <TextInput
+                      style={styles.devInput}
+                      value={devEdits.overall}
+                      onChangeText={v => setDevEdits(prev => ({ ...prev, overall: v }))}
+                      keyboardType="decimal-pad"
+                      placeholderTextColor={theme.colors.textMuted}
+                    />
+                    {BREAKDOWN_CATEGORIES.map(cat => (
+                      <View key={cat.key}>
+                        <Text style={styles.devLabel}>{cat.label}</Text>
+                        <TextInput
+                          style={styles.devInput}
+                          value={devEdits[cat.key]}
+                          onChangeText={v => setDevEdits(prev => ({ ...prev, [cat.key]: v }))}
+                          keyboardType="decimal-pad"
+                          placeholderTextColor={theme.colors.textMuted}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <View style={styles.devButtonRow}>
+                    <TouchableOpacity style={styles.devCancelBtn} onPress={() => setDevModalVisible(false)}>
+                      <Text style={styles.devCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.devApplyBtn} onPress={applyDevEdits}>
+                      <Text style={styles.devApplyText}>Apply</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -738,6 +853,9 @@ function getScanStyles(theme: Theme) {
     photosRow: {
       flexDirection: 'row',
       gap: theme.spacing.md,
+    },
+    photosRowCentered: {
+      justifyContent: 'center',
     },
     photoWrapper: {
       alignItems: 'center',
@@ -1113,6 +1231,93 @@ function getStyles(theme: Theme) {
     buttonContainer: {
       marginTop: theme.spacing.sm,
       marginBottom: theme.spacing.lg,
+    },
+
+    // Dev mode
+    devButton: {
+      alignSelf: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+      marginBottom: theme.spacing.xl,
+    },
+    devButtonText: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textMuted,
+      fontWeight: '600',
+    },
+    devOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.lg,
+    },
+    devModal: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.borderRadius.xl,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      padding: theme.spacing.lg,
+      maxHeight: '80%',
+    },
+    devModalTitle: {
+      ...theme.typography.heading,
+      fontSize: 20,
+      textAlign: 'center',
+      marginBottom: theme.spacing.md,
+    },
+    devScroll: {
+      marginBottom: theme.spacing.md,
+    },
+    devLabel: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+      marginBottom: 4,
+      marginTop: theme.spacing.sm,
+    },
+    devInput: {
+      backgroundColor: theme.colors.surfaceLight,
+      borderRadius: theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      color: theme.colors.text,
+      fontSize: 16,
+      fontVariant: ['tabular-nums'] as any,
+    },
+    devButtonRow: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    devCancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: theme.borderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
+    },
+    devCancelText: {
+      ...theme.typography.body,
+      color: theme.colors.textSecondary,
+      fontWeight: '600',
+    },
+    devApplyBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: theme.borderRadius.md,
+      backgroundColor: theme.colors.accent,
+      alignItems: 'center',
+    },
+    devApplyText: {
+      ...theme.typography.body,
+      color: '#FFFFFF',
+      fontWeight: '700',
     },
   });
 }

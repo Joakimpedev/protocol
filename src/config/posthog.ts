@@ -10,5 +10,6 @@ export const posthogConfig = {
   apiKey: POSTHOG_API_KEY,
   options: {
     host: POSTHOG_HOST,
+    enableSessionReplay: false,
   },
 } as const;

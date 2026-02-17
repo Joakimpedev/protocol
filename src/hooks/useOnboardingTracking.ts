@@ -53,6 +53,7 @@ export const ONBOARDING_SCREENS = {
   TRIAL_PAYWALL: 'trial_paywall',
   // V2 onboarding screens
   V2_HERO: 'v2_hero',
+  V2_ASPIRATION: 'v2_aspiration',
   V2_FACE_SCAN: 'v2_face_scan',
   V2_GET_RATING: 'v2_get_rating',
   V2_PERSONALIZED_ROUTINE: 'v2_personalized_routine',
@@ -76,6 +77,7 @@ export const ONBOARDING_SCREENS = {
   V2_FACE_RATING: 'v2_face_rating',
   V2_PROTOCOL_OVERVIEW: 'v2_protocol_overview',
   V2_SHOPPING: 'v2_shopping',
+  V2_ABANDONED_CART_OFFER: 'v2_abandoned_cart_offer',
 } as const;
 
 /**

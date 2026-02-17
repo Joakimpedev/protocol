@@ -35,7 +35,7 @@ export default function ReviewAskScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2NotificationsAsk');
+    navigation.navigate('V2Selfie');
   };
 
   return (

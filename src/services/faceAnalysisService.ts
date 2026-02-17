@@ -44,8 +44,8 @@ async function ensureSelfieDirectory(): Promise<void> {
  */
 export async function saveSelfiePhotos(
   frontUri: string,
-  sideUri: string
-): Promise<{ frontUri: string; sideUri: string }> {
+  sideUri: string | null
+): Promise<{ frontUri: string; sideUri: string | null }> {
   await ensureSelfieDirectory();
 
   const frontDest = SELFIE_DIR + 'front.jpg';
@@ -60,16 +60,18 @@ export async function saveSelfiePhotos(
   }
 
   await FileSystem.copyAsync({ from: frontUri, to: frontDest });
-  await FileSystem.copyAsync({ from: sideUri, to: sideDest });
+  if (sideUri) {
+    await FileSystem.copyAsync({ from: sideUri, to: sideDest });
+  }
 
   console.log('[FaceAnalysis] Saved selfie photos to persistent storage');
-  return { frontUri: frontDest, sideUri: sideDest };
+  return { frontUri: frontDest, sideUri: sideUri ? sideDest : null };
 }
 
 /**
  * Load persisted selfie photos. Returns null if photos don't exist.
  */
-export async function loadSelfiePhotos(): Promise<{ frontUri: string; sideUri: string } | null> {
+export async function loadSelfiePhotos(): Promise<{ frontUri: string; sideUri: string | null } | null> {
   const frontPath = SELFIE_DIR + 'front.jpg';
   const sidePath = SELFIE_DIR + 'side.jpg';
 
@@ -78,11 +80,9 @@ export async function loadSelfiePhotos(): Promise<{ frontUri: string; sideUri: s
     FileSystem.getInfoAsync(sidePath),
   ]);
 
-  if (frontInfo.exists && sideInfo.exists) {
-    return { frontUri: frontPath, sideUri: sidePath };
-  }
+  if (!frontInfo.exists) return null;
 
-  return null;
+  return { frontUri: frontPath, sideUri: sideInfo.exists ? sidePath : null };
 }
 
 // ─── Cache Clearing ─────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ export async function clearFaceAnalysisCache(uid: string): Promise<void> {
  */
 export async function analyzeFace(
   frontUri: string,
-  sideUri: string,
+  sideUri: string | null,
   gender: string
 ): Promise<FaceAnalysisResult> {
   if (!OPENAI_API_KEY || OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY_HERE') {
@@ -121,12 +121,13 @@ export async function analyzeFace(
   }
 
   // Read photos as base64
-  const [frontBase64, sideBase64] = await Promise.all([
-    FileSystem.readAsStringAsync(frontUri, { encoding: FileSystem.EncodingType.Base64 }),
-    FileSystem.readAsStringAsync(sideUri, { encoding: FileSystem.EncodingType.Base64 }),
-  ]);
+  const frontBase64 = await FileSystem.readAsStringAsync(frontUri, { encoding: FileSystem.EncodingType.Base64 });
+  const sideBase64 = sideUri
+    ? await FileSystem.readAsStringAsync(sideUri, { encoding: FileSystem.EncodingType.Base64 })
+    : null;
 
-  const systemPrompt = `You are a facial aesthetics expert. Analyze the two photos provided (front-facing and side profile) of a ${gender} person.
+  const photoDesc = sideBase64 ? 'the two photos provided (front-facing and side profile)' : 'the front-facing photo provided';
+  const systemPrompt = `You are a facial aesthetics expert. Analyze ${photoDesc} of a ${gender} person.
 
 Rate each category from 1.0 to 10.0 (one decimal place). Be honest but constructive. Consider bone structure, proportions, and overall harmony.
 
@@ -171,15 +172,15 @@ Be realistic — most people score 4.5-6.5 overall. Do not inflate scores.`;
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Here are my front-facing and side profile photos. Please analyze my facial features.' },
+            { type: 'text', text: sideBase64 ? 'Here are my front-facing and side profile photos. Please analyze my facial features.' : 'Here is my front-facing photo. Please analyze my facial features.' },
             {
               type: 'image_url',
               image_url: { url: `data:image/jpeg;base64,${frontBase64}`, detail: 'high' },
             },
-            {
-              type: 'image_url',
-              image_url: { url: `data:image/jpeg;base64,${sideBase64}`, detail: 'high' },
-            },
+            ...(sideBase64 ? [{
+              type: 'image_url' as const,
+              image_url: { url: `data:image/jpeg;base64,${sideBase64}`, detail: 'high' as const },
+            }] : []),
           ],
         },
       ],

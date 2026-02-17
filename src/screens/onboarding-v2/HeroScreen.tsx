@@ -57,7 +57,7 @@ export default function HeroScreen({ navigation }: any) {
 
   const handleGetStarted = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2FaceScan');
+    navigation.navigate('V2FriendCode');
   };
 
   return (

@@ -41,7 +41,7 @@
 
 ### Screen 5: Results Gate (IMG_6601.PNG)
 - **Headline:** "Reveal your results" (with eyes emoji)
-- **Subheadline:** "Invite 3 friends or get Umax Pro to view"
+- **Subheadline:** "Invite 3 friends or get Umax Pro to view your results"
 - **Buttons:** "Get Umax Pro" (primary, purple gradient) / "Invite 3 Friends" (secondary, dark outlined)
 - **Visual:** Blurred circular image area (user's scan result hidden behind blur)
 - **Psychology:** MASSIVE curiosity gap - results exist but are hidden. Dual monetization: pay OR drive viral growth. Sunk cost from entire onboarding + photo scan

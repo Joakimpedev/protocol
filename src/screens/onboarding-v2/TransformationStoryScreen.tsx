@@ -380,19 +380,6 @@ export default function TransformationStoryScreen({ navigation }: any) {
               </Animated.View>
             )}
 
-            {/* "Just like you." */}
-            <Animated.View
-              style={[
-                styles.connectionBlock,
-                {
-                  opacity: connectionAnim,
-                  transform: [{ translateY: connectionSlide }],
-                },
-              ]}
-            >
-              <Text style={styles.connectionHeadline}>Just like you.</Text>
-            </Animated.View>
-
             {/* Result — weeks on Protocol */}
             <Animated.View
               style={[styles.resultCard, { opacity: resultAnim }]}

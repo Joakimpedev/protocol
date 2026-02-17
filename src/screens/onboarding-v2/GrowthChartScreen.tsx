@@ -96,7 +96,7 @@ export default function GrowthChartScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2Selfie');
+    navigation.navigate('V2ReviewAsk');
   };
 
   return (

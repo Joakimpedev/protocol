@@ -41,7 +41,7 @@ export default function FriendCodeScreen({ navigation }: any) {
 
     // If no code entered, just skip ahead
     if (!code.trim()) {
-      navigation.navigate('V2FakeAnalysis');
+      navigation.navigate('V2Aspiration');
       return;
     }
 
@@ -69,7 +69,7 @@ export default function FriendCodeScreen({ navigation }: any) {
       if (result.success) {
         try { await identifyTikTokUser(uid); } catch {}
         try { await trackTikTokRoomJoined(); } catch {}
-        navigation.navigate('V2FakeAnalysis');
+        navigation.navigate('V2Aspiration');
       } else {
         setError(result.error || 'Invalid code');
       }
@@ -174,7 +174,7 @@ export default function FriendCodeScreen({ navigation }: any) {
                   setCode('');
                   setName('');
                   setError('');
-                  navigation.navigate('V2FakeAnalysis');
+                  navigation.navigate('V2Aspiration');
                 }}
                 style={styles.skipButton}
               >

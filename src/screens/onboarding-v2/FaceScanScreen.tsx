@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,15 @@ import {
   Animated,
   Image,
   Dimensions,
+  Easing,
+  ScrollView,
   TouchableWithoutFeedback,
   Modal,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import V2ScreenWrapper from '../../components/v2/V2ScreenWrapper';
+import V2ProgressBar from '../../components/v2/V2ProgressBar';
 import GradientButton from '../../components/v2/GradientButton';
 import FaceScanOverlay from '../../components/v2/FaceScanOverlay';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
@@ -29,23 +32,63 @@ const IMAGE_HEIGHT = IMAGE_WIDTH * 1.3;
 
 const TRIPLE_TAP_DELAY = 500;
 
+const RATINGS = [
+  { label: 'Overall', score: 7.8, color: colorsV2.success },
+  { label: 'Jawline', score: 6.2, color: colorsV2.warning },
+  { label: 'Symmetry', score: 8.1, color: colorsV2.success },
+  { label: 'Skin', score: 5.9, color: colorsV2.warning },
+  { label: 'Cheekbones', score: 7.4, color: colorsV2.success },
+];
+
 export default function FaceScanScreen({ navigation }: any) {
   useOnboardingTracking('v2_face_scan');
   const insets = useSafeAreaInsets();
-  const anims = useScreenEntrance(4);
+  const anims = useScreenEntrance(5);
   const [imagesLoaded, setImagesLoaded] = useState(0);
   const imageFade = useRef(new Animated.Value(0)).current;
   const [fullscreen, setFullscreen] = useState(false);
 
+  const barAnims = useRef(RATINGS.map(() => new Animated.Value(0))).current;
+  const overallAnim = useRef(new Animated.Value(0)).current;
+  const [displayOverall, setDisplayOverall] = useState('0.0');
+
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    const listener = overallAnim.addListener(({ value }) => {
+      setDisplayOverall(value.toFixed(1));
+    });
+
+    Animated.timing(overallAnim, {
+      toValue: 7.8,
+      duration: 1200,
+      delay: 600,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.cubic),
+    }).start();
+
+    Animated.stagger(
+      120,
+      barAnims.map((anim, i) =>
+        Animated.timing(anim, {
+          toValue: RATINGS[i].score / 10,
+          duration: 800,
+          delay: 700,
+          useNativeDriver: false,
+          easing: Easing.out(Easing.cubic),
+        })
+      )
+    ).start();
+
+    return () => {
+      overallAnim.removeListener(listener);
+    };
+  }, []);
+
   const handleTripleTap = useCallback(() => {
     tapCountRef.current += 1;
-
-    if (tapTimerRef.current) {
-      clearTimeout(tapTimerRef.current);
-    }
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
 
     if (tapCountRef.current >= 3) {
       tapCountRef.current = 0;
@@ -70,28 +113,28 @@ export default function FaceScanScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2GetRating');
+    navigation.navigate('V2PersonalizedRoutine');
   };
 
+  const progressBarHeight = insets.top + 24;
+
   return (
-    <V2ScreenWrapper showProgress={true} currentStep={1} totalSteps={14} scrollable={false}>
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <V2ProgressBar currentStep={3} totalSteps={14} />
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: progressBarHeight + spacingV2.lg, paddingBottom: 100 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.topSection}>
-          <Animated.View
-            style={{
-              opacity: anims[0].opacity,
-              transform: anims[0].transform,
-            }}
-          >
+          <Animated.View style={{ opacity: anims[0].opacity, transform: anims[0].transform }}>
             <Text style={styles.headline}>AI Face Analysis</Text>
           </Animated.View>
-
-          <Animated.View
-            style={{
-              opacity: anims[1].opacity,
-              transform: anims[1].transform,
-            }}
-          >
+          <Animated.View style={{ opacity: anims[1].opacity, transform: anims[1].transform }}>
             <Text style={styles.subheadline}>
               We scan your face from multiple angles for the most accurate analysis
             </Text>
@@ -107,7 +150,6 @@ export default function FaceScanScreen({ navigation }: any) {
             },
           ]}
         >
-          {/* Front face */}
           <TouchableWithoutFeedback onPress={handleTripleTap}>
             <View style={styles.imageCard}>
               <View style={styles.imageWrapper}>
@@ -123,7 +165,6 @@ export default function FaceScanScreen({ navigation }: any) {
             </View>
           </TouchableWithoutFeedback>
 
-          {/* Side face */}
           <View style={styles.imageCard}>
             <View style={styles.imageWrapper}>
               <Image
@@ -138,13 +179,52 @@ export default function FaceScanScreen({ navigation }: any) {
           </View>
         </Animated.View>
 
-        <View style={styles.spacer} />
-
+        {/* Rating card */}
         <Animated.View
-          style={{
-            opacity: anims[3].opacity,
-            transform: anims[3].transform,
-          }}
+          style={[
+            styles.ratingCard,
+            { opacity: anims[3].opacity, transform: anims[3].transform },
+          ]}
+        >
+          <View style={styles.overallSection}>
+            <View style={styles.overallRow}>
+              <Text style={styles.overallScore}>{displayOverall}</Text>
+              <Text style={styles.overallMax}>/10</Text>
+            </View>
+            <Text style={styles.overallLabel}>Overall Rating</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          {RATINGS.map((r, i) => {
+            const width = barAnims[i].interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0%', '100%'],
+            });
+            return (
+              <View key={r.label} style={styles.ratingRow}>
+                <Text style={styles.ratingLabel}>{r.label}</Text>
+                <View style={styles.barTrack}>
+                  <Animated.View
+                    style={[styles.barFill, { width, backgroundColor: r.color }]}
+                  />
+                </View>
+                <Text style={[styles.ratingScore, { color: r.color }]}>{r.score}</Text>
+              </View>
+            );
+          })}
+        </Animated.View>
+      </ScrollView>
+
+      {/* Fixed bottom button */}
+      <View style={[styles.fixedBottom, { paddingBottom: insets.bottom + spacingV2.sm }]}>
+        <LinearGradient
+          colors={['transparent', colorsV2.background]}
+          locations={[0, 0.35]}
+          style={StyleSheet.absoluteFill}
+        />
+        <Animated.View
+          style={{ opacity: anims[4].opacity, transform: anims[4].transform }}
         >
           <GradientButton title="Continue" onPress={handleContinue} />
         </Animated.View>
@@ -162,13 +242,20 @@ export default function FaceScanScreen({ navigation }: any) {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </V2ScreenWrapper>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  container: {
     flex: 1,
+    backgroundColor: colorsV2.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: spacingV2.lg,
   },
   topSection: {
     alignItems: 'center',
@@ -211,8 +298,81 @@ const styles = StyleSheet.create({
     color: colorsV2.textMuted,
     marginTop: spacingV2.sm,
   },
-  spacer: {
+  ratingCard: {
+    backgroundColor: colorsV2.surface,
+    borderRadius: borderRadiusV2.xl,
+    borderWidth: 1,
+    borderColor: colorsV2.border,
+    padding: spacingV2.lg,
+    marginTop: spacingV2.xl,
+  },
+  overallSection: {
+    alignItems: 'center',
+    marginBottom: spacingV2.md,
+  },
+  overallRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  overallScore: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: colorsV2.accentOrange,
+    fontVariant: ['tabular-nums'],
+  },
+  overallMax: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colorsV2.textMuted,
+    marginLeft: spacingV2.xs,
+  },
+  overallLabel: {
+    ...typographyV2.bodySmall,
+    color: colorsV2.textMuted,
+    marginTop: spacingV2.xs,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colorsV2.border,
+    marginBottom: spacingV2.lg,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  ratingLabel: {
+    ...typographyV2.bodySmall,
+    color: colorsV2.textSecondary,
+    fontWeight: '600',
+    width: 90,
+  },
+  barTrack: {
     flex: 1,
+    height: 6,
+    backgroundColor: colorsV2.surfaceLight,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginHorizontal: spacingV2.sm,
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  ratingScore: {
+    ...typographyV2.bodySmall,
+    fontWeight: '700',
+    width: 30,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
+  fixedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacingV2.lg,
+    paddingTop: spacingV2.lg,
   },
   fullscreenContainer: {
     flex: 1,

@@ -27,6 +27,7 @@ export const PRODUCT_IDS = {
   ANNUAL: 'com.protocol.galdr.yearly',
   WEEKLY: 'protocol_weekly',
   WEEKLY_TRIAL: 'protocol_weekly_trial',
+  LIFETIME: 'protocol_lifetime_1',
 };
 
 export interface SubscriptionStatus {
@@ -179,6 +180,19 @@ export function getWeeklyPackageFromOffering(
 
   console.warn(`[RevenueCat] Could not find weekly package with identifier: ${targetPackageId}`);
   return null;
+}
+
+/**
+ * Find the lifetime package from an offering
+ */
+export function getLifetimePackageFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering?.availablePackages?.length) return null;
+  return offering.availablePackages.find(
+    (pkg) =>
+      pkg.packageType === 'LIFETIME' ||
+      pkg.product.identifier === PRODUCT_IDS.LIFETIME ||
+      pkg.identifier.toLowerCase().includes('lifetime')
+  ) ?? null;
 }
 
 /**

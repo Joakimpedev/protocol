@@ -10,15 +10,16 @@ import {
   Linking,
   Dimensions,
   FlatList,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorsV2, typographyV2, spacingV2, borderRadiusV2, gradients } from '../../constants/themeV2';
-import GradientButton from '../../components/v2/GradientButton';
 import V2ScreenWrapper from '../../components/v2/V2ScreenWrapper';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useOnboarding } from '../../contexts/OnboardingContext';
+import { CATEGORIES } from '../../constants/categories';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePremium } from '../../contexts/PremiumContext';
 import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
@@ -40,6 +41,9 @@ import { trackTrialStarted as trackTikTokTrialStarted, trackWeeklyPurchase as tr
 import { markFriendStartedTrial } from '../../services/referralService';
 import { buildRoutineFromOnboarding } from '../../utils/buildRoutineFromOnboarding';
 import { useDevMode } from '../../contexts/DevModeContext';
+import { cancelAbandonedCartNotification, clearAbandonedCartQuickAction, scheduleAbandonedCartNotification } from '../../services/notificationService';
+
+const guideBlocks = require('../../data/guide_blocks.json');
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.78;
@@ -231,16 +235,15 @@ function RatingsPreview() {
 
   return (
     <View style={fp.container}>
-      <Text style={fp.title}>Facial Ratings</Text>
-      <Text style={fp.subtitle}>AI-powered analysis</Text>
-      <View style={fp.divider} />
-      <View style={fp.header}>
-        <View style={fp.slotRow}>
-          <SlotReel value={intDigit} spinTrigger={spinTrigger} duration={intDur} />
-          <Text style={fp.reelDot}>.</Text>
-          <SlotReel value={decDigit} spinTrigger={spinTrigger} duration={decDur} delay={REEL_DEC_DELAY} />
+      <View style={fp.scoreGlow}>
+        <View style={fp.header}>
+          <View style={fp.slotRow}>
+            <SlotReel value={intDigit} spinTrigger={spinTrigger} duration={intDur} />
+            <Text style={fp.reelDot}>.</Text>
+            <SlotReel value={decDigit} spinTrigger={spinTrigger} duration={decDur} delay={REEL_DEC_DELAY} />
+          </View>
+          <Text style={fp.bigScoreLabel}>/10</Text>
         </View>
-        <Text style={fp.bigScoreLabel}>/10</Text>
       </View>
       <Text style={fp.headerSubtext}>Overall Rating</Text>
       {RATING_CATEGORIES.map((r, i) => {
@@ -251,8 +254,11 @@ function RatingsPreview() {
         return (
           <View key={r.label} style={fp.row}>
             <Text style={fp.rowLabel}>{r.label}</Text>
-            <View style={fp.barTrack}>
-              <Animated.View style={[fp.barFill, { width, backgroundColor: r.color }]} />
+            <View style={fp.barTrackWrap}>
+              <Animated.View style={[fp.barGlow, { width, backgroundColor: r.color, shadowColor: r.color }]} />
+              <View style={fp.barTrack}>
+                <Animated.View style={[fp.barFill, { width, backgroundColor: r.color }]} />
+              </View>
             </View>
             <AnimatedScoreText animValue={barAnims[i]} color={r.color} />
           </View>
@@ -262,136 +268,307 @@ function RatingsPreview() {
   );
 }
 
-/** Custom Protocol preview card content */
-function ProtocolPreview() {
-  const items = [
-    { name: 'Niacinamide', status: 'Active', statusColor: colorsV2.success, desc: 'Skin brightening serum' },
-    { name: 'Retinol', status: 'Evening', statusColor: colorsV2.accentPurple, desc: 'Anti-aging treatment' },
-    { name: 'Mewing', status: 'Daily', statusColor: colorsV2.accentCyan, desc: 'Jawline exercise' },
-  ];
+function getProblemDisplayName(problemId: string): string {
+  const c = CATEGORIES.find((cat: any) => cat.id === problemId);
+  return c ? c.label.split(' / ')[0] : problemId.charAt(0).toUpperCase() + problemId.slice(1).replace(/_/g, ' ');
+}
 
-  const slideAnims = useRef(items.map(() => new Animated.Value(0))).current;
+// ─── Timeline data per problem ─────────────────────────────────────────────
+const PROBLEM_TIMELINES: Record<string, { firstWeek: string; fullWeek: string; subtitle: string }> = {
+  jawline:          { firstWeek: '3-4',  fullWeek: '10-16', subtitle: 'Muscle tone visible' },
+  acne:             { firstWeek: '2-3',  fullWeek: '6-10',  subtitle: 'Fewer breakouts' },
+  oily_skin:        { firstWeek: '1-2',  fullWeek: '4-6',   subtitle: 'Reduced shine' },
+  dry_skin:         { firstWeek: '1-2',  fullWeek: '3-5',   subtitle: 'Hydration restored' },
+  blackheads:       { firstWeek: '2-3',  fullWeek: '6-8',   subtitle: 'Pores visibly clearer' },
+  dark_circles:     { firstWeek: '3-4',  fullWeek: '8-12',  subtitle: 'Under-eye brightening' },
+  skin_texture:     { firstWeek: '2-4',  fullWeek: '8-12',  subtitle: 'Smoother surface' },
+  hyperpigmentation: { firstWeek: '4-6', fullWeek: '12-16', subtitle: 'Spots begin to fade' },
+  facial_hair:      { firstWeek: '4-8',  fullWeek: '12-24', subtitle: 'New growth visible' },
+};
+
+function getRoutineStats(selectedProblemIds: string[]): {
+  morningSteps: number;
+  eveningSteps: number;
+  exerciseCount: number;
+  totalMinutes: number;
+} {
+  const problems: Array<{ problem_id: string; recommended_ingredients: string[]; recommended_exercises: string[] }> = guideBlocks.problems || [];
+  const ingredients: Array<{
+    ingredient_id: string;
+    timing_options?: string[];
+    session?: { duration_seconds?: number | null; wait_after_seconds?: number };
+  }> = guideBlocks.ingredients || [];
+  const exercises: Array<{
+    exercise_id: string;
+    session?: { duration_seconds?: number };
+    default_duration?: number;
+  }> = guideBlocks.exercises || [];
+
+  const ingredientIds = new Set<string>();
+  const exerciseIds = new Set<string>();
+  selectedProblemIds.forEach((id) => {
+    const p = problems.find((x) => x.problem_id === id);
+    if (p) {
+      (p.recommended_ingredients || []).forEach((ing) => ingredientIds.add(ing));
+      (p.recommended_exercises || []).forEach((ex) => exerciseIds.add(ex));
+    }
+  });
+
+  let morningSteps = 0;
+  let eveningSteps = 0;
+  let morningSeconds = 0;
+  let eveningSeconds = 0;
+
+  ingredientIds.forEach((ingId) => {
+    const ing = ingredients.find((i) => i.ingredient_id === ingId);
+    const opts = ing?.timing_options ?? [];
+    const duration = ing?.session?.duration_seconds ?? 30;
+    const wait = ing?.session?.wait_after_seconds ?? 0;
+    const stepTime = (typeof duration === 'number' ? duration : 30) + wait;
+
+    if (opts.includes('morning')) { morningSteps += 1; morningSeconds += stepTime; }
+    if (opts.includes('evening')) { eveningSteps += 1; eveningSeconds += stepTime; }
+  });
+
+  let exerciseSeconds = 0;
+  exerciseIds.forEach((exId) => {
+    const ex = exercises.find((e) => e.exercise_id === exId);
+    if (ex?.session?.duration_seconds) { exerciseSeconds += ex.session.duration_seconds; }
+    else if (ex?.default_duration) { exerciseSeconds += ex.default_duration; }
+  });
+
+  return {
+    morningSteps: Math.max(1, morningSteps),
+    eveningSteps: Math.max(1, eveningSteps),
+    exerciseCount: exerciseIds.size,
+    totalMinutes: Math.max(1, Math.round((morningSeconds + eveningSeconds + exerciseSeconds) / 60)),
+  };
+}
+
+/** Protocol preview — consolidated morning/evening/exercise card */
+function ProtocolPreview() {
+  const { data } = useOnboarding();
+  const selectedProblems = data.selectedProblems?.length ? data.selectedProblems : data.selectedCategories ?? [];
+  const { morningSteps, eveningSteps, exerciseCount, totalMinutes } = getRoutineStats(selectedProblems);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rowAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
   useEffect(() => {
-    Animated.stagger(
-      150,
-      slideAnims.map((anim) =>
-        Animated.spring(anim, {
-          toValue: 1,
-          delay: 400,
-          useNativeDriver: true,
-          tension: 120,
-          friction: 10,
-        })
+    // Pulse on time badge
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.04, duration: 1500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    );
+    loop.start();
+
+    // Staggered fade-in for rows
+    const stagger = Animated.stagger(100,
+      rowAnims.map(anim =>
+        Animated.timing(anim, { toValue: 1, duration: 500, delay: 200, useNativeDriver: true, easing: Easing.out(Easing.cubic) })
       )
-    ).start();
+    );
+    stagger.start();
+
+    return () => loop.stop();
   }, []);
 
+  const routineRows = [
+    { section: 'MORNING', label: 'Skincare routine', value: `${morningSteps} steps`, color: '#F59E0B' },
+    { section: 'EVENING', label: 'Skincare routine', value: `${eveningSteps} steps`, color: '#818CF8' },
+    ...(exerciseCount > 0 ? [{ section: 'EXERCISES', label: 'Face & jaw training', value: `${exerciseCount} exercises`, color: '#34D399' }] : []),
+  ];
+
   return (
-    <View style={pp.container}>
-      <Text style={pp.title}>Your Protocol</Text>
-      <Text style={pp.subtitle}>Personalized for your goals</Text>
-      <View style={pp.divider} />
-      {items.map((item, i) => (
-        <Animated.View
-          key={item.name}
-          style={[
-            pp.itemCard,
-            {
-              opacity: slideAnims[i],
-              transform: [{
-                translateX: slideAnims[i].interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [30, 0],
-                }),
-              }],
-            },
-          ]}
-        >
-          <View style={pp.itemLeft}>
-            <Text style={pp.itemName}>{item.name.toUpperCase()}</Text>
-            <Text style={pp.itemDesc}>{item.desc}</Text>
-          </View>
-          <View style={[pp.statusBadge, { borderColor: item.statusColor }]}>
-            <Text style={[pp.statusText, { color: item.statusColor }]}>{item.status}</Text>
+    <View style={proto.container}>
+      {/* Time badge */}
+      <Animated.View style={[proto.timeBadgeRow, { transform: [{ scale: pulseAnim }] }]}>
+        <View style={proto.timeBadgeGlow}>
+          <LinearGradient
+            colors={gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={proto.timeBadge}
+          >
+            <Text style={proto.timeBadgeText}>{totalMinutes} min/day</Text>
+          </LinearGradient>
+        </View>
+      </Animated.View>
+
+      {/* Routine rows */}
+      {routineRows.map((item, i) => (
+        <Animated.View key={item.section} style={{ opacity: rowAnims[i] }}>
+          <Text style={proto.sectionLabel}>{item.section}</Text>
+          <View style={[proto.routineRow, { borderLeftColor: item.color }]}>
+            <Text style={proto.routineLabel}>{item.label}</Text>
+            <View style={[proto.routineValueBadge, { backgroundColor: item.color + '15', borderColor: item.color + '30' }]}>
+              <Text style={[proto.routineValue, { color: item.color }]}>{item.value}</Text>
+            </View>
           </View>
         </Animated.View>
       ))}
+
+      {/* Based on tags */}
+      {selectedProblems.length > 0 && (
+        <Animated.View style={[proto.basedOn, { opacity: rowAnims[routineRows.length] || rowAnims[routineRows.length - 1] }]}>
+          <Text style={proto.basedOnLabel}>Based on</Text>
+          <View style={proto.basedOnTags}>
+            {selectedProblems.slice(0, 4).map((id: string) => (
+              <View key={id} style={proto.tag}>
+                <Text style={proto.tagText}>{getProblemDisplayName(id)}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
 
-/** Daily Routines preview card content */
-function RoutinesPreview() {
-  const routines = [
-    { name: 'Morning Routine', steps: 4, mins: 8, done: true },
-    { name: 'Evening Routine', steps: 3, mins: 5, done: false },
-    { name: 'Exercises', tasks: 5, mins: 12, done: false },
-  ];
+/** Timeline preview — personalized results timeline */
+function TimelinePreview() {
+  const { data } = useOnboarding();
+  const selectedProblems = data.selectedProblems?.length ? data.selectedProblems : data.selectedCategories ?? [];
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const scoreAnim = useRef(new Animated.Value(0)).current;
+  // Build timeline nodes sorted by firstWeek ascending (fastest results first)
+  const timelineNodes = selectedProblems
+    .filter((id: string) => PROBLEM_TIMELINES[id])
+    .map((id: string) => ({
+      id,
+      name: getProblemDisplayName(id),
+      ...PROBLEM_TIMELINES[id],
+      firstWeekNum: parseInt(PROBLEM_TIMELINES[id].firstWeek.split('-')[0], 10),
+    }))
+    .sort((a: any, b: any) => a.firstWeekNum - b.firstWeekNum)
+    .slice(0, 4);
+
+  // Find the longest full timeline for the final node
+  const longestFull = timelineNodes.length > 0
+    ? timelineNodes.reduce((max: any, n: any) => {
+        const end = parseInt(n.fullWeek.split('-')[1], 10);
+        return end > max ? end : max;
+      }, 0)
+    : 12;
+
+  // Animations: stagger each node 150ms
+  const nodeAnims = useRef(timelineNodes.map(() => new Animated.Value(0))).current;
+  const finalNodeAnim = useRef(new Animated.Value(0)).current;
+  const progressAnims = useRef(timelineNodes.map(() => new Animated.Value(0))).current;
+  const finalProgressAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
-    Animated.timing(scoreAnim, {
-      toValue: 1,
-      duration: 1000,
-      delay: 300,
-      useNativeDriver: true,
-      easing: Easing.out(Easing.cubic),
-    }).start();
+    // Stagger node fade-ins
+    const nodeStagger = Animated.stagger(150, [
+      ...nodeAnims.map(anim =>
+        Animated.timing(anim, { toValue: 1, duration: 400, useNativeDriver: false, easing: Easing.out(Easing.cubic) })
+      ),
+      Animated.timing(finalNodeAnim, { toValue: 1, duration: 400, useNativeDriver: false, easing: Easing.out(Easing.cubic) }),
+    ]);
 
-    const loop = Animated.loop(
+    // After nodes appear, fill progress bars
+    nodeStagger.start(() => {
+      Animated.stagger(100, [
+        ...progressAnims.map(anim =>
+          Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: false, easing: Easing.out(Easing.cubic) })
+        ),
+        Animated.timing(finalProgressAnim, { toValue: 1, duration: 800, useNativeDriver: false, easing: Easing.out(Easing.cubic) }),
+      ]).start();
+    });
+
+    // Glow pulse on final dot
+    const glow = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1200, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(glowAnim, { toValue: 0.8, duration: 1500, useNativeDriver: false, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(glowAnim, { toValue: 0.4, duration: 1500, useNativeDriver: false, easing: Easing.inOut(Easing.ease) }),
       ])
     );
-    loop.start();
-    return () => loop.stop();
+    glow.start();
+    return () => glow.stop();
   }, []);
 
-  return (
-    <View style={rp.container}>
-      <Text style={rp.title}>Daily Routines</Text>
-      <Text style={rp.subtitle}>Track your daily progress</Text>
-      <View style={rp.divider} />
+  // Calculate progress percentage for each node relative to longest timeline
+  const maxWeek = Math.max(longestFull, 12);
 
-      {/* Score row — compact inline */}
-      <Animated.View style={[rp.scoreSection, { opacity: scoreAnim, transform: [{ scale: pulseAnim }] }]}>
-        <View style={rp.scoreRow}>
-          <View style={rp.scoreItem}>
-            <Text style={rp.scoreValue}>8.2</Text>
-            <Text style={rp.scoreLabel}>today</Text>
+  return (
+    <View style={tl.container}>
+      {timelineNodes.map((node: any, i: number) => {
+        const endWeek = parseInt(node.firstWeek.split('-')[1], 10);
+        const progressPct = Math.min(endWeek / maxWeek, 1);
+        const barWidth = progressAnims[i]?.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['0%', `${Math.round(progressPct * 100)}%`],
+        });
+
+        return (
+          <Animated.View key={node.id} style={[tl.nodeWrap, { opacity: nodeAnims[i], transform: [{ translateX: nodeAnims[i].interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+            <View style={tl.nodeRow}>
+              <View style={tl.dotCol}>
+                <View style={tl.dot} />
+                <View style={tl.line} />
+              </View>
+              <View style={tl.nodeContent}>
+                <View style={tl.nodeHeader}>
+                  <Text style={tl.nodeName}>{node.name}</Text>
+                  <View style={tl.weekBadge}>
+                    <Text style={tl.weekText}>Week {node.firstWeek}</Text>
+                  </View>
+                </View>
+                <Text style={tl.nodeSubtitle}>{node.subtitle}</Text>
+                <View style={tl.barTrack}>
+                  <Animated.View style={[tl.barFill, { width: barWidth }]}>
+                    <LinearGradient
+                      colors={gradients.primary}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={tl.barGradient}
+                    />
+                  </Animated.View>
+                </View>
+              </View>
+            </View>
+          </Animated.View>
+        );
+      })}
+
+      {/* Final transformation node */}
+      <Animated.View style={[tl.nodeWrap, { opacity: finalNodeAnim, transform: [{ translateX: finalNodeAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+        <View style={tl.nodeRow}>
+          <View style={tl.dotCol}>
+            <Animated.View style={[tl.dotFinal, { shadowOpacity: glowAnim }]} />
           </View>
-          <View style={rp.scoreDivider} />
-          <View style={rp.scoreItem}>
-            <Text style={rp.scoreValue}>7.6</Text>
-            <Text style={rp.scoreLabel}>this week</Text>
+          <View style={tl.nodeContent}>
+            <View style={tl.nodeHeader}>
+              <Text style={tl.nodeName}>Full transformation</Text>
+              <LinearGradient
+                colors={gradients.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={tl.weekBadgeFinal}
+              >
+                <Text style={tl.weekTextFinal}>Week 8-{longestFull > 12 ? longestFull : 12}</Text>
+              </LinearGradient>
+            </View>
+            <View style={tl.barTrack}>
+              <Animated.View style={[tl.barFill, { width: finalProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]}>
+                <LinearGradient
+                  colors={gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={tl.barGradient}
+                />
+              </Animated.View>
+            </View>
           </View>
         </View>
       </Animated.View>
-
-      {/* Routine cards */}
-      {routines.map((r) => (
-        <View key={r.name} style={[rp.routineCard, r.done && rp.routineCardDone]}>
-          <View style={rp.routineLeft}>
-            <Text style={rp.routineName}>{r.name}</Text>
-            <Text style={rp.routineMeta}>
-              {'steps' in r ? `${r.steps} steps` : `${r.tasks} tasks`} · {r.mins} min
-            </Text>
-          </View>
-          {r.done ? (
-            <View style={rp.checkBadge}>
-              <Text style={rp.checkMark}>✓</Text>
-            </View>
-          ) : (
-            <View style={rp.startBadge}>
-              <Text style={rp.startText}>Start</Text>
-            </View>
-          )}
-        </View>
-      ))}
     </View>
   );
 }
@@ -399,9 +576,9 @@ function RoutinesPreview() {
 // ─── Feature card data ───────────────────────────────────────────────────────
 
 const FEATURE_CARDS = [
-  { key: 'ratings', title: 'Facial Ratings', Component: RatingsPreview },
-  { key: 'protocol', title: 'Custom Protocol', Component: ProtocolPreview },
-  { key: 'routines', title: 'Daily Routines', Component: RoutinesPreview },
+  { key: 'ratings',  step: 1, title: 'We analyze your face',          subtitle: 'Scored across 5 categories by AI',      Component: RatingsPreview },
+  { key: 'protocol', step: 2, title: 'You get a personalized routine', subtitle: 'Morning, evening & exercises built for you', Component: ProtocolPreview },
+  { key: 'timeline', step: 3, title: 'You start seeing results',       subtitle: 'Week-by-week based on your concerns',    Component: TimelinePreview },
 ];
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -416,16 +593,11 @@ export default function ProPaywallScreen({ navigation, route }: any) {
   const { refreshSubscriptionStatus } = usePremium();
 
   const referralOnly = route?.params?.referralOnly === true;
-  const [selectedPlan, setSelectedPlan] = useState<PlanType>(referralOnly ? 'annual' : 'annual');
   const [finishing, setFinishing] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [weeklyPackage, setWeeklyPackage] = useState<PurchasesPackage | null>(null);
   const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
-  const [activeFeatureIndex, setActiveFeatureIndex] = useState(0);
-
   const anims = useScreenEntrance(4);
-  const weeklyScale = useRef(new Animated.Value(1)).current;
-  const annualScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -453,21 +625,18 @@ export default function ProPaywallScreen({ navigation, route }: any) {
     return () => { cancelled = true; };
   }, []);
 
-  const handleSelectPlan = (plan: PlanType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedPlan(plan);
-    const targetScale = plan === 'weekly' ? weeklyScale : annualScale;
-    const otherScale = plan === 'weekly' ? annualScale : weeklyScale;
-    Animated.parallel([
-      Animated.sequence([
-        Animated.spring(targetScale, { toValue: 1.03, useNativeDriver: true, tension: 300, friction: 10 }),
-        Animated.spring(targetScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }),
-      ]),
-      Animated.spring(otherScale, { toValue: 1, useNativeDriver: true, tension: 300, friction: 10 }),
-    ]).start();
-  };
+  // Schedule abandoned cart notification when user backgrounds from this paywall
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        scheduleAbandonedCartNotification();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
-  const handlePurchase = async () => {
+  const handlePurchase = async (plan: PlanType = 'annual') => {
+    const purchasePlan = plan;
     if (finishing) return;
     setFinishing(true);
     try {
@@ -491,25 +660,27 @@ export default function ProPaywallScreen({ navigation, route }: any) {
         if (existing.exists()) { await updateDoc(userRef, routinePayload); }
         else { await setDoc(userRef, routinePayload); }
         await clearOnboardingProgress(); await clearForceFlags();
+        cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
         navigation.navigate('V2FaceRating'); setFinishing(false); return;
       }
-      const pkg = selectedPlan === 'weekly' ? weeklyPackage : annualPackage;
+      const pkg = purchasePlan === 'weekly' ? weeklyPackage : annualPackage;
       if (!pkg) { Alert.alert('Not Ready', 'Subscription options are still loading.'); setFinishing(false); return; }
       const result = await purchasePackage(pkg);
       if (result.success) {
+        cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
         const existing = await getDoc(userRef);
         if (existing.exists()) { await updateDoc(userRef, routinePayload); }
         else { await setDoc(userRef, routinePayload); }
         if (posthog) {
           const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
-          posthog.capture(selectedPlan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: selectedPlan });
+          posthog.capture(purchasePlan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: purchasePlan });
         }
         // TikTok: identify user, track correct event per plan, send value
         try { await identifyTikTokUser(uid!); } catch {}
         try { await trackTikTokRegistration('apple', uid); } catch {}
         const price = pkg.product?.price;
         const currency = pkg.product?.currencyCode;
-        if (selectedPlan === 'weekly') {
+        if (purchasePlan === 'weekly') {
           try { await trackTikTokWeeklyPurchase(price, currency); } catch {}
         } else {
           try { await trackTikTokTrialStarted(price, currency); } catch {}
@@ -535,6 +706,7 @@ export default function ProPaywallScreen({ navigation, route }: any) {
       const result = await restorePurchases(uid);
       if (result.success) {
         if (result.isPremium) {
+          cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
           const userRef = doc(db, 'users', uid!);
           const existing = await getDoc(userRef);
           const { ingredientSelections, exerciseSelections } = buildRoutineFromOnboarding(data);
@@ -547,12 +719,6 @@ export default function ProPaywallScreen({ navigation, route }: any) {
       } else { Alert.alert('No Purchases', 'No previous purchases found.'); }
     } catch { Alert.alert('Error', 'Failed to restore purchases.'); }
     finally { setRestoring(false); }
-  };
-
-  const onFeatureScroll = (e: any) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / (CARD_WIDTH + CARD_SPACING));
-    setActiveFeatureIndex(Math.max(0, Math.min(index, FEATURE_CARDS.length - 1)));
   };
 
   const weeklyPrice = weeklyPackage?.product?.priceString || '$3.99';
@@ -571,8 +737,8 @@ export default function ProPaywallScreen({ navigation, route }: any) {
     <V2ScreenWrapper showProgress={false} scrollable>
       {/* Header */}
       <Animated.View style={[styles.headerContainer, { opacity: anims[0].opacity, transform: anims[0].transform }]}>
-        <Text style={styles.headline}>{referralOnly ? 'Your Free Trial Offer' : 'Protocol Pro'}</Text>
-        <Text style={styles.subtitle}>{referralOnly ? 'Your room is complete — claim your free trial' : 'Unlock your full potential'}</Text>
+        <Text style={styles.headline}>{referralOnly ? 'Your Free Trial Offer' : <>Your Next <Text style={styles.headlineAccent}>12 Weeks</Text></>}</Text>
+        {!referralOnly && <Text style={styles.headlineSubtitle}>This is how you will change</Text>}
       </Animated.View>
 
       {/* Feature Carousel - actual rendered UI cards */}
@@ -585,30 +751,35 @@ export default function ProPaywallScreen({ navigation, route }: any) {
           snapToAlignment="start"
           decelerationRate="fast"
           showsHorizontalScrollIndicator={false}
-          onScroll={onFeatureScroll}
           scrollEventThrottle={16}
           contentContainerStyle={styles.carouselContent}
           keyExtractor={(item) => item.key}
           renderItem={({ item }) => (
             <View style={styles.featureCard}>
-              <item.Component />
+              <View style={styles.cardHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>{item.step}</Text>
+                </View>
+                <View style={styles.cardTitleCol}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+                </View>
+              </View>
+              <View style={styles.cardDivider} />
+              <View style={styles.cardContent}>
+                <item.Component />
+              </View>
             </View>
           )}
         />
-        {/* Page dots */}
-        <View style={styles.dotsContainer}>
-          {FEATURE_CARDS.map((_, i) => (
-            <View key={i} style={[styles.dot, i === activeFeatureIndex && styles.dotActive]} />
-          ))}
-        </View>
       </Animated.View>
 
-      {/* Pricing Section - screenshot-inspired layout */}
+      {/* Pricing Section — tap to purchase directly */}
       <Animated.View style={[styles.pricingContainer, { opacity: anims[2].opacity, transform: anims[2].transform }]}>
-        {/* Weekly (top, not selected by default) - hidden in referral-only mode */}
+        {/* Weekly — hidden in referral-only mode */}
         {!referralOnly && (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => handleSelectPlan('weekly')}>
-            <Animated.View style={[styles.pricingCard, selectedPlan === 'weekly' && styles.pricingCardSelected, { transform: [{ scale: weeklyScale }] }]}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('weekly')} disabled={finishing}>
+            <View style={styles.pricingCard}>
               <View style={styles.pricingRow}>
                 <Text style={styles.pricingTier}>WEEKLY ACCESS</Text>
                 <View style={styles.pricingPriceCol}>
@@ -616,13 +787,13 @@ export default function ProPaywallScreen({ navigation, route }: any) {
                   <Text style={styles.pricingPeriod}>per week</Text>
                 </View>
               </View>
-            </Animated.View>
+            </View>
           </TouchableOpacity>
         )}
 
-        {/* Yearly (bottom, selected by default, with SAVE badge) */}
-        <TouchableOpacity activeOpacity={0.8} onPress={() => handleSelectPlan('annual')}>
-          <Animated.View style={[styles.pricingCard, styles.pricingCardAnnual, selectedPlan === 'annual' && styles.pricingCardSelected, styles.pricingCardGlow, { transform: [{ scale: annualScale }] }]}>
+        {/* Yearly (with SAVE badge) */}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('annual')} disabled={finishing}>
+          <View style={[styles.pricingCard, styles.pricingCardAnnual, styles.pricingCardGlow]}>
             {/* Badge */}
             <View style={[styles.saveBadge, referralOnly && styles.saveBadgeGlow]}>
               <Text style={styles.saveBadgeText}>{referralOnly ? 'SPECIAL OFFER' : `SAVE ${savePct}%`}</Text>
@@ -634,7 +805,6 @@ export default function ProPaywallScreen({ navigation, route }: any) {
               </View>
               <View style={styles.pricingPriceCol}>
                 <Text style={styles.pricingAmountHighlight}>
-                  {/* Calculate approximate weekly from annual */}
                   {annualPackage?.product?.price && annualPackage?.product?.currencyCode
                     ? formatPrice(annualPackage.product.price / 52, annualPackage.product.currencyCode)
                     : '$0.58'}
@@ -642,19 +812,14 @@ export default function ProPaywallScreen({ navigation, route }: any) {
                 <Text style={styles.pricingPeriod}>per week</Text>
               </View>
             </View>
-          </Animated.View>
+          </View>
         </TouchableOpacity>
+
+        <Text style={styles.cancelText}>cancel anytime</Text>
       </Animated.View>
 
-      {/* CTA + Footer */}
+      {/* Footer */}
       <Animated.View style={[styles.ctaSection, { opacity: anims[3].opacity, transform: anims[3].transform }]}>
-        <GradientButton
-          title={finishing ? '...' : referralOnly ? 'Start Your Free Trial' : 'Get your results'}
-          onPress={handlePurchase}
-          disabled={finishing}
-        />
-        <Text style={styles.cancelText}>cancel anytime</Text>
-
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={handleRestore} disabled={restoring}>
             <Text style={styles.footerLink}>{restoring ? 'Restoring...' : 'Restore Purchases'}</Text>
@@ -676,9 +841,14 @@ export default function ProPaywallScreen({ navigation, route }: any) {
 // ─── Feature Preview Styles ──────────────────────────────────────────────────
 
 const fp = StyleSheet.create({
-  container: { padding: spacingV2.lg },
-  title: { ...typographyV2.heading, fontSize: 20, marginBottom: 2 },
-  subtitle: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.md },
+  container: { padding: spacingV2.lg, paddingTop: spacingV2.sm },
+  scoreGlow: {
+    shadowColor: colorsV2.accentOrange,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
+    elevation: 6,
+  },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   // Slot reel styles
   slotRow: { flexDirection: 'row', alignItems: 'center' },
@@ -688,63 +858,127 @@ const fp = StyleSheet.create({
   reelDot: { fontSize: 48, fontWeight: '800', color: colorsV2.accentOrange, lineHeight: REEL_DIGIT_HEIGHT, includeFontPadding: false, marginHorizontal: -2 },
   bigScoreLabel: { fontSize: 20, fontWeight: '600', color: colorsV2.textMuted, marginLeft: 4 },
   headerSubtext: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.md },
-  divider: { height: 1, backgroundColor: colorsV2.border, marginBottom: spacingV2.md },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   rowLabel: { ...typographyV2.bodySmall, color: colorsV2.textSecondary, width: 95, fontWeight: '600' },
-  barTrack: { flex: 1, height: 6, backgroundColor: colorsV2.surfaceLight, borderRadius: 3, overflow: 'hidden', marginHorizontal: spacingV2.sm },
+  barTrackWrap: { flex: 1, marginHorizontal: spacingV2.sm, position: 'relative', height: 6 },
+  barGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  barTrack: { flex: 1, height: 6, backgroundColor: colorsV2.surfaceLight, borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 3 },
   rowScore: { ...typographyV2.bodySmall, fontWeight: '700', width: 28, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });
 
-const pp = StyleSheet.create({
-  container: { padding: spacingV2.lg },
-  title: { ...typographyV2.heading, fontSize: 20, marginBottom: 2 },
-  subtitle: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.md },
-  divider: { height: 1, backgroundColor: colorsV2.border, marginBottom: spacingV2.md },
-  itemCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colorsV2.surfaceLight, borderRadius: borderRadiusV2.md,
-    borderWidth: 1, borderColor: colorsV2.border, padding: spacingV2.md, marginBottom: spacingV2.sm,
+const proto = StyleSheet.create({
+  container: { padding: spacingV2.lg, paddingTop: spacingV2.sm },
+  timeBadgeRow: { alignItems: 'center', marginBottom: spacingV2.md },
+  timeBadgeGlow: {
+    borderRadius: borderRadiusV2.pill,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  itemLeft: { flex: 1 },
-  itemName: { ...typographyV2.bodySmall, fontWeight: '700', color: colorsV2.textPrimary, letterSpacing: 1, marginBottom: 2 },
-  itemDesc: { ...typographyV2.caption, color: colorsV2.textMuted },
-  statusBadge: { borderWidth: 1.5, borderRadius: borderRadiusV2.sm, paddingHorizontal: 10, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  timeBadge: { borderRadius: borderRadiusV2.pill, paddingHorizontal: spacingV2.lg, paddingVertical: spacingV2.xs + 3 },
+  timeBadgeText: { ...typographyV2.body, fontWeight: '700', color: '#FFFFFF', fontSize: 16 },
+  sectionLabel: {
+    ...typographyV2.label,
+    color: colorsV2.textMuted,
+    marginBottom: spacingV2.xs,
+    marginTop: spacingV2.sm,
+  },
+  routineRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 10, marginBottom: 2,
+    borderRadius: borderRadiusV2.md,
+    paddingHorizontal: spacingV2.sm,
+    borderLeftWidth: 3,
+    backgroundColor: colorsV2.surfaceLight,
+  },
+  routineLabel: { ...typographyV2.body, color: colorsV2.textSecondary, fontSize: 13, flex: 1 },
+  routineValueBadge: { borderRadius: borderRadiusV2.sm, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  routineValue: { fontSize: 11, fontWeight: '700' },
+  basedOn: { marginTop: spacingV2.md },
+  basedOnLabel: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.xs },
+  basedOnTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tag: {
+    backgroundColor: colorsV2.accentPurple + '20',
+    borderRadius: borderRadiusV2.sm,
+    borderWidth: 1,
+    borderColor: colorsV2.accentPurple + '30',
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  tagText: { ...typographyV2.caption, color: '#C084FC', fontWeight: '600', fontSize: 11 },
 });
 
-const rp = StyleSheet.create({
-  container: { padding: spacingV2.lg },
-  title: { ...typographyV2.heading, fontSize: 20, marginBottom: 2 },
-  subtitle: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.md },
-  scoreSection: { alignItems: 'center', marginBottom: spacingV2.sm },
-  scoreRow: { flexDirection: 'row', alignItems: 'center' },
-  scoreItem: { alignItems: 'center', paddingHorizontal: spacingV2.lg },
-  scoreValue: { fontSize: 26, fontWeight: '800', color: colorsV2.textPrimary, fontVariant: ['tabular-nums'] },
-  scoreLabel: { ...typographyV2.caption, color: colorsV2.textMuted, marginTop: 1 },
-  scoreDivider: { width: 1, height: 26, backgroundColor: colorsV2.border },
-  divider: { height: 1, backgroundColor: colorsV2.border, marginBottom: spacingV2.sm },
-  routineCard: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: colorsV2.surfaceLight, borderRadius: borderRadiusV2.md,
-    borderWidth: 1, borderColor: colorsV2.border, paddingVertical: 10, paddingHorizontal: spacingV2.md, marginBottom: 6,
+const tl = StyleSheet.create({
+  container: { padding: spacingV2.lg, paddingTop: spacingV2.sm },
+  nodeWrap: { marginBottom: 2 },
+  nodeRow: { flexDirection: 'row' },
+  dotCol: { width: 20, alignItems: 'center', paddingTop: 2 },
+  dot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#C084FC',
   },
-  routineCardDone: { opacity: 0.6 },
-  routineLeft: { flex: 1 },
-  routineName: { ...typographyV2.body, fontWeight: '600', fontSize: 13, marginBottom: 1 },
-  routineMeta: { ...typographyV2.caption, color: colorsV2.textMuted, fontSize: 10 },
-  checkBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: colorsV2.success, alignItems: 'center', justifyContent: 'center' },
-  checkMark: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  startBadge: { backgroundColor: colorsV2.surfaceLight, borderWidth: 1, borderColor: colorsV2.textMuted, borderRadius: borderRadiusV2.sm, paddingHorizontal: 10, paddingVertical: 3 },
-  startText: { ...typographyV2.caption, color: colorsV2.textSecondary, fontWeight: '600', fontSize: 10 },
+  line: {
+    width: 2, flex: 1,
+    backgroundColor: colorsV2.border,
+    marginVertical: 2,
+  },
+  dotFinal: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: '#C084FC',
+    shadowColor: '#C084FC',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  nodeContent: { flex: 1, marginLeft: spacingV2.sm, paddingBottom: spacingV2.sm },
+  nodeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  nodeName: { ...typographyV2.bodySmall, color: colorsV2.textPrimary, fontWeight: '600' },
+  nodeSubtitle: { ...typographyV2.caption, color: colorsV2.textMuted, marginBottom: spacingV2.xs },
+  weekBadge: {
+    backgroundColor: '#C084FC15',
+    borderRadius: borderRadiusV2.sm,
+    paddingHorizontal: 8, paddingVertical: 2,
+  },
+  weekText: { ...typographyV2.caption, color: '#C084FC', fontWeight: '600', fontSize: 10 },
+  weekBadgeFinal: {
+    borderRadius: borderRadiusV2.sm,
+    paddingHorizontal: 8, paddingVertical: 2,
+  },
+  weekTextFinal: { ...typographyV2.caption, color: '#FFFFFF', fontWeight: '600', fontSize: 10 },
+  barTrack: {
+    height: 3, backgroundColor: colorsV2.surfaceLight,
+    borderRadius: 2, overflow: 'hidden',
+    marginTop: 4,
+  },
+  barFill: { height: '100%', borderRadius: 2, overflow: 'hidden' },
+  barGradient: { flex: 1 },
 });
 
 // ─── Main Screen Styles ──────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   headerContainer: { marginTop: spacingV2.xl + spacingV2.md, marginBottom: spacingV2.lg },
-  headline: { ...typographyV2.hero, textAlign: 'center', marginBottom: spacingV2.xs },
-  subtitle: { ...typographyV2.body, color: colorsV2.textSecondary, textAlign: 'center' },
+  headline: { ...typographyV2.hero, textAlign: 'center' },
+  headlineAccent: {
+    color: colorsV2.accentPurple,
+    textShadowColor: colorsV2.accentOrange,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+  },
+  headlineSubtitle: { ...typographyV2.body, color: colorsV2.textSecondary, textAlign: 'center', marginTop: spacingV2.xs },
 
   // Carousel
   carouselContainer: { marginBottom: spacingV2.xl, marginHorizontal: -spacingV2.lg },
@@ -758,9 +992,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colorsV2.border,
   },
-  dotsContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: spacingV2.md, gap: spacingV2.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colorsV2.textMuted + '40' },
-  dotActive: { backgroundColor: colorsV2.accentOrange, width: 24 },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacingV2.md,
+    paddingTop: spacingV2.md,
+    paddingBottom: spacingV2.sm,
+    gap: spacingV2.sm + 2,
+  },
+  stepBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: colorsV2.accentPurple,
+    shadowColor: colorsV2.accentPurple,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  stepBadgeText: {
+    color: colorsV2.accentPurple,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  cardTitleCol: {
+    flex: 1,
+  },
+  cardTitle: {
+    ...typographyV2.body,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colorsV2.textPrimary,
+  },
+  cardSubtitle: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+    marginTop: 1,
+  },
+  cardDivider: {
+    height: 1.5,
+    backgroundColor: '#7C3AED30',
+    marginHorizontal: spacingV2.md,
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
 
   // Pricing - screenshot-inspired
   pricingContainer: { marginBottom: spacingV2.lg, gap: spacingV2.sm },
@@ -774,9 +1056,6 @@ const styles = StyleSheet.create({
   },
   pricingCardAnnual: {
     borderColor: colorsV2.accentPurple + '60',
-  },
-  pricingCardSelected: {
-    borderColor: colorsV2.accentOrange,
   },
   pricingCardGlow: {
     borderColor: colorsV2.accentPurple,

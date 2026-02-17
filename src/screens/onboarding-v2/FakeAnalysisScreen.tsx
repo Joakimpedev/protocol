@@ -21,8 +21,10 @@ import { loadSelfiePhotos } from '../../services/faceAnalysisService';
 import { useOnboardingTracking } from '../../hooks/useOnboardingTracking';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PHOTO_WIDTH = (SCREEN_WIDTH - spacingV2.lg * 2 - spacingV2.md) / 2;
-const PHOTO_HEIGHT = PHOTO_WIDTH * 1.35;
+const DUAL_PHOTO_WIDTH = (SCREEN_WIDTH - spacingV2.lg * 2 - spacingV2.md) / 2;
+const DUAL_PHOTO_HEIGHT = DUAL_PHOTO_WIDTH * 1.35;
+const SOLO_PHOTO_WIDTH = SCREEN_WIDTH * 0.55;
+const SOLO_PHOTO_HEIGHT = SOLO_PHOTO_WIDTH * 1.35;
 
 const SCAN_DURATION_MS = 3000;
 
@@ -38,7 +40,7 @@ const STATUS_MESSAGES = [
 export default function FakeAnalysisScreen({ navigation }: any) {
   useOnboardingTracking('v2_fake_analysis');
   const insets = useSafeAreaInsets();
-  const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string } | null>(null);
+  const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string | null } | null>(null);
   const [statusText, setStatusText] = useState(STATUS_MESSAGES[0]);
 
   // Animations
@@ -158,9 +160,13 @@ export default function FakeAnalysisScreen({ navigation }: any) {
     };
   }, [photos]);
 
+  const hasSide = photos?.sideUri != null;
+  const photoHeight = hasSide ? DUAL_PHOTO_HEIGHT : SOLO_PHOTO_HEIGHT;
+  const photoWidth = hasSide ? DUAL_PHOTO_WIDTH : SOLO_PHOTO_WIDTH;
+
   const scanTranslateY = scanLineY.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, PHOTO_HEIGHT - 4],
+    outputRange: [0, photoHeight - 4],
   });
 
   const progressWidth = progressAnim.interpolate({
@@ -194,7 +200,7 @@ export default function FakeAnalysisScreen({ navigation }: any) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Text style={styles.title}>Analyzing Your Face</Text>
 
-      <View style={styles.photosRow}>
+      <View style={[styles.photosRow, !hasSide && styles.photosRowCentered]}>
         {/* Front photo */}
         <View style={styles.photoWrapper}>
           <Animated.View style={[styles.glowBorder, { opacity: pulse }]}>
@@ -205,8 +211,8 @@ export default function FakeAnalysisScreen({ navigation }: any) {
               style={styles.glowGradient}
             />
           </Animated.View>
-          <View style={styles.photoFrame}>
-            <Image source={{ uri: photos.frontUri }} style={styles.photo} />
+          <View style={[styles.photoFrame, { width: photoWidth, height: photoHeight }]}>
+            <Image source={{ uri: photos.frontUri }} style={{ width: photoWidth, height: photoHeight, resizeMode: 'cover' }} />
             <Animated.View
               style={[
                 styles.scanLine,
@@ -220,7 +226,7 @@ export default function FakeAnalysisScreen({ navigation }: any) {
                 style={styles.scanLineGradient}
               />
             </Animated.View>
-            {dotPositions.slice(0, 4).map((pos, i) => (
+            {dotPositions.slice(0, hasSide ? 4 : 8).map((pos, i) => (
               <Animated.View
                 key={`fd${i}`}
                 style={[
@@ -229,7 +235,7 @@ export default function FakeAnalysisScreen({ navigation }: any) {
                 ]}
               />
             ))}
-            {lineConfigs.slice(0, 2).map((cfg, i) => (
+            {lineConfigs.slice(0, hasSide ? 2 : 4).map((cfg, i) => (
               <Animated.View
                 key={`fl${i}`}
                 style={[
@@ -252,62 +258,64 @@ export default function FakeAnalysisScreen({ navigation }: any) {
           <Text style={styles.photoLabel}>Front</Text>
         </View>
 
-        {/* Side photo */}
-        <View style={styles.photoWrapper}>
-          <Animated.View style={[styles.glowBorder, { opacity: pulse }]}>
-            <LinearGradient
-              colors={[colorsV2.accentPurple + '60', colorsV2.accentCyan + '60']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.glowGradient}
-            />
-          </Animated.View>
-          <View style={styles.photoFrame}>
-            <Image source={{ uri: photos.sideUri }} style={styles.photo} />
-            <Animated.View
-              style={[
-                styles.scanLine,
-                { transform: [{ translateY: scanTranslateY }] },
-              ]}
-            >
+        {/* Side photo — only if captured */}
+        {hasSide && (
+          <View style={styles.photoWrapper}>
+            <Animated.View style={[styles.glowBorder, { opacity: pulse }]}>
               <LinearGradient
-                colors={['transparent', colorsV2.accentOrange + '80', 'transparent']}
+                colors={[colorsV2.accentPurple + '60', colorsV2.accentCyan + '60']}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.scanLineGradient}
+                end={{ x: 1, y: 1 }}
+                style={styles.glowGradient}
               />
             </Animated.View>
-            {dotPositions.slice(4).map((pos, i) => (
+            <View style={[styles.photoFrame, { width: photoWidth, height: photoHeight }]}>
+              <Image source={{ uri: photos.sideUri! }} style={{ width: photoWidth, height: photoHeight, resizeMode: 'cover' }} />
               <Animated.View
-                key={`sd${i}`}
                 style={[
-                  styles.dot,
-                  { top: pos.top as any, left: pos.left as any, opacity: dotOpacities[i + 4] },
+                  styles.scanLine,
+                  { transform: [{ translateY: scanTranslateY }] },
                 ]}
-              />
-            ))}
-            {lineConfigs.slice(2).map((cfg, i) => (
-              <Animated.View
-                key={`sl${i}`}
-                style={[
-                  styles.connectionLine,
-                  {
-                    top: cfg.top as any,
-                    left: cfg.left as any,
-                    width: cfg.width,
-                    transform: [{ rotate: cfg.rotate }],
-                    opacity: lineOpacities[i + 2],
-                  },
-                ]}
-              />
-            ))}
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
+              >
+                <LinearGradient
+                  colors={['transparent', colorsV2.accentOrange + '80', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.scanLineGradient}
+                />
+              </Animated.View>
+              {dotPositions.slice(4).map((pos, i) => (
+                <Animated.View
+                  key={`sd${i}`}
+                  style={[
+                    styles.dot,
+                    { top: pos.top as any, left: pos.left as any, opacity: dotOpacities[i + 4] },
+                  ]}
+                />
+              ))}
+              {lineConfigs.slice(2).map((cfg, i) => (
+                <Animated.View
+                  key={`sl${i}`}
+                  style={[
+                    styles.connectionLine,
+                    {
+                      top: cfg.top as any,
+                      left: cfg.left as any,
+                      width: cfg.width,
+                      transform: [{ rotate: cfg.rotate }],
+                      opacity: lineOpacities[i + 2],
+                    },
+                  ]}
+                />
+              ))}
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+            <Text style={styles.photoLabel}>Side</Text>
           </View>
-          <Text style={styles.photoLabel}>Side</Text>
-        </View>
+        )}
       </View>
 
       {/* Status text */}
@@ -352,6 +360,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacingV2.md,
   },
+  photosRowCentered: {
+    justifyContent: 'center',
+  },
   photoWrapper: {
     alignItems: 'center',
   },
@@ -369,16 +380,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadiusV2.xl + 3,
   },
   photoFrame: {
-    width: PHOTO_WIDTH,
-    height: PHOTO_HEIGHT,
     borderRadius: borderRadiusV2.xl,
     overflow: 'hidden',
     backgroundColor: colorsV2.surface,
-  },
-  photo: {
-    width: PHOTO_WIDTH,
-    height: PHOTO_HEIGHT,
-    resizeMode: 'cover',
   },
   photoLabel: {
     ...typographyV2.label,

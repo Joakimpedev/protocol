@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,47 @@ import {
   Easing,
   Image,
   Dimensions,
+  AppState,
+  ScrollView,
+  Alert,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorsV2, typographyV2, spacingV2, borderRadiusV2, gradients } from '../../constants/themeV2';
 import GradientButton from '../../components/v2/GradientButton';
 import BlurredOverlay from '../../components/v2/BlurredOverlay';
 import RoomModal from '../../components/v2/RoomModal';
-import V2ScreenWrapper from '../../components/v2/V2ScreenWrapper';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserRoom, ReferralRoom } from '../../services/referralService';
+import { usePremium } from '../../contexts/PremiumContext';
+import { useDevMode } from '../../contexts/DevModeContext';
+import { getUserRoom, ReferralRoom, markFriendStartedTrial } from '../../services/referralService';
 import { loadSelfiePhotos } from '../../services/faceAnalysisService';
-import { useOnboardingTracking } from '../../hooks/useOnboardingTracking';
+import { useOnboardingTracking, buildOnboardingProperties, POSTHOG_EVENTS } from '../../hooks/useOnboardingTracking';
+import { useABTest } from '../../hooks/useABTest';
+import { usePostHog } from 'posthog-react-native';
+import { scheduleAbandonedCartNotification, setAbandonedCartQuickAction, cancelAbandonedCartNotification, clearAbandonedCartQuickAction } from '../../services/notificationService';
+import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import { clearOnboardingProgress } from '../../utils/onboardingStorage';
+import { formatPrice } from '../../utils/priceUtils';
+import {
+  getOfferings,
+  getWeeklyPackageFromOffering,
+  getAnnualPackageFromOffering,
+  purchasePackage,
+  restorePurchases,
+  logInRevenueCat,
+} from '../../services/subscriptionService';
+import { PurchasesPackage } from 'react-native-purchases';
+import { trackTrialStarted as trackTikTokTrialStarted, trackWeeklyPurchase as trackTikTokWeeklyPurchase, identifyUser as identifyTikTokUser, trackCompleteRegistration as trackTikTokRegistration } from '../../services/tiktok';
+import { buildRoutineFromOnboarding } from '../../utils/buildRoutineFromOnboarding';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PHOTO_WIDTH = (SCREEN_WIDTH - spacingV2.lg * 2 - spacingV2.md) / 2;
-const PHOTO_HEIGHT = PHOTO_WIDTH * 1.35;
+const PHOTO_SIZE = (SCREEN_WIDTH - spacingV2.lg * 2 - spacingV2.sm) / 2;
 
 const PREVIEW_CATEGORIES = [
   { label: 'Jawline', baseScore: 0.68 },
@@ -43,25 +66,61 @@ function getBarColor(fraction: number): string {
   return '#F87171';                          // red
 }
 
+// Improvement levels per concern — varied so it feels like a real assessment
+const CONCERN_LEVELS: Record<string, { level: string; color: string }> = {
+  'Skin Quality':     { level: 'High',    color: '#4ADE80' },
+  'Facial Structure': { level: 'Medium',  color: '#FBBF24' },
+  'Hair & Hairline':  { level: 'Medium',  color: '#FBBF24' },
+  'Body Composition': { level: 'High',    color: '#4ADE80' },
+  'Style & Grooming': { level: 'High',    color: '#4ADE80' },
+  'Confidence':       { level: 'Medium',  color: '#FBBF24' },
+};
+
+type PlanType = 'weekly' | 'annual';
+
 export default function ResultsPaywallScreen({ navigation }: any) {
   useOnboardingTracking('v2_results_paywall');
-  const { data } = useOnboarding();
+  const { data, setOnboardingComplete } = useOnboarding();
   const { user, signInAnonymous } = useAuth();
+  const { refreshSubscriptionStatus } = usePremium();
+  const { isDevModeEnabled, clearForceFlags } = useDevMode();
+  const posthog = usePostHog();
+
+  // AB test: 'test' = show purchase buttons here, skip ProPaywall
+  const paywallVariant = useABTest('results-paywall-purchase');
+  const showPurchaseButtons = paywallVariant === 'test';
 
   const [roomModalVisible, setRoomModalVisible] = useState(false);
   const [userRoom, setUserRoom] = useState<ReferralRoom | null>(null);
   const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string } | null>(null);
 
+  // Purchase state (only used in 'test' variant)
+  const [finishing, setFinishing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [weeklyPackage, setWeeklyPackage] = useState<PurchasesPackage | null>(null);
+  const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
+
   const anims = useScreenEntrance(4);
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Oscillating bar anims (each bar drifts ±20% around its base)
+  // Oscillating bar anims (each bar drifts ±12% around its base)
   const barOscillations = useRef(
     PREVIEW_CATEGORIES.map(() => new Animated.Value(0))
   ).current;
 
   // Overall bar oscillation
   const overallOscillation = useRef(new Animated.Value(0)).current;
+
+  // Build concern rows from user's actual selections
+  const concernRows = useMemo(() => {
+    const concerns = data.selectedConcerns ?? [];
+    return concerns
+      .map((c) => ({
+        label: c,
+        ...(CONCERN_LEVELS[c] || { level: 'Medium', color: '#FBBF24' }),
+      }))
+      .slice(0, 4); // max 4 rows to keep it tight
+  }, [data.selectedConcerns]);
 
   // Load selfie photos
   useEffect(() => {
@@ -73,9 +132,8 @@ export default function ResultsPaywallScreen({ navigation }: any) {
 
   // Start oscillation loops
   useEffect(() => {
-    // Per-category bar oscillation
     const catLoops = barOscillations.map((anim, i) => {
-      const duration = 2000 + i * 400; // stagger timing so they don't sync
+      const duration = 2000 + i * 400;
       return Animated.loop(
         Animated.sequence([
           Animated.timing(anim, {
@@ -101,7 +159,6 @@ export default function ResultsPaywallScreen({ navigation }: any) {
     });
     catLoops.forEach(l => l.start());
 
-    // Overall bar oscillation
     const overallLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(overallOscillation, {
@@ -151,6 +208,137 @@ export default function ResultsPaywallScreen({ navigation }: any) {
     return () => { cancelled = true; };
   }, []);
 
+  // Set abandoned cart quick action on app icon long-press
+  useEffect(() => {
+    setAbandonedCartQuickAction();
+  }, []);
+
+  // Schedule abandoned cart notification when user backgrounds the app
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        if (!userRoom) {
+          scheduleAbandonedCartNotification();
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [userRoom]);
+
+  // Load RevenueCat offerings when in purchase variant
+  useEffect(() => {
+    if (!showPurchaseButtons) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const offering = await getOfferings();
+        if (cancelled) return;
+        const weekly = getWeeklyPackageFromOffering(offering, false);
+        const annual = getAnnualPackageFromOffering(offering);
+        setWeeklyPackage(weekly ?? null);
+        setAnnualPackage(annual ?? null);
+      } catch (error) {
+        console.warn('[ResultsPaywall] Failed to load offerings:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showPurchaseButtons]);
+
+  const handlePurchase = async (plan: PlanType = 'annual') => {
+    if (finishing) return;
+    setFinishing(true);
+    try {
+      let uid = user?.uid;
+      if (!uid) { const cred = await signInAnonymous(); uid = cred.user.uid; }
+      const signupDate = new Date();
+      const { ingredientSelections, exerciseSelections } = buildRoutineFromOnboarding(data);
+      const userRef = doc(db, 'users', uid!);
+      const routinePayload = {
+        concerns: data.selectedProblems || [],
+        routineStarted: false,
+        routineStartDate: signupDate.toISOString(),
+        ingredientSelections, exerciseSelections,
+        signupDate: signupDate.toISOString(),
+        createdAt: signupDate.toISOString(),
+        ...(data.skinType && { skinType: data.skinType }),
+        ...(data.budget && { budget: data.budget }),
+      };
+      if (isDevModeEnabled) {
+        const existing = await getDoc(userRef);
+        if (existing.exists()) { await updateDoc(userRef, routinePayload); }
+        else { await setDoc(userRef, routinePayload); }
+        await clearOnboardingProgress(); await clearForceFlags();
+        cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
+        navigation.navigate('V2FaceRating'); setFinishing(false); return;
+      }
+      const pkg = plan === 'weekly' ? weeklyPackage : annualPackage;
+      if (!pkg) { Alert.alert('Not Ready', 'Subscription options are still loading.'); setFinishing(false); return; }
+      const result = await purchasePackage(pkg);
+      if (result.success) {
+        cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
+        const existing = await getDoc(userRef);
+        if (existing.exists()) { await updateDoc(userRef, routinePayload); }
+        else { await setDoc(userRef, routinePayload); }
+        if (posthog) {
+          const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
+          posthog.capture(plan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: plan, ab_variant: 'results_paywall_purchase' });
+        }
+        try { await identifyTikTokUser(uid!); } catch {}
+        try { await trackTikTokRegistration('apple', uid); } catch {}
+        const price = pkg.product?.price;
+        const currency = pkg.product?.currencyCode;
+        if (plan === 'weekly') {
+          try { await trackTikTokWeeklyPurchase(price, currency); } catch {}
+        } else {
+          try { await trackTikTokTrialStarted(price, currency); } catch {}
+        }
+        try { await markFriendStartedTrial(uid!); } catch {}
+        await refreshSubscriptionStatus(); await clearOnboardingProgress();
+        navigation.navigate('V2FaceRating');
+      } else {
+        if (result.error === 'Purchase cancelled') return;
+        Alert.alert('Error', result.error || 'Purchase failed.');
+      }
+    } catch (e: any) { Alert.alert('Error', e?.message || 'Failed to complete purchase.'); }
+    finally { setFinishing(false); }
+  };
+
+  const handleRestore = async () => {
+    if (restoring) return;
+    setRestoring(true);
+    try {
+      let uid = user?.uid;
+      if (!uid) { const cred = await signInAnonymous(); uid = cred.user.uid; }
+      await logInRevenueCat(uid);
+      const result = await restorePurchases(uid);
+      if (result.success) {
+        if (result.isPremium) {
+          cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
+          const userRef = doc(db, 'users', uid!);
+          const existing = await getDoc(userRef);
+          const { ingredientSelections, exerciseSelections } = buildRoutineFromOnboarding(data);
+          const now = new Date();
+          const rp = { concerns: data.selectedProblems || [], routineStarted: false, routineStartDate: now.toISOString(), ingredientSelections, exerciseSelections, signupDate: now.toISOString(), createdAt: now.toISOString(), ...(data.skinType && { skinType: data.skinType }), ...(data.budget && { budget: data.budget }) };
+          if (existing.exists()) { await updateDoc(userRef, rp); } else { await setDoc(userRef, rp); }
+          await refreshSubscriptionStatus(); await clearOnboardingProgress();
+          navigation.navigate('V2FaceRating');
+        } else { Alert.alert('Restored', 'No active subscription found.'); }
+      } else { Alert.alert('No Purchases', 'No previous purchases found.'); }
+    } catch { Alert.alert('Error', 'Failed to restore purchases.'); }
+    finally { setRestoring(false); }
+  };
+
+  // Pricing display values
+  const weeklyPrice = weeklyPackage?.product?.priceString || '$3.99';
+  const annualPrice = annualPackage?.product?.priceString || '$29.99';
+  const weeklyRaw = weeklyPackage?.product?.price;
+  const annualRaw = annualPackage?.product?.price;
+  let savePct = 85;
+  if (weeklyRaw && annualRaw && weeklyRaw > 0) {
+    const yearlyCostAtWeekly = weeklyRaw * 52;
+    savePct = Math.round(((yearlyCostAtWeekly - annualRaw) / yearlyCostAtWeekly) * 100);
+  }
+
   const handleShake = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     Animated.sequence([
@@ -177,7 +365,6 @@ export default function ResultsPaywallScreen({ navigation }: any) {
   };
 
   const inviteCount = userRoom ? Math.max(0, 4 - userRoom.memberCount) : 3;
-  const inviteButtonLabel = `Invite ${inviteCount} Friend${inviteCount !== 1 ? 's' : ''}`;
 
   // Overall bar oscillation: base 67% ± 12%
   const overallPct = overallOscillation.interpolate({
@@ -188,178 +375,268 @@ export default function ResultsPaywallScreen({ navigation }: any) {
     inputRange: [-1, 0, 1],
     outputRange: ['55%', '67%', '79%'],
   });
-  // Potential gap is always +17% on top of the current bar
   const potentialGapPct = 17;
   const potentialBarWidth = Animated.add(overallPct, potentialGapPct).interpolate({
     inputRange: [0, 100],
     outputRange: ['0%', '100%'],
   });
 
-  return (
-    <V2ScreenWrapper showProgress={false} scrollable={true}>
-      {/* Header */}
-      <Animated.View
-        style={[
-          styles.headlineContainer,
-          { opacity: anims[0].opacity, transform: anims[0].transform },
-        ]}
-      >
-        <Text style={styles.headline}>Your Full Analysis</Text>
-        <Text style={styles.subtitle}>
-          Invite {inviteCount} friends or get Protocol Pro to view
-        </Text>
-      </Animated.View>
+  const insets = useSafeAreaInsets();
 
-      {/* Photos */}
-      {photos && (
+  return (
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + spacingV2.md, paddingBottom: 140 + insets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Photos — compact strip, no header above */}
+        {photos && (
+          <Animated.View
+            style={[
+              styles.photosSection,
+              { opacity: anims[0].opacity, transform: anims[0].transform },
+            ]}
+          >
+            <View style={styles.photosRow}>
+              <View style={styles.photoCard}>
+                <Image source={{ uri: photos.frontUri }} style={styles.photo} />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.6)']}
+                  style={styles.photoGradientOverlay}
+                />
+                <Text style={styles.photoTag}>FRONT</Text>
+              </View>
+              <View style={styles.photoCard}>
+                <Image source={{ uri: photos.sideUri }} style={styles.photo} />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.6)']}
+                  style={styles.photoGradientOverlay}
+                />
+                <Text style={styles.photoTag}>SIDE</Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Improvement Assessment — the hero section */}
         <Animated.View
           style={[
-            styles.photosSection,
+            styles.assessmentOuter,
             { opacity: anims[1].opacity, transform: anims[1].transform },
           ]}
         >
-          <View style={styles.photosRow}>
-            <View style={styles.photoCard}>
-              <Image source={{ uri: photos.frontUri }} style={styles.photo} />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.6)']}
-                style={styles.photoGradientOverlay}
-              />
-              <Text style={styles.photoTag}>FRONT</Text>
-            </View>
-            <View style={styles.photoCard}>
-              <Image source={{ uri: photos.sideUri }} style={styles.photo} />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.6)']}
-                style={styles.photoGradientOverlay}
-              />
-              <Text style={styles.photoTag}>SIDE</Text>
-            </View>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* Score Card with selective blur */}
-      <Animated.View
-        style={[
-          styles.cardWrapper,
-          {
-            opacity: anims[2].opacity,
-            transform: [
-              ...anims[2].transform,
-              { translateX: shakeAnim },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity activeOpacity={1} onPress={handleShake}>
-          <View style={styles.scoreCard}>
-            {/* Overall score — heavily blurred */}
-            <View style={styles.overallSection}>
-              <BlurredOverlay intensity={50} style={styles.scoreBlur}>
-                <View style={styles.overallRowInner}>
-                  <Text style={styles.overallScore}>6.7</Text>
-                  <Text style={styles.overallMax}>/10</Text>
+          <LinearGradient
+            colors={['#FBBF24', '#D97706', '#92400E', '#FBBF24']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.assessmentBorder}
+          >
+            <View style={styles.assessmentCard}>
+              <Text style={styles.assessmentLabel}>IMPROVEMENT POTENTIAL</Text>
+              <View style={styles.assessmentScoreRow}>
+                <Text style={styles.assessmentGrade}>Medium+</Text>
+                <View style={styles.assessmentBadge}>
+                  <LinearGradient
+                    colors={['#FBBF24', '#F59E0B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.assessmentBadgeGradient}
+                  >
+                    <Text style={styles.assessmentBadgeText}>ABOVE AVG</Text>
+                  </LinearGradient>
                 </View>
-              </BlurredOverlay>
-              <Text style={styles.overallLabel}>Overall Rating</Text>
-            </View>
-
-            {/* Overall stacked bar — blurred */}
-            <View style={styles.stackedBarContainer}>
-              {/* Glow behind the bar */}
-              <Animated.View style={[styles.overallBarGlow, { width: overallBarWidth }]} />
-              <BlurredOverlay intensity={20} style={styles.barBlur}>
-                <View style={styles.stackedBarTrack}>
-                  {/* Potential layer — follows current bar */}
-                  <Animated.View style={[styles.potentialBarFill, { width: potentialBarWidth }]}>
-                    <LinearGradient
-                      colors={[colorsV2.accentPurple + 'AA', colorsV2.accentPurple + '70']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.barGradientFill}
-                    />
-                  </Animated.View>
-                  {/* Current — oscillating */}
-                  <Animated.View style={[styles.currentBarFill, { width: overallBarWidth }]}>
-                    <LinearGradient
-                      colors={gradients.primary}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.barGradientFill}
-                    />
-                  </Animated.View>
-                </View>
-              </BlurredOverlay>
-              <View style={styles.potentialIndicator}>
-                <View style={styles.potentialDot} />
-                <Text style={styles.potentialText}>
-                  Potential: <Text style={styles.potentialValue}>+?.? points</Text>
-                </Text>
               </View>
-            </View>
+              <Text style={styles.assessmentSub}>There's real room to work with here</Text>
 
-            <View style={styles.divider} />
-
-            {/* Category breakdown — labels visible, bars+scores blurred */}
-            {PREVIEW_CATEGORIES.map((cat, i) => {
-              const basePct = cat.baseScore * 100;
-              const swing = 12; // ±12% oscillation
-              const barWidth = barOscillations[i].interpolate({
-                inputRange: [-1, 0, 1],
-                outputRange: [
-                  `${basePct - swing}%`,
-                  `${basePct}%`,
-                  `${basePct + swing}%`,
-                ],
-              });
-              const color = getBarColor(cat.baseScore);
-
-              return (
-                <View key={cat.label} style={styles.ratingRow}>
-                  <Text style={styles.ratingLabel}>{cat.label}</Text>
-                  <View style={styles.barAndScoreArea}>
-                    <BlurredOverlay intensity={18} style={styles.rowBlur}>
-                      <View style={styles.barScoreInner}>
-                        <View style={styles.barWrapper}>
-                          <Animated.View style={[styles.barGlow, { width: barWidth, backgroundColor: color, shadowColor: color }]} />
-                          <View style={styles.barTrack}>
-                            <Animated.View style={[styles.barFill, { width: barWidth, backgroundColor: color }]} />
-                          </View>
-                        </View>
-                        <Text style={[styles.ratingScore, { color }]}>?.?</Text>
-                      </View>
-                    </BlurredOverlay>
-                  </View>
+              {/* Per-concern breakdown */}
+              {concernRows.length > 0 && (
+                <View style={styles.concernsContainer}>
+                  {concernRows.map((row) => (
+                    <View key={row.label} style={styles.concernRow}>
+                      <Text style={styles.concernLabel}>{row.label}</Text>
+                      <Text style={[styles.concernLevel, { color: row.color }]}>{row.level}</Text>
+                    </View>
+                  ))}
                 </View>
-              );
-            })}
-          </View>
-
-          {/* Lock overlay */}
-          <View style={styles.lockOverlay}>
-            <View style={styles.lockIconCircle}>
-              <Text style={styles.lockIcon}>🔒</Text>
+              )}
             </View>
-            <Text style={styles.lockText}>Unlock your results</Text>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+          </LinearGradient>
+        </Animated.View>
 
-      {/* CTA Buttons */}
+        {/* Score Card with selective blur */}
+        <Animated.View
+          style={[
+            styles.cardWrapper,
+            {
+              opacity: anims[2].opacity,
+              transform: [
+                ...anims[2].transform,
+                { translateX: shakeAnim },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={handleShake}>
+            <View style={styles.scoreCard}>
+              {/* Overall score — heavily blurred */}
+              <View style={styles.overallSection}>
+                <BlurredOverlay intensity={50} style={styles.scoreBlur}>
+                  <View style={styles.overallRowInner}>
+                    <Text style={styles.overallScore}>6.7</Text>
+                    <Text style={styles.overallMax}>/10</Text>
+                  </View>
+                </BlurredOverlay>
+                <Text style={styles.overallLabel}>Overall Rating</Text>
+              </View>
+
+              {/* Overall stacked bar — blurred */}
+              <View style={styles.stackedBarContainer}>
+                <Animated.View style={[styles.overallBarGlow, { width: overallBarWidth }]} />
+                <BlurredOverlay intensity={20} style={styles.barBlur}>
+                  <View style={styles.stackedBarTrack}>
+                    <Animated.View style={[styles.potentialBarFill, { width: potentialBarWidth }]}>
+                      <LinearGradient
+                        colors={[colorsV2.accentPurple + 'AA', colorsV2.accentPurple + '70']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.barGradientFill}
+                      />
+                    </Animated.View>
+                    <Animated.View style={[styles.currentBarFill, { width: overallBarWidth }]}>
+                      <LinearGradient
+                        colors={gradients.primary}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.barGradientFill}
+                      />
+                    </Animated.View>
+                  </View>
+                </BlurredOverlay>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* Category breakdown — labels visible, bars+scores blurred */}
+              {PREVIEW_CATEGORIES.map((cat, i) => {
+                const basePct = cat.baseScore * 100;
+                const swing = 12;
+                const barWidth = barOscillations[i].interpolate({
+                  inputRange: [-1, 0, 1],
+                  outputRange: [
+                    `${basePct - swing}%`,
+                    `${basePct}%`,
+                    `${basePct + swing}%`,
+                  ],
+                });
+                const color = getBarColor(cat.baseScore);
+
+                return (
+                  <View key={cat.label} style={styles.ratingRow}>
+                    <Text style={styles.ratingLabel}>{cat.label}</Text>
+                    <View style={styles.barAndScoreArea}>
+                      <BlurredOverlay intensity={18} style={styles.rowBlur}>
+                        <View style={styles.barScoreInner}>
+                          <View style={styles.barWrapper}>
+                            <Animated.View style={[styles.barGlow, { width: barWidth, backgroundColor: color, shadowColor: color }]} />
+                            <View style={styles.barTrack}>
+                              <Animated.View style={[styles.barFill, { width: barWidth, backgroundColor: color }]} />
+                            </View>
+                          </View>
+                          <Text style={[styles.ratingScore, { color }]}>?.?</Text>
+                        </View>
+                      </BlurredOverlay>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </ScrollView>
+
+      {/* Sticky CTA footer */}
       <Animated.View
         style={[
-          styles.ctaContainer,
+          styles.stickyFooter,
+          { paddingBottom: insets.bottom + spacingV2.sm },
           { opacity: anims[3].opacity, transform: anims[3].transform },
         ]}
+        pointerEvents="box-none"
       >
-        <GradientButton title="Get Protocol Pro" onPress={handleGetPro} />
-        <View style={styles.buttonSpacer} />
-        <GradientButton
-          title={inviteButtonLabel}
-          onPress={handleInviteFriends}
-          variant="outline"
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.85)', '#000000']}
+          locations={[0, 0.4, 1]}
+          style={styles.footerGradient}
+          pointerEvents="none"
         />
+        {showPurchaseButtons ? (
+          <View style={styles.footerContent} pointerEvents="box-none">
+            {/* Weekly */}
+            <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('weekly')} disabled={finishing}>
+              <View style={styles.pricingCard}>
+                <View style={styles.pricingRow}>
+                  <Text style={styles.pricingTier}>WEEKLY ACCESS</Text>
+                  <View style={styles.pricingPriceCol}>
+                    <Text style={styles.pricingAmount}>{weeklyPrice}</Text>
+                    <Text style={styles.pricingPeriod}>per week</Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Annual */}
+            <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('annual')} disabled={finishing} style={{ marginTop: spacingV2.sm }}>
+              <View style={[styles.pricingCard, styles.pricingCardAnnual]}>
+                <View style={styles.saveBadge}>
+                  <Text style={styles.saveBadgeText}>SAVE {savePct}%</Text>
+                </View>
+                <View style={styles.pricingRow}>
+                  <View>
+                    <Text style={styles.pricingTierHighlight}>YEARLY ACCESS</Text>
+                    <Text style={styles.pricingSubDetail}>Just {annualPrice} per year</Text>
+                  </View>
+                  <View style={styles.pricingPriceCol}>
+                    <Text style={styles.pricingAmountHighlight}>
+                      {annualPackage?.product?.price && annualPackage?.product?.currencyCode
+                        ? formatPrice(annualPackage.product.price / 52, annualPackage.product.currencyCode)
+                        : '$0.58'}
+                    </Text>
+                    <Text style={styles.pricingPeriod}>per week</Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            <Text style={styles.cancelText}>cancel anytime</Text>
+
+            <View style={styles.footerLinks}>
+              <TouchableOpacity onPress={handleRestore} disabled={restoring}>
+                <Text style={styles.footerLink}>{restoring ? 'Restoring...' : 'Restore Purchases'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerDot}> | </Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://protocol.app/terms')}>
+                <Text style={styles.footerLink}>Terms</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerDot}> | </Text>
+              <TouchableOpacity onPress={() => Linking.openURL('https://protocol.app/privacy')}>
+                <Text style={styles.footerLink}>Privacy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.footerContent} pointerEvents="box-none">
+            <GradientButton title="See Your Full Results" onPress={handleGetPro} />
+            <TouchableOpacity onPress={handleInviteFriends} style={styles.inviteLink}>
+              <Text style={styles.inviteLinkText}>
+                or <Text style={styles.inviteLinkHighlight}>invite {inviteCount} friend{inviteCount !== 1 ? 's' : ''}</Text> to unlock free
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Animated.View>
 
       <RoomModal
@@ -367,31 +644,28 @@ export default function ResultsPaywallScreen({ navigation }: any) {
         onClose={() => setRoomModalVisible(false)}
         onNavigateToReferralPaywall={handleNavigateToReferralPaywall}
       />
-    </V2ScreenWrapper>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Header
-  headlineContainer: {
-    marginTop: spacingV2.xl,
-    marginBottom: spacingV2.md,
+  // Screen layout
+  screen: {
+    flex: 1,
+    backgroundColor: colorsV2.background,
   },
-  headline: {
-    ...typographyV2.hero,
-    textAlign: 'center',
-    marginBottom: spacingV2.sm,
+  scrollView: {
+    flex: 1,
   },
-  subtitle: {
-    ...typographyV2.body,
-    color: colorsV2.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacingV2.md,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacingV2.lg,
   },
 
-  // Photos
+  // Photos — compact, top of screen
   photosSection: {
-    marginBottom: spacingV2.lg,
+    marginTop: spacingV2.sm,
+    marginBottom: spacingV2.md,
   },
   photosRow: {
     flexDirection: 'row' as const,
@@ -399,8 +673,8 @@ const styles = StyleSheet.create({
   },
   photoCard: {
     flex: 1,
-    height: PHOTO_HEIGHT * 0.7,
-    borderRadius: borderRadiusV2.xl,
+    height: PHOTO_SIZE * 0.75,
+    borderRadius: borderRadiusV2.lg,
     overflow: 'hidden' as const,
     backgroundColor: colorsV2.surface,
   },
@@ -414,21 +688,102 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 48,
+    height: 40,
   },
   photoTag: {
     position: 'absolute' as const,
-    bottom: 10,
-    left: 12,
+    bottom: 8,
+    left: 10,
     ...typographyV2.label,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.7)',
     letterSpacing: 1.5,
   },
 
+  // Improvement Assessment card — gradient border trick
+  assessmentOuter: {
+    marginBottom: spacingV2.md,
+    borderRadius: borderRadiusV2.xl,
+    shadowColor: '#FBBF24',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  assessmentBorder: {
+    borderRadius: borderRadiusV2.xl,
+    padding: 1.5, // the visible "stroke" width
+  },
+  assessmentCard: {
+    backgroundColor: colorsV2.surface,
+    borderRadius: borderRadiusV2.xl - 1,
+    padding: spacingV2.lg,
+  },
+  assessmentLabel: {
+    ...typographyV2.label,
+    color: colorsV2.textMuted,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: spacingV2.sm,
+  },
+  assessmentScoreRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: spacingV2.xs,
+  },
+  assessmentGrade: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+    color: '#FBBF24',
+    marginRight: spacingV2.sm,
+  },
+  assessmentBadge: {
+    borderRadius: borderRadiusV2.sm,
+    overflow: 'hidden' as const,
+  },
+  assessmentBadgeGradient: {
+    paddingHorizontal: spacingV2.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadiusV2.sm,
+  },
+  assessmentBadgeText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: '#000000',
+    letterSpacing: 1,
+  },
+  assessmentSub: {
+    ...typographyV2.bodySmall,
+    color: colorsV2.textMuted,
+    marginBottom: spacingV2.md,
+  },
+
+  // Concern rows
+  concernsContainer: {
+    backgroundColor: colorsV2.surfaceLight,
+    borderRadius: borderRadiusV2.md,
+    paddingVertical: spacingV2.sm,
+    paddingHorizontal: spacingV2.md,
+  },
+  concernRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingVertical: 6,
+  },
+  concernLabel: {
+    ...typographyV2.bodySmall,
+    color: colorsV2.textSecondary,
+    fontSize: 13,
+  },
+  concernLevel: {
+    ...typographyV2.bodySmall,
+    fontWeight: '700' as const,
+    fontSize: 13,
+  },
   // Score card
   cardWrapper: {
-    marginBottom: spacingV2.lg,
+    marginBottom: spacingV2.md,
     position: 'relative' as const,
   },
   scoreCard: {
@@ -436,45 +791,44 @@ const styles = StyleSheet.create({
     borderRadius: borderRadiusV2.xl,
     borderWidth: 1,
     borderColor: colorsV2.border,
-    padding: spacingV2.lg,
+    padding: spacingV2.md,
   },
 
   // Overall score
   overallSection: {
     alignItems: 'center' as const,
-    marginBottom: spacingV2.md,
+    marginBottom: spacingV2.sm,
   },
   scoreBlur: {
     borderRadius: borderRadiusV2.lg,
-    marginBottom: spacingV2.xs,
+    marginBottom: 2,
     paddingHorizontal: spacingV2.xl,
-    paddingVertical: spacingV2.sm,
+    paddingVertical: spacingV2.xs,
   },
   overallRowInner: {
     flexDirection: 'row' as const,
     alignItems: 'baseline' as const,
   },
   overallScore: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '800' as const,
     color: colorsV2.accentOrange,
     fontVariant: ['tabular-nums' as const],
   },
   overallMax: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '600' as const,
     color: colorsV2.textMuted,
     marginLeft: spacingV2.xs,
   },
   overallLabel: {
-    ...typographyV2.bodySmall,
+    ...typographyV2.caption,
     color: colorsV2.textMuted,
-    marginTop: spacingV2.xs,
   },
 
   // Stacked bar
   stackedBarContainer: {
-    marginBottom: spacingV2.lg,
+    marginBottom: spacingV2.md,
     position: 'relative' as const,
   },
   overallBarGlow: {
@@ -522,44 +876,25 @@ const styles = StyleSheet.create({
   barGradientFill: {
     flex: 1,
   },
-  potentialIndicator: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    marginTop: spacingV2.sm,
-  },
-  potentialDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorsV2.accentPurple + '90',
-    marginRight: spacingV2.xs,
-  },
-  potentialText: {
-    ...typographyV2.caption,
-    color: colorsV2.textMuted,
-  },
-  potentialValue: {
-    color: colorsV2.accentPurple,
-    fontWeight: '700' as const,
-  },
 
   divider: {
     height: 1,
     backgroundColor: colorsV2.border,
-    marginBottom: spacingV2.lg,
+    marginBottom: spacingV2.md,
   },
 
   // Category rows
   ratingRow: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   ratingLabel: {
     ...typographyV2.bodySmall,
     color: colorsV2.textSecondary,
     fontWeight: '600' as const,
-    width: 90,
+    width: 85,
+    fontSize: 13,
   },
   barAndScoreArea: {
     flex: 1,
@@ -607,37 +942,128 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums' as const],
   },
 
-  // Lock overlay
-  lockOverlay: {
+  // Sticky footer
+  stickyFooter: {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  footerGradient: {
     ...StyleSheet.absoluteFillObject,
+  },
+  footerContent: {
+    paddingHorizontal: spacingV2.lg,
+    paddingTop: spacingV2.xl,
+  },
+  inviteLink: {
     alignItems: 'center' as const,
-    justifyContent: 'center' as const,
+    paddingVertical: spacingV2.sm,
+    paddingBottom: spacingV2.xs,
   },
-  lockIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colorsV2.surface,
-    borderWidth: 1,
-    borderColor: colorsV2.border,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    marginBottom: spacingV2.sm,
-  },
-  lockIcon: {
-    fontSize: 24,
-  },
-  lockText: {
+  inviteLinkText: {
     ...typographyV2.bodySmall,
-    color: colorsV2.textPrimary,
+    color: colorsV2.textMuted,
+  },
+  inviteLinkHighlight: {
+    color: colorsV2.accentPurple,
     fontWeight: '600' as const,
   },
 
-  // CTA
-  ctaContainer: {
+  // Purchase button styles (AB test variant)
+  pricingCard: {
+    backgroundColor: colorsV2.surface,
+    borderRadius: borderRadiusV2.lg,
+    borderWidth: 1.5,
+    borderColor: colorsV2.border,
+    paddingVertical: spacingV2.md,
+    paddingHorizontal: spacingV2.lg,
+  },
+  pricingCardAnnual: {
+    borderColor: colorsV2.accentPurple,
+    shadowColor: colorsV2.accentPurple,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  pricingRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+  },
+  pricingTier: {
+    ...typographyV2.bodySmall,
+    fontWeight: '600' as const,
+    color: colorsV2.textSecondary,
+    letterSpacing: 0.5,
+  },
+  pricingTierHighlight: {
+    ...typographyV2.bodySmall,
+    fontWeight: '700' as const,
+    color: '#D8B4FE',
+    letterSpacing: 0.5,
+    textShadowColor: '#A855F7',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+  },
+  pricingSubDetail: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+    marginTop: 2,
+  },
+  pricingPriceCol: {
+    alignItems: 'flex-end' as const,
+  },
+  pricingAmount: {
+    ...typographyV2.subheading,
+    color: colorsV2.textPrimary,
+    fontWeight: '700' as const,
+  },
+  pricingAmountHighlight: {
+    ...typographyV2.heading,
+    color: colorsV2.textPrimary,
+    fontWeight: '800' as const,
+  },
+  pricingPeriod: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+  },
+  saveBadge: {
+    position: 'absolute' as const,
+    top: -1,
+    right: -1,
+    backgroundColor: colorsV2.accentOrange,
+    paddingHorizontal: spacingV2.sm,
+    paddingVertical: 3,
+    borderBottomLeftRadius: borderRadiusV2.sm,
+    borderTopRightRadius: borderRadiusV2.lg - 1,
+  },
+  saveBadgeText: {
+    ...typographyV2.caption,
+    color: '#FFFFFF',
+    fontWeight: '700' as const,
+    fontSize: 10,
+  },
+  cancelText: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+    textAlign: 'center' as const,
     marginTop: spacingV2.sm,
   },
-  buttonSpacer: {
-    height: spacingV2.sm,
+  footerLinks: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginTop: spacingV2.sm,
+  },
+  footerLink: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+  },
+  footerDot: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+    paddingHorizontal: spacingV2.xs,
   },
 });

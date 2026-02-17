@@ -48,6 +48,7 @@
         }
       ],
       "expo-localization",
+      "expo-quick-actions",
       [
         "expo-build-properties",
         {

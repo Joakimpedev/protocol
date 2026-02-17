@@ -10,6 +10,8 @@ import { Image } from 'react-native';
 const ONBOARDING_ASSETS = [
   // HeroScreen — video
   require('../../assets/images/smiles video.mp4'),
+  // AspirationScreen
+  require('../../assets/images/collage.png'),
   // FaceScanScreen
   require('../../assets/images/hero.png'),
   require('../../assets/images/side.png'),

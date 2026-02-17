@@ -817,6 +817,26 @@ export default function SettingsScreen({ navigation }: any) {
             <Text style={styles.devButtonText}>Reset to Beginning of Onboarding</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            style={styles.devButton}
+            onPress={async () => {
+              try {
+                resetOnboardingContext();
+                await resetOnboarding();
+                // Small delay to let onboarding mount, then navigate
+                setTimeout(() => {
+                  const rootNav = navigation.getParent()?.getParent();
+                  if (rootNav) {
+                    rootNav.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
+                  }
+                }, 300);
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to open offer');
+              }
+            }}
+          >
+            <Text style={styles.devButtonText}>Open Abandoned Cart Offer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.devButton, styles.disableDevModeButton]}
             onPress={handleDisableDevMode}
           >
