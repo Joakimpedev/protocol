@@ -4,7 +4,22 @@
       "Bash(node:*)",
       "Bash(npm start)",
       "Bash(npm install:*)",
-      "Bash(npx expo install:*)"
+      "Bash(npx expo install:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git rm:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx eas:*)",
+      "WebSearch",
+      "WebFetch(domain:www.revenuecat.com)",
+      "WebFetch(domain:9to5mac.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(grep:*)"
     ]
   }
 }

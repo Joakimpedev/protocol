@@ -1153,11 +1153,15 @@ export async function scheduleAbandonedCartNotification(): Promise<void> {
 }
 
 /**
- * Cancel all abandoned cart notifications and reset the guard.
+ * Cancel all abandoned cart notifications.
  * Called when user purchases or joins a room.
+ * Keeps the guard flag set so still-mounted paywall screens cannot re-schedule.
  */
 export async function cancelAbandonedCartNotification(): Promise<void> {
   try {
+    // Ensure the guard is set so no screen can re-schedule after a purchase
+    await AsyncStorage.setItem(ABANDONED_CART_KEY, 'true');
+
     // Cancel all notifications in the sequence
     for (let i = 0; i <= ABANDONED_CART_FOLLOWUP_DAYS; i++) {
       try {
@@ -1166,8 +1170,7 @@ export async function cancelAbandonedCartNotification(): Promise<void> {
         // Ignore if this one doesn't exist
       }
     }
-    await AsyncStorage.removeItem(ABANDONED_CART_KEY);
-    console.log('[AbandonedCart] All notifications cancelled and guard reset');
+    console.log('[AbandonedCart] All notifications cancelled');
   } catch (error) {
     // Ignore errors
   }

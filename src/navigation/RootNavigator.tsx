@@ -107,6 +107,35 @@ export default function RootNavigator() {
     return () => unsubscribe();
   }, [user]);
 
+  // Shared handler for notification tap navigation
+  const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
+    const data = response.notification.request.content.data;
+
+    if (data?.type === 'abandoned-cart' && navigationRef.current) {
+      navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
+      return;
+    }
+
+    if (data?.type === 'weekly-summary' && navigationRef.current) {
+      if (data?.summaryScreen) {
+        navigationRef.current.navigate('App', {
+          screen: 'Progress',
+          params: {
+            screen: data.summaryScreen,
+          },
+        });
+      } else {
+        navigationRef.current.navigate('App', {
+          screen: data?.screen || 'Progress',
+        });
+      }
+    } else if (data?.screen && navigationRef.current) {
+      navigationRef.current.navigate('App', {
+        screen: data.screen,
+      });
+    }
+  };
+
   // Handle notification navigation
   useEffect(() => {
     // Set up notification listeners
@@ -119,37 +148,22 @@ export default function RootNavigator() {
       });
       notificationListener.current = notificationSub;
 
-      responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content.data;
-
-        if (data?.type === 'abandoned-cart' && navigationRef.current) {
-          navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
-          return;
-        }
-
-        if (data?.type === 'weekly-summary' && navigationRef.current) {
-          // Navigate to weekly summary screen
-          if (data?.summaryScreen) {
-            navigationRef.current.navigate('App', {
-              screen: 'Progress',
-              params: {
-                screen: data.summaryScreen,
-              },
-            });
-          } else {
-            // Fallback to Progress tab
-            navigationRef.current.navigate('App', {
-              screen: data?.screen || 'Progress',
-            });
-          }
-        } else if (data?.screen && navigationRef.current) {
-          // Navigate to the screen specified in notification data
-          navigationRef.current.navigate('App', {
-            screen: data.screen,
-          });
-        }
-      });
+      responseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
       responseListener.current = responseSub;
+
+      // Handle cold-start: check if app was launched by tapping a notification.
+      // navigationRef may not be ready yet, so retry briefly.
+      Notifications.getLastNotificationResponseAsync().then((response) => {
+        if (!response) return;
+        const tryNavigate = (attemptsLeft: number) => {
+          if (navigationRef.current) {
+            handleNotificationResponse(response);
+          } else if (attemptsLeft > 0) {
+            setTimeout(() => tryNavigate(attemptsLeft - 1), 200);
+          }
+        };
+        tryNavigate(15); // retry up to 3 seconds
+      });
     } catch (error) {
       console.warn('Error setting up notification listeners:', error);
     }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Protocol",
     "slug": "protocol",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",

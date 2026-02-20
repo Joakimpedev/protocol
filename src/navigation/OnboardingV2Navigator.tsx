@@ -218,14 +218,18 @@ export default function OnboardingV2Navigator() {
     const determineInitialRoute = async () => {
       const savedProgress = await loadV2Progress();
 
-      if (forceShowOnboarding || !user) {
-        if (savedProgress) {
-          console.log('[OnboardingV2Navigator] Resuming from saved progress:', savedProgress.currentScreen);
-          updateData(savedProgress.data);
-          setInitialRoute(savedProgress.currentScreen);
-        } else {
-          setInitialRoute('V2Hero');
-        }
+      // Always honour saved progress first (survives app kill)
+      if (savedProgress) {
+        console.log('[OnboardingV2Navigator] Resuming from saved progress:', savedProgress.currentScreen);
+        updateData(savedProgress.data);
+        setInitialRoute(savedProgress.currentScreen);
+        setLoading(false);
+        return;
+      }
+
+      // No saved progress — fall back to Firestore or start fresh
+      if (!user || forceShowOnboarding) {
+        setInitialRoute('V2Hero');
         setLoading(false);
         return;
       }
