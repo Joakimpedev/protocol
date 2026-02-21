@@ -29,10 +29,10 @@ import BeforeAfterScreen from '../screens/onboarding-v2/BeforeAfterScreen';
 import TransformationStoryScreen from '../screens/onboarding-v2/TransformationStoryScreen';
 import LifeImpactScreen from '../screens/onboarding-v2/LifeImpactScreen';
 import JourneyScreen from '../screens/onboarding-v2/JourneyScreen';
-import GrowthChartScreen from '../screens/onboarding-v2/GrowthChartScreen';
+// GrowthChartScreen removed from flow (drop-off)
 import ReviewAskScreen from '../screens/onboarding-v2/ReviewAskScreen';
 import NotificationsAskScreen from '../screens/onboarding-v2/NotificationsAskScreen';
-import FriendCodeScreen from '../screens/onboarding-v2/FriendCodeScreen';
+// FriendCodeScreen removed from flow (drop-off)
 import FakeAnalysisScreen from '../screens/onboarding-v2/FakeAnalysisScreen';
 import ResultsPaywallScreen from '../screens/onboarding-v2/ResultsPaywallScreen';
 import ProPaywallScreen from '../screens/onboarding-v2/ProPaywallScreen';
@@ -45,7 +45,6 @@ const Stack = createNativeStackNavigator();
 
 const SCREEN_ORDER_V2 = [
   'V2Hero',
-  'V2FriendCode',
   'V2Aspiration',
   'V2FaceScan',
   'V2PersonalizedRoutine',
@@ -59,16 +58,15 @@ const SCREEN_ORDER_V2 = [
   'V2BeforeAfter',
   'V2TransformationStory',
   'V2Journey',
-  'V2GrowthChart',
   'V2ReviewAsk',
   'V2Selfie',
   'V2FakeAnalysis',
   'V2ResultsPaywall',
 ];
 
-// Progress bar shown for screens index 1-14, not hero/selfie/review/notifications/paywall
+// Progress bar shown for screens index 1-12, not hero/selfie/review/notifications/paywall
 const PROGRESS_BAR_START = 1;
-const PROGRESS_BAR_END = 13;
+const PROGRESS_BAR_END = 11;
 const PROGRESS_BAR_TOTAL = PROGRESS_BAR_END - PROGRESS_BAR_START + 1;
 
 const ONBOARDING_V2_PROGRESS_KEY = '@onboarding_v2_progress';
@@ -112,6 +110,12 @@ async function loadV2Progress(): Promise<{ currentScreen: string; screenIndex: n
     }
     if (progress.currentScreen === 'V2GetRating') {
       progress.currentScreen = 'V2FaceScan';
+    }
+    if (progress.currentScreen === 'V2FriendCode') {
+      progress.currentScreen = 'V2Aspiration';
+    }
+    if (progress.currentScreen === 'V2GrowthChart') {
+      progress.currentScreen = 'V2ReviewAsk';
     }
     return progress;
   } catch (error) {
@@ -184,11 +188,9 @@ function OnboardingV2Content({ route }: { route: any }) {
         <Stack.Screen name="V2TransformationStory" component={TransformationStoryScreen} />
         <Stack.Screen name="V2LifeImpact" component={LifeImpactScreen} />
         <Stack.Screen name="V2Journey" component={JourneyScreen} />
-        <Stack.Screen name="V2GrowthChart" component={GrowthChartScreen} />
         <Stack.Screen name="V2Selfie" component={SelfieScreen} />
         <Stack.Screen name="V2ReviewAsk" component={ReviewAskScreen} />
         <Stack.Screen name="V2NotificationsAsk" component={NotificationsAskScreen} />
-        <Stack.Screen name="V2FriendCode" component={FriendCodeScreen} />
         <Stack.Screen name="V2FakeAnalysis" component={FakeAnalysisScreen} />
         <Stack.Screen name="V2ResultsPaywall" component={ResultsPaywallScreen} />
         <Stack.Screen name="V2ProPaywall" component={ProPaywallScreen} />

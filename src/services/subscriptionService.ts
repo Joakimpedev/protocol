@@ -183,6 +183,19 @@ export function getWeeklyPackageFromOffering(
 }
 
 /**
+ * Find the monthly package from an offering.
+ */
+export function getMonthlyPackageFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering?.availablePackages?.length) return null;
+  return offering.availablePackages.find(
+    (pkg) =>
+      pkg.packageType === 'MONTHLY' ||
+      pkg.identifier === '$rc_monthly' ||
+      pkg.identifier.toLowerCase().includes('monthly')
+  ) ?? null;
+}
+
+/**
  * Find the lifetime package from an offering
  */
 export function getLifetimePackageFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {

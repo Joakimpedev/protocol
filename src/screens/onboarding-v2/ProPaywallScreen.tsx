@@ -28,7 +28,7 @@ import { clearOnboardingProgress } from '../../utils/onboardingStorage';
 import { formatPrice } from '../../utils/priceUtils';
 import {
   getOfferings,
-  getWeeklyPackageFromOffering,
+  getMonthlyPackageFromOffering,
   getAnnualPackageFromOffering,
   purchasePackage,
   restorePurchases,
@@ -49,7 +49,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.78;
 const CARD_SPACING = spacingV2.md;
 
-type PlanType = 'weekly' | 'annual';
+type PlanType = 'monthly' | 'annual';
 
 // ─── Mini UI Preview Components ──────────────────────────────────────────────
 
@@ -595,7 +595,7 @@ export default function ProPaywallScreen({ navigation, route }: any) {
   const referralOnly = route?.params?.referralOnly === true;
   const [finishing, setFinishing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [weeklyPackage, setWeeklyPackage] = useState<PurchasesPackage | null>(null);
+  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
   const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
   const anims = useScreenEntrance(4);
 
@@ -605,15 +605,15 @@ export default function ProPaywallScreen({ navigation, route }: any) {
       try {
         const offering = await getOfferings();
         if (cancelled) return;
-        const weekly = getWeeklyPackageFromOffering(offering, false);
+        const monthly = getMonthlyPackageFromOffering(offering);
         const annual = getAnnualPackageFromOffering(offering);
-        setWeeklyPackage(weekly ?? null);
+        setMonthlyPackage(monthly ?? null);
         setAnnualPackage(annual ?? null);
         console.log('[ProPaywall] Loaded packages:', {
           referralOnly,
-          weeklyId: weekly?.identifier,
-          weeklyProductId: weekly?.product?.identifier,
-          weeklyPrice: weekly?.product?.priceString,
+          monthlyId: monthly?.identifier,
+          monthlyProductId: monthly?.product?.identifier,
+          monthlyPrice: monthly?.product?.priceString,
           annualId: annual?.identifier,
           annualProductId: annual?.product?.identifier,
           annualPrice: annual?.product?.priceString,
@@ -663,7 +663,7 @@ export default function ProPaywallScreen({ navigation, route }: any) {
         cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
         navigation.navigate('V2FaceRating'); setFinishing(false); return;
       }
-      const pkg = purchasePlan === 'weekly' ? weeklyPackage : annualPackage;
+      const pkg = purchasePlan === 'monthly' ? monthlyPackage : annualPackage;
       if (!pkg) { Alert.alert('Not Ready', 'Subscription options are still loading.'); setFinishing(false); return; }
       const result = await purchasePackage(pkg);
       if (result.success) {
@@ -673,14 +673,14 @@ export default function ProPaywallScreen({ navigation, route }: any) {
         else { await setDoc(userRef, routinePayload); }
         if (posthog) {
           const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
-          posthog.capture(purchasePlan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: purchasePlan });
+          posthog.capture(POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: purchasePlan });
         }
         // TikTok: identify user, track correct event per plan, send value
         try { await identifyTikTokUser(uid!); } catch {}
         try { await trackTikTokRegistration('apple', uid); } catch {}
         const price = pkg.product?.price;
         const currency = pkg.product?.currencyCode;
-        if (purchasePlan === 'weekly') {
+        if (purchasePlan === 'monthly') {
           try { await trackTikTokWeeklyPurchase(price, currency); } catch {}
         } else {
           try { await trackTikTokTrialStarted(price, currency); } catch {}
@@ -721,16 +721,16 @@ export default function ProPaywallScreen({ navigation, route }: any) {
     finally { setRestoring(false); }
   };
 
-  const weeklyPrice = weeklyPackage?.product?.priceString || '$3.99';
+  const monthlyPrice = monthlyPackage?.product?.priceString || '$9.99';
   const annualPrice = annualPackage?.product?.priceString || '$29.99';
 
   // Calculate actual savings percentage when both packages are loaded
-  const weeklyRaw = weeklyPackage?.product?.price;
+  const monthlyRaw = monthlyPackage?.product?.price;
   const annualRaw = annualPackage?.product?.price;
-  let savePct = 85; // fallback until both load
-  if (weeklyRaw && annualRaw && weeklyRaw > 0) {
-    const yearlyCostAtWeekly = weeklyRaw * 52;
-    savePct = Math.round(((yearlyCostAtWeekly - annualRaw) / yearlyCostAtWeekly) * 100);
+  let savePct = 75; // fallback until both load
+  if (monthlyRaw && annualRaw && monthlyRaw > 0) {
+    const yearlyCostAtMonthly = monthlyRaw * 12;
+    savePct = Math.round(((yearlyCostAtMonthly - annualRaw) / yearlyCostAtMonthly) * 100);
   }
 
   return (
@@ -776,15 +776,15 @@ export default function ProPaywallScreen({ navigation, route }: any) {
 
       {/* Pricing Section — tap to purchase directly */}
       <Animated.View style={[styles.pricingContainer, { opacity: anims[2].opacity, transform: anims[2].transform }]}>
-        {/* Weekly — hidden in referral-only mode */}
+        {/* Monthly — hidden in referral-only mode */}
         {!referralOnly && (
-          <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('weekly')} disabled={finishing}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('monthly')} disabled={finishing}>
             <View style={styles.pricingCard}>
               <View style={styles.pricingRow}>
-                <Text style={styles.pricingTier}>WEEKLY ACCESS</Text>
+                <Text style={styles.pricingTier}>MONTHLY ACCESS</Text>
                 <View style={styles.pricingPriceCol}>
-                  <Text style={styles.pricingAmount}>{weeklyPrice}</Text>
-                  <Text style={styles.pricingPeriod}>per week</Text>
+                  <Text style={styles.pricingAmount}>{monthlyPrice}</Text>
+                  <Text style={styles.pricingPeriod}>per month</Text>
                 </View>
               </View>
             </View>

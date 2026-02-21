@@ -37,7 +37,7 @@ import { clearOnboardingProgress } from '../../utils/onboardingStorage';
 import { formatPrice } from '../../utils/priceUtils';
 import {
   getOfferings,
-  getWeeklyPackageFromOffering,
+  getMonthlyPackageFromOffering,
   getAnnualPackageFromOffering,
   purchasePackage,
   restorePurchases,
@@ -76,7 +76,7 @@ const CONCERN_LEVELS: Record<string, { level: string; color: string }> = {
   'Confidence':       { level: 'Medium',  color: '#FBBF24' },
 };
 
-type PlanType = 'weekly' | 'annual';
+type PlanType = 'monthly' | 'annual';
 
 export default function ResultsPaywallScreen({ navigation }: any) {
   useOnboardingTracking('v2_results_paywall');
@@ -90,6 +90,10 @@ export default function ResultsPaywallScreen({ navigation }: any) {
   const paywallVariant = useABTest('results-paywall-purchase');
   const showPurchaseButtons = paywallVariant === 'test';
 
+  // AB test: 'yearly_only' = show only yearly, 'monthly_yearly' (default) = show monthly + yearly
+  const pricingVariant = useABTest('pricing-variant');
+  const showMonthlyOption = pricingVariant !== 'yearly_only';
+
   const [roomModalVisible, setRoomModalVisible] = useState(false);
   const [userRoom, setUserRoom] = useState<ReferralRoom | null>(null);
   const [photos, setPhotos] = useState<{ frontUri: string; sideUri: string } | null>(null);
@@ -97,7 +101,7 @@ export default function ResultsPaywallScreen({ navigation }: any) {
   // Purchase state (only used in 'test' variant)
   const [finishing, setFinishing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [weeklyPackage, setWeeklyPackage] = useState<PurchasesPackage | null>(null);
+  const [monthlyPackage, setMonthlyPackage] = useState<PurchasesPackage | null>(null);
   const [annualPackage, setAnnualPackage] = useState<PurchasesPackage | null>(null);
 
   const anims = useScreenEntrance(4);
@@ -233,9 +237,9 @@ export default function ResultsPaywallScreen({ navigation }: any) {
       try {
         const offering = await getOfferings();
         if (cancelled) return;
-        const weekly = getWeeklyPackageFromOffering(offering, false);
+        const monthly = getMonthlyPackageFromOffering(offering);
         const annual = getAnnualPackageFromOffering(offering);
-        setWeeklyPackage(weekly ?? null);
+        setMonthlyPackage(monthly ?? null);
         setAnnualPackage(annual ?? null);
       } catch (error) {
         console.warn('[ResultsPaywall] Failed to load offerings:', error);
@@ -271,7 +275,7 @@ export default function ResultsPaywallScreen({ navigation }: any) {
         cancelAbandonedCartNotification(); clearAbandonedCartQuickAction();
         navigation.navigate('V2FaceRating'); setFinishing(false); return;
       }
-      const pkg = plan === 'weekly' ? weeklyPackage : annualPackage;
+      const pkg = plan === 'monthly' ? monthlyPackage : annualPackage;
       if (!pkg) { Alert.alert('Not Ready', 'Subscription options are still loading.'); setFinishing(false); return; }
       const result = await purchasePackage(pkg);
       if (result.success) {
@@ -281,13 +285,13 @@ export default function ResultsPaywallScreen({ navigation }: any) {
         else { await setDoc(userRef, routinePayload); }
         if (posthog) {
           const baseProps = buildOnboardingProperties(data) as Record<string, string | number | boolean | null | string[]>;
-          posthog.capture(plan === 'weekly' ? POSTHOG_EVENTS.WEEKLY_PURCHASE : POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: plan, ab_variant: 'results_paywall_purchase' });
+          posthog.capture(POSTHOG_EVENTS.WEEKLY_PURCHASE, { ...baseProps, plan_type: plan, ab_variant: 'results_paywall_purchase', pricing_variant: pricingVariant });
         }
         try { await identifyTikTokUser(uid!); } catch {}
         try { await trackTikTokRegistration('apple', uid); } catch {}
         const price = pkg.product?.price;
         const currency = pkg.product?.currencyCode;
-        if (plan === 'weekly') {
+        if (plan === 'monthly') {
           try { await trackTikTokWeeklyPurchase(price, currency); } catch {}
         } else {
           try { await trackTikTokTrialStarted(price, currency); } catch {}
@@ -329,14 +333,14 @@ export default function ResultsPaywallScreen({ navigation }: any) {
   };
 
   // Pricing display values
-  const weeklyPrice = weeklyPackage?.product?.priceString || '$3.99';
+  const monthlyPrice = monthlyPackage?.product?.priceString || '$9.99';
   const annualPrice = annualPackage?.product?.priceString || '$29.99';
-  const weeklyRaw = weeklyPackage?.product?.price;
+  const monthlyRaw = monthlyPackage?.product?.price;
   const annualRaw = annualPackage?.product?.price;
-  let savePct = 85;
-  if (weeklyRaw && annualRaw && weeklyRaw > 0) {
-    const yearlyCostAtWeekly = weeklyRaw * 52;
-    savePct = Math.round(((yearlyCostAtWeekly - annualRaw) / yearlyCostAtWeekly) * 100);
+  let savePct = 75;
+  if (monthlyRaw && annualRaw && monthlyRaw > 0) {
+    const yearlyCostAtMonthly = monthlyRaw * 12;
+    savePct = Math.round(((yearlyCostAtMonthly - annualRaw) / yearlyCostAtMonthly) * 100);
   }
 
   const handleShake = () => {
@@ -575,25 +579,29 @@ export default function ResultsPaywallScreen({ navigation }: any) {
         />
         {showPurchaseButtons ? (
           <View style={styles.footerContent} pointerEvents="box-none">
-            {/* Weekly */}
-            <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('weekly')} disabled={finishing}>
-              <View style={styles.pricingCard}>
-                <View style={styles.pricingRow}>
-                  <Text style={styles.pricingTier}>WEEKLY ACCESS</Text>
-                  <View style={styles.pricingPriceCol}>
-                    <Text style={styles.pricingAmount}>{weeklyPrice}</Text>
-                    <Text style={styles.pricingPeriod}>per week</Text>
+            {/* Monthly — only shown in monthly_yearly variant */}
+            {showMonthlyOption && (
+              <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('monthly')} disabled={finishing}>
+                <View style={styles.pricingCard}>
+                  <View style={styles.pricingRow}>
+                    <Text style={styles.pricingTier}>MONTHLY ACCESS</Text>
+                    <View style={styles.pricingPriceCol}>
+                      <Text style={styles.pricingAmount}>{monthlyPrice}</Text>
+                      <Text style={styles.pricingPeriod}>per month</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
 
             {/* Annual */}
-            <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('annual')} disabled={finishing} style={{ marginTop: spacingV2.sm }}>
+            <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('annual')} disabled={finishing} style={showMonthlyOption ? { marginTop: spacingV2.sm } : undefined}>
               <View style={[styles.pricingCard, styles.pricingCardAnnual]}>
-                <View style={styles.saveBadge}>
-                  <Text style={styles.saveBadgeText}>SAVE {savePct}%</Text>
-                </View>
+                {showMonthlyOption && (
+                  <View style={styles.saveBadge}>
+                    <Text style={styles.saveBadgeText}>SAVE {savePct}%</Text>
+                  </View>
+                )}
                 <View style={styles.pricingRow}>
                   <View>
                     <Text style={styles.pricingTierHighlight}>YEARLY ACCESS</Text>

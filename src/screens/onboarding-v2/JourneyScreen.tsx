@@ -72,7 +72,7 @@ export default function JourneyScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2GrowthChart');
+    navigation.navigate('V2ReviewAsk');
   };
 
   const barWidth = (CHART_WIDTH - 20) / BAR_COUNT;
