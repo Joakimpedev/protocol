@@ -33,6 +33,13 @@ const ONBOARDING_ASSETS = [
   require('../../assets/images/small-icon.png'),
   // FriendCodeScreen
   require('../../assets/images/paywall1.png'),
+  // V2VillageIntroScreen + V2VillageChoiceScreen
+  require('../../assets/city/level_1/1.png'),
+  require('../../assets/city/level_2/1.png'),
+  require('../../assets/city/level_2/2.png'),
+  require('../../assets/city/level_3/1.png'),
+  require('../../assets/city/level_3/2.png'),
+  require('../../assets/city/level_3/3.png'),
 ];
 
 let preloadPromise: Promise<void> | null = null;

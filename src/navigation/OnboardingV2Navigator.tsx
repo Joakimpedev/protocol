@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import V2ProgressBar from '../components/v2/V2ProgressBar';
 import DevNavTools from '../components/v2/DevNavTools';
 import { preloadOnboardingAssets } from '../utils/onboardingAssetPreloader';
+import { usePremium } from '../contexts/PremiumContext';
 
 // Screen imports
 import HeroScreen from '../screens/onboarding-v2/HeroScreen';
@@ -38,8 +39,11 @@ import ResultsPaywallScreen from '../screens/onboarding-v2/ResultsPaywallScreen'
 import ProPaywallScreen from '../screens/onboarding-v2/ProPaywallScreen';
 import FaceRatingScreen from '../screens/FaceRatingScreen';
 import V2ProtocolOverviewScreen from '../screens/onboarding-v2/V2ProtocolOverviewScreen';
+import V2HabitsScreen from '../screens/onboarding-v2/V2HabitsScreen';
 import V2ShoppingScreen from '../screens/onboarding-v2/V2ShoppingScreen';
 import AbandonedCartOfferScreen from '../screens/onboarding-v2/AbandonedCartOfferScreen';
+import V2VillageIntroScreen from '../screens/onboarding-v2/V2VillageIntroScreen';
+import V2VillageChoiceScreen from '../screens/onboarding-v2/V2VillageChoiceScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +52,8 @@ const SCREEN_ORDER_V2 = [
   'V2Aspiration',
   'V2FaceScan',
   'V2PersonalizedRoutine',
+  'V2VillageIntro',
+  'V2VillageChoice',
   'V2NotificationsAsk',
   'V2Gender',
   'V2Concerns',
@@ -66,7 +72,7 @@ const SCREEN_ORDER_V2 = [
 
 // Progress bar shown for screens index 1-12, not hero/selfie/review/notifications/paywall
 const PROGRESS_BAR_START = 1;
-const PROGRESS_BAR_END = 11;
+const PROGRESS_BAR_END = 13;
 const PROGRESS_BAR_TOTAL = PROGRESS_BAR_END - PROGRESS_BAR_START + 1;
 
 const ONBOARDING_V2_PROGRESS_KEY = '@onboarding_v2_progress';
@@ -180,6 +186,8 @@ function OnboardingV2Content({ route }: { route: any }) {
         <Stack.Screen name="V2FaceScan" component={FaceScanScreen} />
         <Stack.Screen name="V2GetRating" component={GetRatingScreen} />
         <Stack.Screen name="V2PersonalizedRoutine" component={PersonalizedRoutineScreen} />
+        <Stack.Screen name="V2VillageIntro" component={V2VillageIntroScreen} />
+        <Stack.Screen name="V2VillageChoice" component={V2VillageChoiceScreen} />
         <Stack.Screen name="V2Concerns" component={ConcernsScreen} />
         <Stack.Screen name="V2SkinConcerns" component={SkinConcernsScreen} />
         <Stack.Screen name="V2SelfRating" component={SelfRatingScreen} />
@@ -196,6 +204,7 @@ function OnboardingV2Content({ route }: { route: any }) {
         <Stack.Screen name="V2ProPaywall" component={ProPaywallScreen} />
         <Stack.Screen name="V2FaceRating" component={FaceRatingScreen} />
         <Stack.Screen name="V2ProtocolOverview" component={V2ProtocolOverviewScreen} />
+        <Stack.Screen name="V2Habits" component={V2HabitsScreen} />
         <Stack.Screen name="V2Shopping" component={V2ShoppingScreen} />
         <Stack.Screen name="V2AbandonedCartOffer" component={AbandonedCartOfferScreen} />
       </Stack.Navigator>
@@ -210,6 +219,7 @@ export default function OnboardingV2Navigator() {
   const { user } = useAuth();
   const { forceShowOnboarding } = useDevMode();
   const { updateData } = useOnboarding();
+  const { isPremium } = usePremium();
   const [initialRoute, setInitialRoute] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -221,7 +231,16 @@ export default function OnboardingV2Navigator() {
       const savedProgress = await loadV2Progress();
 
       // Always honour saved progress first (survives app kill)
+      // But if user is premium and saved progress is on a paywall screen, skip past it
       if (savedProgress) {
+        const paywallScreens = ['V2ResultsPaywall', 'V2ProPaywall', 'V2AbandonedCartOffer'];
+        if (isPremium && paywallScreens.includes(savedProgress.currentScreen)) {
+          console.log('[OnboardingV2Navigator] User is premium, skipping saved paywall screen:', savedProgress.currentScreen);
+          updateData(savedProgress.data);
+          setInitialRoute('V2FaceRating');
+          setLoading(false);
+          return;
+        }
         console.log('[OnboardingV2Navigator] Resuming from saved progress:', savedProgress.currentScreen);
         updateData(savedProgress.data);
         setInitialRoute(savedProgress.currentScreen);
@@ -241,7 +260,13 @@ export default function OnboardingV2Navigator() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           if (userData.concerns && userData.concerns.length > 0 && !userData.routineStarted) {
-            setInitialRoute('V2ResultsPaywall');
+            // If user is already premium (trial or paid), skip the paywall entirely
+            if (isPremium) {
+              console.log('[OnboardingV2Navigator] User is premium, skipping paywall → V2FaceRating');
+              setInitialRoute('V2FaceRating');
+            } else {
+              setInitialRoute('V2ResultsPaywall');
+            }
           } else {
             setInitialRoute('V2Hero');
           }
@@ -257,7 +282,7 @@ export default function OnboardingV2Navigator() {
     };
 
     determineInitialRoute();
-  }, [user, forceShowOnboarding]);
+  }, [user, forceShowOnboarding, isPremium]);
 
   if (loading || !initialRoute) {
     return (

@@ -11,7 +11,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import FAQScreen from '../screens/FAQScreen';
 import TermsOfUseScreen from '../screens/TermsOfUseScreen';
-
+import HabitPickerScreen from '../screens/HabitPickerScreen';
 const Stack = createNativeStackNavigator();
 
 export default function TodayStackNavigator() {
@@ -132,6 +132,17 @@ export default function TodayStackNavigator() {
           headerTintColor: theme.colors.text,
           headerTitle: '',
           headerBackTitle: 'Settings',
+        }}
+      />
+      <Stack.Screen
+        name="HabitPicker"
+        component={HabitPickerScreen}
+        options={{
+          headerShown: true,
+          headerStyle,
+          headerTintColor: theme.colors.text,
+          headerTitle: 'Daily Habits',
+          headerBackTitle: 'Home',
         }}
       />
     </Stack.Navigator>

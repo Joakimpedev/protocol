@@ -38,7 +38,7 @@ import { formatPrice } from '../../utils/priceUtils';
 import {
   getOfferings,
   getMonthlyPackageFromOffering,
-  getAnnualPackageFromOffering,
+  getYearlyTrialPackageFromOffering,
   purchasePackage,
   restorePurchases,
   logInRevenueCat,
@@ -82,9 +82,17 @@ export default function ResultsPaywallScreen({ navigation }: any) {
   useOnboardingTracking('v2_results_paywall');
   const { data, setOnboardingComplete } = useOnboarding();
   const { user, signInAnonymous } = useAuth();
-  const { refreshSubscriptionStatus } = usePremium();
+  const { refreshSubscriptionStatus, isPremium } = usePremium();
   const { isDevModeEnabled, clearForceFlags } = useDevMode();
   const posthog = usePostHog();
+
+  // GUARD: If user is already premium (trial or paid), skip this paywall entirely
+  useEffect(() => {
+    if (isPremium) {
+      console.log('[ResultsPaywall] User is already premium, skipping paywall');
+      navigation.replace('V2FaceRating');
+    }
+  }, [isPremium]);
 
   // AB test: 'test' = show purchase buttons here, skip ProPaywall
   const paywallVariant = useABTest('results-paywall-purchase');
@@ -212,22 +220,24 @@ export default function ResultsPaywallScreen({ navigation }: any) {
     return () => { cancelled = true; };
   }, []);
 
-  // Set abandoned cart quick action on app icon long-press
+  // Set abandoned cart quick action on app icon long-press (only for non-premium users)
   useEffect(() => {
-    setAbandonedCartQuickAction();
-  }, []);
+    if (!isPremium) {
+      setAbandonedCartQuickAction();
+    }
+  }, [isPremium]);
 
   // Schedule abandoned cart notification when user backgrounds the app
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        if (!userRoom) {
+        if (!userRoom && !isPremium) {
           scheduleAbandonedCartNotification();
         }
       }
     });
     return () => subscription.remove();
-  }, [userRoom]);
+  }, [userRoom, isPremium]);
 
   // Load RevenueCat offerings when in purchase variant
   useEffect(() => {
@@ -238,9 +248,9 @@ export default function ResultsPaywallScreen({ navigation }: any) {
         const offering = await getOfferings();
         if (cancelled) return;
         const monthly = getMonthlyPackageFromOffering(offering);
-        const annual = getAnnualPackageFromOffering(offering);
+        const yearlyTrial = getYearlyTrialPackageFromOffering(offering);
         setMonthlyPackage(monthly ?? null);
-        setAnnualPackage(annual ?? null);
+        setAnnualPackage(yearlyTrial ?? null);
       } catch (error) {
         console.warn('[ResultsPaywall] Failed to load offerings:', error);
       }
@@ -461,7 +471,7 @@ export default function ResultsPaywallScreen({ navigation }: any) {
                 <View style={styles.concernsContainer}>
                   {concernRows.map((row) => (
                     <View key={row.label} style={styles.concernRow}>
-                      <Text style={styles.concernLabel}>{row.label}</Text>
+                      <Text style={styles.concernLabel}>{row.label} Potential</Text>
                       <Text style={[styles.concernLevel, { color: row.color }]}>{row.level}</Text>
                     </View>
                   ))}
@@ -594,24 +604,29 @@ export default function ResultsPaywallScreen({ navigation }: any) {
               </TouchableOpacity>
             )}
 
-            {/* Annual */}
+            {/* Annual with trial */}
             <TouchableOpacity activeOpacity={0.8} onPress={() => handlePurchase('annual')} disabled={finishing} style={showMonthlyOption ? { marginTop: spacingV2.sm } : undefined}>
               <View style={[styles.pricingCard, styles.pricingCardAnnual]}>
-                {showMonthlyOption && (
-                  <View style={styles.saveBadge}>
-                    <Text style={styles.saveBadgeText}>SAVE {savePct}%</Text>
-                  </View>
-                )}
+                <View style={styles.trialBadge}>
+                  <LinearGradient
+                    colors={['#C084FC', '#7C3AED']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.trialBadgeGradient}
+                  >
+                    <Text style={styles.trialBadgeText}>3 DAYS FREE</Text>
+                  </LinearGradient>
+                </View>
                 <View style={styles.pricingRow}>
                   <View>
                     <Text style={styles.pricingTierHighlight}>YEARLY ACCESS</Text>
-                    <Text style={styles.pricingSubDetail}>Just {annualPrice} per year</Text>
+                    <Text style={styles.pricingSubDetail}>Then {annualPrice} per year</Text>
                   </View>
                   <View style={styles.pricingPriceCol}>
                     <Text style={styles.pricingAmountHighlight}>
                       {annualPackage?.product?.price && annualPackage?.product?.currencyCode
                         ? formatPrice(annualPackage.product.price / 52, annualPackage.product.currencyCode)
-                        : '$0.58'}
+                        : '$0.75'}
                     </Text>
                     <Text style={styles.pricingPeriod}>per week</Text>
                   </View>
@@ -994,6 +1009,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 16,
     elevation: 8,
+    paddingTop: spacingV2.lg,
+    paddingBottom: spacingV2.lg,
   },
   pricingRow: {
     flexDirection: 'row' as const,
@@ -1036,6 +1053,31 @@ const styles = StyleSheet.create({
   pricingPeriod: {
     ...typographyV2.caption,
     color: colorsV2.textMuted,
+  },
+  trialBadge: {
+    position: 'absolute' as const,
+    top: -1,
+    right: -1,
+    borderBottomLeftRadius: borderRadiusV2.sm,
+    borderTopRightRadius: borderRadiusV2.lg - 1,
+    overflow: 'hidden' as const,
+    shadowColor: '#A855F7',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  trialBadgeGradient: {
+    paddingHorizontal: spacingV2.sm + 2,
+    paddingVertical: 4,
+    borderBottomLeftRadius: borderRadiusV2.sm,
+    borderTopRightRadius: borderRadiusV2.lg - 1,
+  },
+  trialBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '700' as const,
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   saveBadge: {
     position: 'absolute' as const,

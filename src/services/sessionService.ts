@@ -139,10 +139,14 @@ export async function markSessionCompleted(
       if (todayStepCompletion.allCompleted && !wasAlreadyCompleted) {
         const { incrementGlobalCompletion } = await import('./ghostCounterService');
         incrementGlobalCompletion().catch(console.error);
-        
+
         // Notify friends
         const { notifyFriendsOfCompletion } = await import('./notificationService');
         notifyFriendsOfCompletion(userId).catch(console.error);
+
+        // Award bonus XP for completing all daily tasks
+        const { awardXP, XP_AMOUNTS } = await import('./xpService');
+        awardXP(userId, XP_AMOUNTS.ALL_DAILY_COMPLETE, 'all_daily_complete').catch(console.error);
       }
 
       // Update both sessionCompletions and dailyCompletions
@@ -153,7 +157,22 @@ export async function markSessionCompleted(
       
       // Update stats after session completion (fire and forget)
       const { calculateAndUpdateStats } = await import('./completionService');
-      calculateAndUpdateStats(userId).catch((error) => 
+      calculateAndUpdateStats(userId).then(async () => {
+        // Check streak milestones after stats are updated
+        try {
+          const statsDoc = await getDoc(doc(db, 'users', userId));
+          if (statsDoc.exists()) {
+            const statsData = statsDoc.data();
+            const currentStreak = statsData.stats?.current_streak || 0;
+            if (currentStreak > 0) {
+              const { checkStreakMilestone } = await import('./xpService');
+              checkStreakMilestone(userId, currentStreak).catch(console.error);
+            }
+          }
+        } catch (e) {
+          console.error('Error checking streak milestone:', e);
+        }
+      }).catch((error) =>
         console.error('Error updating stats after session completion:', error)
       );
     } else {

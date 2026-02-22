@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView, Platform, KeyboardAvoidingView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colorsV2, typographyV2, spacingV2, borderRadiusV2, gradients, shadows } from '../../constants/themeV2';
 import GradientButton from '../../components/v2/GradientButton';
-import V2ScreenWrapper from '../../components/v2/V2ScreenWrapper';
 import { useScreenEntrance } from '../../hooks/useScreenEntrance';
 import { useOnboarding } from '../../contexts/OnboardingContext';
 import { CATEGORIES } from '../../constants/categories';
@@ -19,10 +19,9 @@ function getProblemDisplayName(problemId: string | null): string {
 }
 
 function getRoutineStats(selectedProblemIds: string[]): {
-  morningSteps: number;
-  eveningSteps: number;
-  exerciseCount: number;
   totalMinutes: number;
+  productCount: number;
+  exerciseCount: number;
 } {
   const problems: Array<{ problem_id: string; recommended_ingredients: string[]; recommended_exercises: string[] }> = guideBlocks.problems || [];
   const ingredients: Array<{
@@ -46,10 +45,7 @@ function getRoutineStats(selectedProblemIds: string[]): {
     }
   });
 
-  let morningSteps = 0;
-  let eveningSteps = 0;
-  let morningSeconds = 0;
-  let eveningSeconds = 0;
+  let totalSeconds = 0;
 
   ingredientIds.forEach((ingId) => {
     const ing = ingredients.find((i) => i.ingredient_id === ingId);
@@ -58,33 +54,25 @@ function getRoutineStats(selectedProblemIds: string[]): {
     const wait = ing?.session?.wait_after_seconds ?? 0;
     const stepTime = (typeof duration === 'number' ? duration : 30) + wait;
 
-    if (opts.includes('morning')) {
-      morningSteps += 1;
-      morningSeconds += stepTime;
-    }
-    if (opts.includes('evening')) {
-      eveningSteps += 1;
-      eveningSeconds += stepTime;
-    }
+    if (opts.includes('morning')) totalSeconds += stepTime;
+    if (opts.includes('evening')) totalSeconds += stepTime;
   });
 
-  let exerciseSeconds = 0;
   exerciseIds.forEach((exId) => {
     const ex = exercises.find((e) => e.exercise_id === exId);
     if (ex?.session?.duration_seconds) {
-      exerciseSeconds += ex.session.duration_seconds;
+      totalSeconds += ex.session.duration_seconds;
     } else if (ex?.default_duration) {
-      exerciseSeconds += ex.default_duration;
+      totalSeconds += ex.default_duration;
     }
   });
 
-  const totalMinutes = Math.max(1, Math.round((morningSeconds + eveningSeconds + exerciseSeconds) / 60));
+  const totalMinutes = selectedProblemIds.length === 0 ? 0 : Math.max(1, Math.round(totalSeconds / 60));
 
   return {
-    morningSteps: Math.max(1, morningSteps),
-    eveningSteps: Math.max(1, eveningSteps),
-    exerciseCount: exerciseIds.size,
     totalMinutes,
+    productCount: ingredientIds.size,
+    exerciseCount: exerciseIds.size,
   };
 }
 
@@ -159,9 +147,19 @@ function getPerProblemTimes(
   return timeMap;
 }
 
+function getIncrementalTime(
+  problemId: string,
+  enabledProblemIds: string[],
+  content: any
+): number {
+  const withTimes = getPerProblemTimes([...enabledProblemIds, problemId], content);
+  return withTimes[problemId] ?? 0;
+}
+
 export default function V2ProtocolOverviewScreen({ navigation }: any) {
   useOnboardingTracking('v2_protocol_overview');
   const { data, updateData, content } = useOnboarding();
+  const insets = useSafeAreaInsets();
   const anims = useScreenEntrance(5);
 
   const selectedProblems = data.selectedProblems?.length ? data.selectedProblems : data.selectedCategories ?? [];
@@ -170,9 +168,11 @@ export default function V2ProtocolOverviewScreen({ navigation }: any) {
   );
 
   const enabledProblemsArray = Array.from(enabledProblems);
-  const { morningSteps, eveningSteps, exerciseCount, totalMinutes } = getRoutineStats(enabledProblemsArray);
-  const allProblemTimes = getPerProblemTimes(selectedProblems, content);
-  const toggleableProblems = selectedProblems.filter((id: string) => (allProblemTimes[id] ?? 0) > 0);
+  const { totalMinutes, productCount, exerciseCount } = getRoutineStats(enabledProblemsArray);
+
+  // Problems the user did NOT select — candidates for "Add more routines"
+  const allProblemIds = CATEGORIES.map(c => c.id);
+  const unselectedProblems = allProblemIds.filter(id => !selectedProblems.includes(id));
 
   const toggleProblem = (problemId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -190,35 +190,30 @@ export default function V2ProtocolOverviewScreen({ navigation }: any) {
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const updated = Array.from(enabledProblems);
-    updateData({ selectedProblems: updated });
+    updateData({
+      selectedProblems: updated,
+    });
 
     setTimeout(() => {
-      navigation.navigate('V2Shopping');
+      navigation.navigate('V2Habits');
     }, 0);
   };
 
-  const routineItems = [
-    { label: 'Morning routine', value: `${morningSteps} steps`, icon: 'sunrise' },
-    { label: 'Evening routine', value: `${eveningSteps} steps`, icon: 'moon' },
-    ...(exerciseCount > 0 ? [{ label: 'Daily exercises', value: `${exerciseCount} exercises`, icon: 'activity' }] : []),
-  ];
+  const screen = (
+    <View style={styles.container}>
+      {/* ─── Sticky top: header + summary card ─── */}
+      <View style={[styles.stickyTop, { paddingTop: insets.top + spacingV2.lg }]}>
+        <Animated.View style={[styles.headerContainer, { opacity: anims[0].opacity, transform: anims[0].transform }]}>
+          <Text style={styles.label}>PERSONALIZED FOR YOU</Text>
+          <Text style={styles.headline}>Your Protocol</Text>
+        </Animated.View>
 
-  return (
-    <V2ScreenWrapper showProgress={false} scrollable>
-      {/* Header */}
-      <Animated.View style={[styles.headerContainer, { opacity: anims[0].opacity, transform: anims[0].transform }]}>
-        <Text style={styles.label}>PERSONALIZED FOR YOU</Text>
-        <Text style={styles.headline}>Your Protocol</Text>
-      </Animated.View>
-
-      {/* Protocol Card */}
-      <Animated.View style={[styles.protocolCard, { opacity: anims[1].opacity, transform: anims[1].transform }]}>
-        <LinearGradient
-          colors={[colorsV2.surface, colorsV2.surfaceLight]}
-          style={styles.cardGradient}
-        >
-          {/* Time badge */}
-          <View style={styles.timeBadgeRow}>
+        <Animated.View style={[styles.summaryCard, { opacity: anims[1].opacity, transform: anims[1].transform }]}>
+          <LinearGradient
+            colors={[colorsV2.surface, colorsV2.surfaceLight]}
+            style={styles.summaryGradient}
+          >
+            {/* Time badge */}
             <View style={styles.timeBadge}>
               <LinearGradient
                 colors={gradients.primary}
@@ -226,130 +221,193 @@ export default function V2ProtocolOverviewScreen({ navigation }: any) {
                 end={{ x: 1, y: 0 }}
                 style={styles.timeBadgeGradient}
               >
-                <Text style={styles.timeBadgeText}>{totalMinutes} min/day</Text>
+                <Text style={styles.timeBadgeText}>{totalMinutes} min / day</Text>
               </LinearGradient>
             </View>
-          </View>
 
-          {/* Routine breakdown */}
-          <View style={styles.routineList}>
-            {routineItems.map((item, i) => (
-              <View key={item.label} style={styles.routineRow}>
-                <Text style={styles.routineLabel}>{item.label}</Text>
-                <Text style={styles.routineValue}>{item.value}</Text>
+            {/* Products + exercises */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{productCount}</Text>
+                <Text style={styles.statLabel}>products</Text>
               </View>
-            ))}
-          </View>
-
-          {/* Based on */}
-          {enabledProblemsArray.length > 0 && (
-            <View style={styles.basedOnContainer}>
-              <Text style={styles.basedOnLabel}>Based on</Text>
-              <View style={styles.basedOnTags}>
-                {enabledProblemsArray.map((id) => (
-                  <View key={id} style={styles.tag}>
-                    <Text style={styles.tagText}>{getProblemDisplayName(id)}</Text>
-                  </View>
-                ))}
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{exerciseCount}</Text>
+                <Text style={styles.statLabel}>exercises</Text>
               </View>
             </View>
-          )}
-        </LinearGradient>
-      </Animated.View>
-
-      {/* Toggleable problems */}
-      {toggleableProblems.length > 0 && (
-        <Animated.View style={[styles.toggleSection, { opacity: anims[2].opacity, transform: anims[2].transform }]}>
-          <Text style={styles.toggleTitle}>Customize your routine</Text>
-          {toggleableProblems.map((problemId: string) => {
-            const isEnabled = enabledProblems.has(problemId);
-            const problemTime = allProblemTimes[problemId] ?? 0;
-
-            return (
-              <TouchableOpacity
-                key={problemId}
-                style={[styles.toggleCard, isEnabled && styles.toggleCardActive]}
-                onPress={() => toggleProblem(problemId)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.toggleLeft}>
-                  <View style={[styles.checkbox, isEnabled && styles.checkboxActive]}>
-                    {isEnabled && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                  <Text style={[styles.toggleLabel, !isEnabled && styles.toggleLabelDisabled]}>
-                    {getProblemDisplayName(problemId)} routine
-                  </Text>
-                </View>
-                <Text style={[styles.toggleTime, !isEnabled && styles.toggleTimeDisabled]}>
-                  +{problemTime} min
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          </LinearGradient>
         </Animated.View>
-      )}
+      </View>
 
-      {/* Info note */}
-      <Animated.View style={[styles.noteContainer, { opacity: anims[3].opacity, transform: anims[3].transform }]}>
-        <Text style={styles.noteText}>
-          Next, we'll help you find the right products for your routine.
-        </Text>
-      </Animated.View>
+      {/* ─── Scrollable: routine toggles + button ─── */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacingV2.lg }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Toggleable problems (selected concerns) */}
+        {selectedProblems.length > 0 && (
+          <Animated.View style={[styles.toggleSection, { opacity: anims[2].opacity, transform: anims[2].transform }]}>
+            <Text style={styles.toggleTitle}>Customize your routine</Text>
+            {selectedProblems.map((problemId: string) => {
+              const isEnabled = enabledProblems.has(problemId);
+              const baseProblems = isEnabled
+                ? enabledProblemsArray.filter(id => id !== problemId)
+                : enabledProblemsArray;
+              const incrementalTime = getIncrementalTime(problemId, baseProblems, content);
 
-      {/* Continue button */}
-      <Animated.View style={[styles.buttonContainer, { opacity: anims[4].opacity, transform: anims[4].transform }]}>
-        <GradientButton
-          title="Continue"
-          onPress={handleContinue}
-          disabled={enabledProblemsArray.length === 0}
-        />
-      </Animated.View>
-    </V2ScreenWrapper>
+              return (
+                <TouchableOpacity
+                  key={problemId}
+                  style={[styles.toggleCard, isEnabled && styles.toggleCardActive]}
+                  onPress={() => toggleProblem(problemId)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.toggleLeft}>
+                    <View style={[styles.checkbox, isEnabled && styles.checkboxActive]}>
+                      {isEnabled && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+                    </View>
+                    <Text style={[styles.toggleLabel, !isEnabled && styles.toggleLabelDisabled]}>
+                      {getProblemDisplayName(problemId)} routine
+                    </Text>
+                  </View>
+                  {incrementalTime > 0 && (
+                    <Text style={[styles.toggleTime, !isEnabled && styles.toggleTimeDisabled]}>
+                      +{incrementalTime} min
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </Animated.View>
+        )}
+
+        {/* Add more routines (unselected concerns) */}
+        {unselectedProblems.length > 0 && (
+          <Animated.View style={[styles.toggleSection, { opacity: anims[3].opacity, transform: anims[3].transform }]}>
+            <Text style={styles.toggleTitle}>Add more routines</Text>
+            <Text style={styles.addMoreSubtitle}>
+              Expand your protocol with additional routines
+            </Text>
+            {unselectedProblems.map((problemId: string) => {
+              const isEnabled = enabledProblems.has(problemId);
+              const baseProblems = isEnabled
+                ? enabledProblemsArray.filter(id => id !== problemId)
+                : enabledProblemsArray;
+              const incrementalTime = getIncrementalTime(problemId, baseProblems, content);
+
+              return (
+                <TouchableOpacity
+                  key={problemId}
+                  style={[styles.toggleCard, isEnabled && styles.toggleCardActive]}
+                  onPress={() => toggleProblem(problemId)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.toggleLeft}>
+                    <View style={[styles.checkbox, isEnabled && styles.checkboxActive]}>
+                      {isEnabled && <Text style={styles.checkmark}>{'\u2713'}</Text>}
+                    </View>
+                    <Text style={[styles.toggleLabel, !isEnabled && styles.toggleLabelDisabled]}>
+                      {getProblemDisplayName(problemId)} routine
+                    </Text>
+                  </View>
+                  {incrementalTime > 0 && (
+                    <Text style={[styles.toggleTime, !isEnabled && styles.toggleTimeDisabled]}>
+                      +{incrementalTime} min
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </Animated.View>
+        )}
+
+        {/* Info note */}
+        <Animated.View style={[styles.noteContainer, { opacity: anims[4].opacity, transform: anims[4].transform }]}>
+          <Text style={styles.noteText}>
+            Next, we'll show you some free habits you can add, then the products for your skincare routine.
+          </Text>
+        </Animated.View>
+
+        {/* Continue button */}
+        <Animated.View style={[styles.buttonContainer, { opacity: anims[4].opacity, transform: anims[4].transform }]}>
+          <GradientButton
+            title="Continue"
+            onPress={handleContinue}
+            disabled={enabledProblemsArray.length === 0}
+          />
+        </Animated.View>
+      </ScrollView>
+    </View>
   );
+
+  if (Platform.OS === 'ios') {
+    return (
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        {screen}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return screen;
 }
 
 const styles = StyleSheet.create({
-  // Header
+  flex: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: colorsV2.background,
+  },
+
+  // ─── Sticky top ───
+  stickyTop: {
+    backgroundColor: colorsV2.background,
+    paddingHorizontal: spacingV2.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colorsV2.border,
+    paddingBottom: spacingV2.md,
+  },
   headerContainer: {
-    marginTop: spacingV2.xl,
-    marginBottom: spacingV2.lg,
+    marginBottom: spacingV2.md,
   },
   label: {
     ...typographyV2.label,
     color: colorsV2.accentOrange,
     textAlign: 'center',
-    marginBottom: spacingV2.sm,
+    marginBottom: spacingV2.xs,
     letterSpacing: 1.5,
   },
   headline: {
     ...typographyV2.hero,
     textAlign: 'center',
+    fontSize: 28,
   },
 
-  // Protocol Card
-  protocolCard: {
+  // ─── Summary card ───
+  summaryCard: {
     borderRadius: borderRadiusV2.xl,
     borderWidth: 1,
     borderColor: colorsV2.border,
     overflow: 'hidden',
-    marginBottom: spacingV2.lg,
     ...shadows.card,
   },
-  cardGradient: {
-    padding: spacingV2.lg,
-  },
-  timeBadgeRow: {
+  summaryGradient: {
+    padding: spacingV2.md,
     alignItems: 'center',
-    marginBottom: spacingV2.lg,
   },
   timeBadge: {
     borderRadius: borderRadiusV2.pill,
     overflow: 'hidden',
+    marginBottom: spacingV2.md,
     ...shadows.glow,
   },
   timeBadgeGradient: {
     paddingHorizontal: spacingV2.lg,
-    paddingVertical: spacingV2.sm + 2,
+    paddingVertical: spacingV2.sm,
     borderRadius: borderRadiusV2.pill,
   },
   timeBadgeText: {
@@ -358,55 +416,39 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
   },
-
-  // Routine rows
-  routineList: {
-    marginBottom: spacingV2.lg,
-  },
-  routineRow: {
+  statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacingV2.md - 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colorsV2.border,
+    justifyContent: 'center',
   },
-  routineLabel: {
-    ...typographyV2.body,
-    color: colorsV2.textSecondary,
+  statItem: {
+    alignItems: 'center',
+    paddingHorizontal: spacingV2.md,
   },
-  routineValue: {
+  statValue: {
     ...typographyV2.body,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colorsV2.accentPurple,
+    fontSize: 20,
+  },
+  statLabel: {
+    ...typographyV2.caption,
+    color: colorsV2.textMuted,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colorsV2.border,
   },
 
-  // Based on tags
-  basedOnContainer: {
-    marginTop: spacingV2.sm,
+  // ─── Scrollable content ───
+  scrollView: {
+    flex: 1,
   },
-  basedOnLabel: {
-    ...typographyV2.label,
-    color: colorsV2.textMuted,
-    marginBottom: spacingV2.sm,
-  },
-  basedOnTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacingV2.sm,
-  },
-  tag: {
-    backgroundColor: colorsV2.accentOrange + '18',
-    borderWidth: 1,
-    borderColor: colorsV2.accentOrange + '30',
-    borderRadius: borderRadiusV2.pill,
-    paddingHorizontal: spacingV2.md,
-    paddingVertical: spacingV2.xs + 2,
-  },
-  tagText: {
-    ...typographyV2.bodySmall,
-    color: colorsV2.accentPurple,
-    fontWeight: '600',
+  scrollContent: {
+    paddingHorizontal: spacingV2.lg,
+    paddingTop: spacingV2.lg,
   },
 
   // Toggle section
@@ -416,6 +458,12 @@ const styles = StyleSheet.create({
   toggleTitle: {
     ...typographyV2.subheading,
     marginBottom: spacingV2.md,
+  },
+  addMoreSubtitle: {
+    ...typographyV2.bodySmall,
+    color: colorsV2.textSecondary,
+    marginBottom: spacingV2.md,
+    marginTop: -spacingV2.sm,
   },
   toggleCard: {
     flexDirection: 'row',
@@ -443,7 +491,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colorsV2.textMuted,
     borderRadius: 6,
-    marginRight: spacingV2.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -460,10 +507,10 @@ const styles = StyleSheet.create({
     ...typographyV2.body,
     color: colorsV2.textPrimary,
     flex: 1,
+    marginLeft: spacingV2.md,
   },
   toggleLabelDisabled: {
     color: colorsV2.textMuted,
-    textDecorationLine: 'line-through',
   },
   toggleTime: {
     ...typographyV2.bodySmall,

@@ -4,6 +4,7 @@
  */
 
 import { UserRoutineData, IngredientSelection, ExerciseSelection, shouldShowDeferredProduct } from './routineService';
+import { getTodayVariation, Exercise } from './exerciseService';
 const guideBlocks = require('../data/guide_blocks.json');
 
 export interface RoutineStep {
@@ -106,16 +107,20 @@ export function buildRoutineSections(routineData: UserRoutineData): RoutineSecti
     }
   });
 
-  // Build morning routine
+  // Build morning routine (skincare + jaw exercises + facial massage)
   const morningSteps = buildRoutineSteps('morning', morningFixed, baseSteps, stepCategoryOrder);
+  const morningExerciseSteps = buildFreeExerciseSteps('morning');
+  morningSteps.push(...morningExerciseSteps);
   const morningSection: RoutineSection = {
     name: 'morning',
     steps: morningSteps,
     estimatedDuration: calculateEstimatedDuration(morningSteps),
   };
 
-  // Build evening routine
+  // Build evening routine (skincare + neck posture)
   const eveningSteps = buildRoutineSteps('evening', eveningFixed, baseSteps, stepCategoryOrder);
+  const eveningExerciseSteps = buildFreeExerciseSteps('evening');
+  eveningSteps.push(...eveningExerciseSteps);
   const eveningSection: RoutineSection = {
     name: 'evening',
     steps: eveningSteps,
@@ -197,6 +202,91 @@ function buildRoutineSteps(
   });
 
   steps.push(...ingredientSteps);
+
+  return steps;
+}
+
+/**
+ * Build free exercise steps that are always included in routines.
+ * Morning: jaw exercises (cycling variation) + facial massage
+ * Evening: neck posture (cycling variation)
+ */
+function buildFreeExerciseSteps(timing: 'morning' | 'evening'): RoutineStep[] {
+  const exercises: any[] = guideBlocks.exercises || [];
+  const steps: RoutineStep[] = [];
+
+  if (timing === 'morning') {
+    // Jaw exercises — today's cycling variation
+    const jawEx = exercises.find((e: any) => e.exercise_id === 'jaw_exercises');
+    if (jawEx) {
+      const variation = getTodayVariation(jawEx as Exercise);
+      if (variation) {
+        const sets = jawEx.default_sets || 20;
+        const holdSec = variation.hold_seconds || 5;
+        const releaseSec = variation.release_seconds || 3;
+        const totalDuration = variation.continuous ? 120 : sets * (holdSec + releaseSec);
+
+        steps.push({
+          id: 'jaw_exercises',
+          type: 'exercise',
+          displayName: variation.name,
+          stepCategory: 'exercise',
+          session: {
+            action: variation.instructions,
+            duration_seconds: totalDuration,
+            wait_after_seconds: 0,
+            tip: variation.tip,
+          },
+          exercise: { ...jawEx, todayVariation: variation },
+        });
+      }
+    }
+
+    // Facial massage
+    const facialMassage = exercises.find((e: any) => e.exercise_id === 'facial_massage');
+    if (facialMassage && facialMassage.session) {
+      steps.push({
+        id: 'facial_massage',
+        type: 'exercise',
+        displayName: 'Facial Massage',
+        stepCategory: 'exercise',
+        session: {
+          action: facialMassage.session.action,
+          duration_seconds: facialMassage.session.duration_seconds || 300,
+          wait_after_seconds: 0,
+          tip: facialMassage.session.tip || null,
+          is_continuous: facialMassage.session.is_continuous,
+        },
+        exercise: facialMassage,
+      });
+    }
+  } else {
+    // Evening: neck posture — today's cycling variation
+    const neckEx = exercises.find((e: any) => e.exercise_id === 'neck_posture');
+    if (neckEx) {
+      const variation = getTodayVariation(neckEx as Exercise);
+      if (variation) {
+        const sets = neckEx.default_sets || 20;
+        const holdSec = variation.hold_seconds || 5;
+        const releaseSec = variation.release_seconds || 3;
+        const totalDuration = variation.continuous ? 120 : sets * (holdSec + releaseSec);
+
+        steps.push({
+          id: 'neck_posture',
+          type: 'exercise',
+          displayName: variation.name,
+          stepCategory: 'exercise',
+          session: {
+            action: variation.instructions,
+            duration_seconds: totalDuration,
+            wait_after_seconds: 0,
+            tip: variation.tip,
+          },
+          exercise: { ...neckEx, todayVariation: variation },
+        });
+      }
+    }
+  }
 
   return steps;
 }

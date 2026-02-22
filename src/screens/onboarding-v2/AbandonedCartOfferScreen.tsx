@@ -40,8 +40,18 @@ export default function AbandonedCartOfferScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { user, signInAnonymous } = useAuth();
   const { data } = useOnboarding();
-  const { refreshSubscriptionStatus } = usePremium();
+  const { refreshSubscriptionStatus, isPremium } = usePremium();
   const { isDevModeEnabled, clearForceFlags } = useDevMode();
+
+  // GUARD: If user is already premium (trial or paid), skip this screen entirely
+  useEffect(() => {
+    if (isPremium) {
+      console.log('[AbandonedCartOffer] User is already premium, skipping offer');
+      cancelAbandonedCartNotification();
+      clearAbandonedCartQuickAction();
+      navigation.replace('V2FaceRating');
+    }
+  }, [isPremium]);
 
   const [lifetimePackage, setLifetimePackage] = useState<PurchasesPackage | null>(null);
   const [purchasing, setPurchasing] = useState(false);

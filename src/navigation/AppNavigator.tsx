@@ -236,13 +236,13 @@ export default function AppNavigator() {
           tabBarLabelPosition: 'below-icon',
         }}
       >
-        <Tab.Screen 
-          name="Today" 
+        <Tab.Screen
+          name="Today"
           component={TodayStackWithReset}
           options={({ route }) => ({
-            title: 'Today',
+            title: 'Home',
             headerShown: false,
-            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Today" showBadge={notifications.today} color={color} />,
+            tabBarLabel: ({ color }) => <TabLabelWithBadge label="Home" showBadge={notifications.today} color={color} />,
           })}
         />
         <Tab.Screen 

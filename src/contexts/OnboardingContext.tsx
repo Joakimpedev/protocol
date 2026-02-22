@@ -18,6 +18,7 @@ export interface OnboardingFlowState {
   budget: 'low' | 'medium' | 'flexible' | null;
   commitment: string | null;
   shoppingSelections: Record<string, string>;
+  selectedHabits: string[];
   currentPage: number;
   // V2 onboarding fields
   gender?: 'male' | 'female' | 'non-binary';
@@ -86,6 +87,7 @@ const INITIAL_FLOW_STATE: Partial<OnboardingFlowState> = {
   budget: null,
   commitment: null,
   shoppingSelections: {},
+  selectedHabits: [],
   currentPage: 1,
 };
 

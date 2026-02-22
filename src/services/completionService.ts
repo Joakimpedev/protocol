@@ -51,12 +51,17 @@ export async function resetTodayCompletions(userId: string): Promise<void> {
     // Remove today's entry from sessionCompletions
     const sessionCompletions: any[] = data.sessionCompletions || [];
     const filteredSessionCompletions = sessionCompletions.filter((c: any) => c.date !== today);
-    
+
+    // Remove today's habit completions
+    const habitCompletions: any[] = data.habitCompletions || [];
+    const filteredHabitCompletions = habitCompletions.filter((c: any) => c.date !== today);
+
     // Update Firebase
     await updateDoc(doc(db, 'users', userId), {
       dailyCompletions: filteredDailyCompletions,
       exerciseCompletions: filteredExerciseCompletions,
       sessionCompletions: filteredSessionCompletions,
+      habitCompletions: filteredHabitCompletions,
     });
   } catch (error) {
     console.error('Error resetting today completions:', error);
@@ -159,7 +164,8 @@ export async function markStepCompleted(
     }
 
     // Add step if not already completed
-    if (!todayCompletion.completedSteps.includes(stepId)) {
+    const wasAlreadyCompleted = todayCompletion.completedSteps.includes(stepId);
+    if (!wasAlreadyCompleted) {
       todayCompletion.completedSteps.push(stepId);
     }
 
@@ -178,6 +184,13 @@ export async function markStepCompleted(
     await updateDoc(doc(db, 'users', userId), {
       dailyCompletions: completions,
     });
+
+    // Award XP for completing a task (fire and forget)
+    if (!wasAlreadyCompleted) {
+      import('./xpService').then(({ awardXP, XP_AMOUNTS }) => {
+        awardXP(userId, XP_AMOUNTS.TASK_COMPLETE, 'task_complete').catch(console.error);
+      }).catch(console.error);
+    }
   } catch (error) {
     console.error('Error marking step completed:', error);
     throw error;

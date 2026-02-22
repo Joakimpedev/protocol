@@ -19,6 +19,7 @@ import {
   DEFAULT_EVENING_TIME,
 } from '../services/notificationService';
 import { resetTodayCompletions, resetSkipAnalytics } from '../services/completionService';
+import { resetXP } from '../services/xpService';
 import { getUserPreferences, updateUserPreferences } from '../services/userPreferencesService';
 import { setDevPremiumMode } from '../services/subscriptionService';
 import { resetDeferredProducts } from '../services/routineService';
@@ -794,6 +795,33 @@ export default function SettingsScreen({ navigation }: any) {
           </TouchableOpacity>
           <TouchableOpacity style={styles.devButton} onPress={handleResetDeferredProducts}>
             <Text style={styles.devButtonText}>Reset Deferred Products</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={() => {
+              Alert.alert(
+                'Reset Level & XP',
+                'This will reset all XP to 0 and level back to 1. Are you sure?',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Reset',
+                    style: 'destructive',
+                    onPress: async () => {
+                      if (!user) return;
+                      try {
+                        await resetXP(user.uid);
+                        Alert.alert('Success', 'Level and XP have been reset to 0.');
+                      } catch (error: any) {
+                        Alert.alert('Error', error.message || 'Failed to reset XP');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={styles.devButtonText}>Reset Level & XP</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.devButton} onPress={handleTestReviewPrompt}>
             <Text style={styles.devButtonText}>Test Review Prompt</Text>

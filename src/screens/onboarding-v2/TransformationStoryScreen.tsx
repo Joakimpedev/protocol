@@ -133,96 +133,98 @@ export default function TransformationStoryScreen({ navigation }: any) {
 
   const runMatchedAnimation = () => {
     const ease = Easing.out(Easing.cubic);
-    Animated.sequence([
-      // 1) Label
+    // Use delay-based staggering instead of sequence to avoid waiting for springs to settle
+    const stagger = 150; // ms between each element
+    Animated.parallel([
+      // 1) Label — immediate
       Animated.timing(labelAnim, {
         toValue: 1,
         duration: 200,
         easing: ease,
         useNativeDriver: true,
       }),
-      // 2) Photos slide in
-      Animated.parallel([
-        Animated.timing(photoOpacity, {
-          toValue: 1,
-          duration: 300,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-        Animated.spring(beforeSlide, {
-          toValue: 0,
-          tension: 100,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-        Animated.spring(afterSlide, {
-          toValue: 0,
-          tension: 100,
-          friction: 12,
-          useNativeDriver: true,
-        }),
-      ]),
+      // 2) Photos slide in — after label
+      Animated.timing(photoOpacity, {
+        toValue: 1,
+        duration: 300,
+        delay: stagger,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(beforeSlide, {
+        toValue: 0,
+        duration: 300,
+        delay: stagger,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(afterSlide, {
+        toValue: 0,
+        duration: 300,
+        delay: stagger,
+        easing: ease,
+        useNativeDriver: true,
+      }),
       // 3) "Dealt with" card
-      Animated.parallel([
-        Animated.timing(dealtWithAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-        Animated.spring(dealtWithSlide, {
-          toValue: 0,
-          tension: 100,
-          friction: 14,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(dealtWithAnim, {
+        toValue: 1,
+        duration: 250,
+        delay: stagger * 2,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(dealtWithSlide, {
+        toValue: 0,
+        duration: 250,
+        delay: stagger * 2,
+        easing: ease,
+        useNativeDriver: true,
+      }),
       // 4) "Wanted to" card
-      Animated.parallel([
-        Animated.timing(wantedToAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-        Animated.spring(wantedToSlide, {
-          toValue: 0,
-          tension: 100,
-          friction: 14,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(wantedToAnim, {
+        toValue: 1,
+        duration: 250,
+        delay: stagger * 3,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(wantedToSlide, {
+        toValue: 0,
+        duration: 250,
+        delay: stagger * 3,
+        easing: ease,
+        useNativeDriver: true,
+      }),
       // 5) "Just like you" connection
-      Animated.parallel([
-        Animated.timing(connectionAnim, {
-          toValue: 1,
-          duration: 250,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-        Animated.spring(connectionSlide, {
-          toValue: 0,
-          tension: 100,
-          friction: 14,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(connectionAnim, {
+        toValue: 1,
+        duration: 250,
+        delay: stagger * 4,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(connectionSlide, {
+        toValue: 0,
+        duration: 250,
+        delay: stagger * 4,
+        easing: ease,
+        useNativeDriver: true,
+      }),
       // 6) Result + button
-      Animated.parallel([
-        Animated.timing(resultAnim, {
-          toValue: 1,
-          duration: 200,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-        Animated.timing(btnAnim, {
-          toValue: 1,
-          duration: 200,
-          delay: 60,
-          easing: ease,
-          useNativeDriver: true,
-        }),
-      ]),
+      Animated.timing(resultAnim, {
+        toValue: 1,
+        duration: 200,
+        delay: stagger * 5,
+        easing: ease,
+        useNativeDriver: true,
+      }),
+      Animated.timing(btnAnim, {
+        toValue: 1,
+        duration: 200,
+        delay: stagger * 5 + 60,
+        easing: ease,
+        useNativeDriver: true,
+      }),
     ]).start();
   };
 

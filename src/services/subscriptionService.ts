@@ -156,6 +156,22 @@ export function getAnnualPackageFromOffering(offering: PurchasesOffering | null)
 }
 
 /**
+ * Find the yearly trial package (yearly_trial_39) from an offering.
+ */
+export function getYearlyTrialPackageFromOffering(offering: PurchasesOffering | null): PurchasesPackage | null {
+  if (!offering?.availablePackages?.length) return null;
+  const pkg = offering.availablePackages.find(
+    (p) => p.identifier === 'yearly_trial_39'
+  );
+  if (pkg) {
+    console.log('[RevenueCat] Found yearly trial package:', pkg.identifier, '→', pkg.product.identifier);
+    return pkg;
+  }
+  console.warn('[RevenueCat] Could not find yearly trial package with identifier: yearly_trial_39');
+  return null;
+}
+
+/**
  * Get weekly package based on whether user has referral credit
  * @param withTrial - true if user should get trial (via referral), false for immediate payment
  */

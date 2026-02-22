@@ -28,6 +28,7 @@ import {
 import PhotoPaywallModal from '../components/PhotoPaywallModal';
 import ReviewPromptModal from '../components/ReviewPromptModal';
 import { updateLastReviewPromptDate, requestReview } from '../services/reviewService';
+import { getUserXPData, getLevelDefinition, UserXPData } from '../services/xpService';
 const whatToExpect = require('../data/what_to_expect.json');
 const guideBlocks = require('../data/guide_blocks.json');
 
@@ -52,12 +53,33 @@ export default function ProgressScreen({ navigation }: any) {
   const [paywallWeek, setPaywallWeek] = useState<number | null>(null);
   const [pendingPhotoWeek, setPendingPhotoWeek] = useState<number | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [xpData, setXpData] = useState<UserXPData>({ total: 0, level: 1, lastLevelUp: null, history: [] });
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalDaysActive, setTotalDaysActive] = useState(0);
 
   useEffect(() => {
     if (user) {
       loadUserData();
+      loadXPData();
     }
   }, [user]);
+
+  const loadXPData = async () => {
+    if (!user) return;
+    try {
+      const xp = await getUserXPData(user.uid);
+      setXpData(xp);
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        setCurrentStreak(data.stats?.current_streak || 0);
+        setTotalDaysActive(data.stats?.total_days_completed || 0);
+      }
+    } catch (error) {
+      console.error('Error loading XP data:', error);
+    }
+  };
 
   // Track screen view when component mounts
   useEffect(() => {
@@ -387,6 +409,28 @@ export default function ProgressScreen({ navigation }: any) {
         { paddingTop: insets.top + theme.spacing.lg }
       ]}
     >
+      {/* XP & Stats Insights */}
+      <View style={styles.insightsCard}>
+        <Text style={styles.insightsXP}>{xpData.total.toLocaleString()} XP</Text>
+        <Text style={styles.insightsSubtitle}>Your lifetime progress — Never resets</Text>
+        <View style={styles.insightsStatsRow}>
+          <View style={styles.insightsStat}>
+            <Text style={styles.insightsStatValue}>{currentStreak}</Text>
+            <Text style={styles.insightsStatLabel}>Day Streak</Text>
+          </View>
+          <View style={[styles.insightsStatDivider, { backgroundColor: theme.colors.border }]} />
+          <View style={styles.insightsStat}>
+            <Text style={styles.insightsStatValue}>{xpData.history.length}</Text>
+            <Text style={styles.insightsStatLabel}>Tasks Done</Text>
+          </View>
+          <View style={[styles.insightsStatDivider, { backgroundColor: theme.colors.border }]} />
+          <View style={styles.insightsStat}>
+            <Text style={styles.insightsStatValue}>{totalDaysActive}</Text>
+            <Text style={styles.insightsStatLabel}>Days Active</Text>
+          </View>
+        </View>
+      </View>
+
       {/* Week 0 Photo Prompt */}
       {needsWeek0Photo && (
         <TouchableOpacity
@@ -807,6 +851,55 @@ function getStyles(theme: Theme) {
     marketingButton: {
       backgroundColor: isPro ? 'rgba(168, 85, 247, 0.08)' : '#171A17',
       borderColor: isPro ? 'rgba(168, 85, 247, 0.2)' : '#0D360D',
+    },
+    insightsCard: {
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius.lg,
+      padding: theme.spacing.xl,
+      marginBottom: theme.spacing.lg,
+      alignItems: 'center',
+      ...(isPro ? theme.shadows.card : {}),
+    },
+    insightsXP: {
+      fontSize: 36,
+      fontWeight: '800',
+      color: isPro ? '#A855F7' : '#22C55E',
+      marginBottom: 4,
+    },
+    insightsSubtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.colors.textSecondary,
+      marginBottom: theme.spacing.lg,
+    },
+    insightsStatsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+    },
+    insightsStat: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    insightsStatValue: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.colors.text,
+      marginBottom: 2,
+    },
+    insightsStatLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: theme.colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    insightsStatDivider: {
+      width: 1,
+      height: 32,
+      marginHorizontal: theme.spacing.sm,
     },
   });
 }

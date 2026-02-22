@@ -590,7 +590,15 @@ export default function ProPaywallScreen({ navigation, route }: any) {
   const { isDevModeEnabled, clearForceFlags } = useDevMode();
   const { data, setOnboardingComplete } = useOnboarding();
   const { user, signInAnonymous } = useAuth();
-  const { refreshSubscriptionStatus } = usePremium();
+  const { refreshSubscriptionStatus, isPremium } = usePremium();
+
+  // GUARD: If user is already premium (trial or paid), skip this paywall entirely
+  useEffect(() => {
+    if (isPremium) {
+      console.log('[ProPaywall] User is already premium, skipping paywall');
+      navigation.replace('V2FaceRating');
+    }
+  }, [isPremium]);
 
   const referralOnly = route?.params?.referralOnly === true;
   const [finishing, setFinishing] = useState(false);
@@ -626,14 +634,17 @@ export default function ProPaywallScreen({ navigation, route }: any) {
   }, []);
 
   // Schedule abandoned cart notification when user backgrounds from this paywall
+  // Skip if user already has an active subscription (trial or paid)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        scheduleAbandonedCartNotification();
+        if (!isPremium) {
+          scheduleAbandonedCartNotification();
+        }
       }
     });
     return () => subscription.remove();
-  }, []);
+  }, [isPremium]);
 
   const handlePurchase = async (plan: PlanType = 'annual') => {
     const purchasePlan = plan;

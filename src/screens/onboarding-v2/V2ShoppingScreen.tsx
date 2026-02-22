@@ -1,19 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   Alert,
   ActivityIndicator,
-  Modal,
   Animated,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
-import { colorsV2, typographyV2, spacingV2, borderRadiusV2, gradients, shadows } from '../../constants/themeV2';
+import { colorsV2, typographyV2, spacingV2, borderRadiusV2 } from '../../constants/themeV2';
 import GradientButton from '../../components/v2/GradientButton';
 import V2ScreenWrapper from '../../components/v2/V2ScreenWrapper';
 import { useOnboarding } from '../../contexts/OnboardingContext';
@@ -39,38 +36,43 @@ interface Ingredient {
   routine_order: number;
   short_description: string;
   example_brands: string[];
+  used_for?: string[];
   timing_options?: string[];
   timing_flexible?: boolean;
   session?: { premium?: boolean };
 }
 
-interface ProductState {
-  state: 'pending' | 'active';
-  productName?: string;
-}
+// Concise user-facing benefit per ingredient
+const BENEFIT_LINES: Record<string, string> = {
+  salicylic_acid: 'Clears pores and fights breakouts',
+  hyaluronic_acid: 'Deep hydration for plumper, smoother skin',
+  snail_mucin: 'Repairs and hydrates without clogging pores',
+  benzoyl_peroxide: 'Kills acne-causing bacteria fast',
+  aha: 'Smooths texture and evens skin tone',
+  retinol: 'Reduces fine lines and boosts cell turnover',
+  vitamin_c: 'Brightens dark spots and protects from damage',
+  niacinamide: 'Controls oil, minimizes pores, calms redness',
+  caffeine_solution: 'Reduces puffiness and dark circles',
+  minoxidil: 'Stimulates thicker facial hair growth',
+};
 
 export default function V2ShoppingScreen({ navigation }: any) {
   useOnboardingTracking('v2_shopping');
   const { data, updateData, setOnboardingComplete } = useOnboarding();
   const { user } = useAuth();
 
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [productStates, setProductStates] = useState<Record<string, ProductState>>({});
-  const [showProductNameInput, setShowProductNameInput] = useState(false);
-  const [currentIngredientId, setCurrentIngredientId] = useState<string | null>(null);
-  const [productNameInput, setProductNameInput] = useState('');
+  const [checkedProducts, setCheckedProducts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
-  const anims = useScreenEntrance(4);
-  const cardSlide = useState(() => new Animated.Value(0))[0];
+  const anims = useScreenEntrance(3);
 
   const problems: Problem[] = guideBlocks.problems || [];
   const ingredients: Ingredient[] = guideBlocks.ingredients || [];
 
-  // Load concerns on mount
   useEffect(() => {
     const loadCategories = async () => {
       const fromContext = data.selectedProblems?.length ? data.selectedProblems : data.selectedCategories;
@@ -107,12 +109,10 @@ export default function V2ShoppingScreen({ navigation }: any) {
     loadCategories();
   }, []);
 
-  // Get selected problems
   const selectedProblems = problems.filter((problem: Problem) =>
     selectedCategories.includes(problem.problem_id)
   );
 
-  // Get all unique ingredient IDs
   const ingredientIds = Array.from(
     new Set(
       selectedProblems.flatMap((problem: Problem) => problem.recommended_ingredients || [])
@@ -126,14 +126,12 @@ export default function V2ShoppingScreen({ navigation }: any) {
     .filter((ing): ing is Ingredient => ing !== undefined && !isPremiumIngredient(ing))
     .sort((a, b) => a.routine_order - b.routine_order);
 
-  // BHA/AHA rule
   const hasBHA = selectedIngredients.some(ing => ing.ingredient_id === 'salicylic_acid');
   const hasAHA = selectedIngredients.some(ing => ing.ingredient_id === 'aha');
   if (hasBHA && hasAHA) {
     selectedIngredients = selectedIngredients.filter(ing => ing.ingredient_id !== 'aha');
   }
 
-  // Get exercises
   const exerciseIds = Array.from(
     new Set(
       selectedProblems.flatMap((problem: Problem) => problem.recommended_exercises || [])
@@ -145,23 +143,31 @@ export default function V2ShoppingScreen({ navigation }: any) {
     state: 'added' as const,
   }));
 
-  // Initialize product states
   useEffect(() => {
-    if (selectedCategories.length === 0) return;
+    if (selectedCategories.length === 0 || initialized) return;
 
-    const initialStates: Record<string, ProductState> = {};
-    selectedIngredients.forEach((ingredient) => {
-      if (!productStates[ingredient.ingredient_id]) {
-        initialStates[ingredient.ingredient_id] = { state: 'pending' };
-      }
+    const allChecked = new Set<string>();
+    selectedIngredients.forEach((ing) => {
+      allChecked.add(ing.ingredient_id);
     });
-
-    if (Object.keys(initialStates).length > 0) {
-      setProductStates((prev) => ({ ...prev, ...initialStates }));
-    }
-  }, [selectedIngredients.length, selectedCategories.length]);
+    setCheckedProducts(allChecked);
+    setInitialized(true);
+  }, [selectedIngredients.length, selectedCategories.length, initialized]);
 
   const totalCards = selectedIngredients.length;
+
+  const toggleProduct = (ingredientId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCheckedProducts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ingredientId)) {
+        newSet.delete(ingredientId);
+      } else {
+        newSet.add(ingredientId);
+      }
+      return newSet;
+    });
+  };
 
   const handleComplete = useCallback(async () => {
     if (hasCompleted) return;
@@ -169,13 +175,9 @@ export default function V2ShoppingScreen({ navigation }: any) {
     setHasCompleted(true);
 
     try {
-      // Build shopping selections for context
       const shoppingSelections: Record<string, string> = {};
       selectedIngredients.forEach((ing) => {
-        const state = productStates[ing.ingredient_id];
-        if (state?.state === 'active' && state.productName) {
-          shoppingSelections[ing.ingredient_id] = `owned:${state.productName}`;
-        } else if (state?.state === 'pending') {
+        if (checkedProducts.has(ing.ingredient_id)) {
           shoppingSelections[ing.ingredient_id] = 'pending';
         } else {
           shoppingSelections[ing.ingredient_id] = 'skipped';
@@ -185,23 +187,23 @@ export default function V2ShoppingScreen({ navigation }: any) {
         shoppingSelections[`ex_${ex.exercise_id}`] = ex.state === 'added' ? 'added' : 'skipped';
       });
 
-      // Update context with shopping selections
       updateData({ shoppingSelections });
 
-      // Build final routine and save to Firestore
       if (user?.uid) {
         const updatedData = { ...data, shoppingSelections };
         const { ingredientSelections, exerciseSelections } = buildRoutineFromOnboarding(updatedData);
+
+        const selectedHabits = data.selectedHabits || [];
 
         await updateDoc(doc(db, 'users', user.uid), {
           routineStarted: true,
           ingredientSelections,
           exerciseSelections,
           routineStartDate: new Date().toISOString(),
+          ...(selectedHabits.length > 0 ? { selectedHabits } : {}),
         });
       }
 
-      // Complete onboarding - this triggers RootNavigator to show the app
       setOnboardingComplete(true);
     } catch (error: any) {
       console.error('[V2Shopping] Error completing:', error);
@@ -209,16 +211,14 @@ export default function V2ShoppingScreen({ navigation }: any) {
       setLoading(false);
       setHasCompleted(false);
     }
-  }, [user, hasCompleted, selectedIngredients, exercises, productStates, data, updateData, setOnboardingComplete]);
+  }, [user, hasCompleted, selectedIngredients, exercises, checkedProducts, data, updateData, setOnboardingComplete]);
 
-  // Auto-complete if no ingredients
   useEffect(() => {
     if (!loadingCategories && totalCards === 0 && !loading && !hasCompleted) {
       handleComplete();
     }
   }, [loadingCategories, totalCards, loading, hasCompleted, handleComplete]);
 
-  // Loading state
   if (loadingCategories || totalCards === 0) {
     return (
       <View style={styles.loadingContainer}>
@@ -228,209 +228,82 @@ export default function V2ShoppingScreen({ navigation }: any) {
     );
   }
 
-  const currentIngredient = selectedIngredients[currentCardIndex];
-  if (!currentIngredient) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colorsV2.accentOrange} />
-      </View>
-    );
-  }
-
-  const handleIHaveThis = (ingredientId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCurrentIngredientId(ingredientId);
-    setProductNameInput('');
-    setShowProductNameInput(true);
+  const getTimingText = (ingredient: Ingredient): string => {
+    const opts = ingredient.timing_options || [];
+    if (opts.includes('morning') && opts.includes('evening')) return 'AM & PM';
+    if (opts.includes('morning')) return 'Morning';
+    if (opts.includes('evening')) return 'Evening';
+    return 'Anytime';
   };
 
-  const handleWillGetIt = (ingredientId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setProductStates((prev) => ({
-      ...prev,
-      [ingredientId]: { state: 'pending' },
-    }));
-    animateToNextCard();
-  };
-
-  const handleProductNameSubmit = () => {
-    if (!currentIngredientId || !productNameInput.trim()) {
-      Alert.alert('Enter product name', 'Type what you got');
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setProductStates((prev) => ({
-      ...prev,
-      [currentIngredientId]: {
-        state: 'active',
-        productName: productNameInput.trim(),
-      },
-    }));
-
-    setShowProductNameInput(false);
-    setCurrentIngredientId(null);
-    setProductNameInput('');
-    animateToNextCard();
-  };
-
-  const animateToNextCard = () => {
-    if (currentCardIndex < totalCards - 1) {
-      // Slide out left, then slide in from right
-      Animated.timing(cardSlide, {
-        toValue: -30,
-        duration: 150,
-        useNativeDriver: true,
-      }).start(() => {
-        setCurrentCardIndex(prev => prev + 1);
-        cardSlide.setValue(30);
-        Animated.spring(cardSlide, {
-          toValue: 0,
-          tension: 120,
-          friction: 12,
-          useNativeDriver: true,
-        }).start();
-      });
-    } else {
-      handleComplete();
-    }
+  const getTimingIcon = (ingredient: Ingredient): string => {
+    const opts = ingredient.timing_options || [];
+    if (opts.includes('morning') && opts.includes('evening')) return 'weather-sunset-up';
+    if (opts.includes('morning')) return 'weather-sunset-up';
+    if (opts.includes('evening')) return 'moon-waning-crescent';
+    return 'clock-outline';
   };
 
   return (
     <View style={styles.container}>
-      <V2ScreenWrapper showProgress={false} scrollable={false}>
-        <View style={styles.centerContent}>
-          {/* Header */}
-          <Animated.View style={[styles.headerContainer, { opacity: anims[0].opacity, transform: anims[0].transform }]}>
-            <Text style={styles.label}>GET YOUR PRODUCTS</Text>
-            <Text style={styles.headline}>Products You'll Need</Text>
-            <Text style={styles.subtitle}>
-              Pick any product that contains these ingredients. Available wherever you buy skincare.
-            </Text>
-          </Animated.View>
+      <V2ScreenWrapper showProgress={false} scrollable>
+        {/* Header */}
+        <Animated.View style={[styles.headerContainer, { opacity: anims[0].opacity, transform: anims[0].transform }]}>
+          <Text style={styles.headline}>Products You'll Need</Text>
+          <Text style={styles.subtitle}>
+            These will make a real difference, but start with your habits and exercises and pick these up when you can.{'\n\n'}Any brand works, just look for the ingredient.
+          </Text>
+        </Animated.View>
 
-          {/* Progress */}
-          <Animated.View style={[styles.progressContainer, { opacity: anims[1].opacity, transform: anims[1].transform }]}>
-            <View style={styles.progressBar}>
-              <LinearGradient
-                colors={gradients.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.progressFill, { width: `${((currentCardIndex + 1) / totalCards) * 100}%` }]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {currentCardIndex + 1} of {totalCards}
-            </Text>
-          </Animated.View>
-
-          {/* Ingredient Card */}
-          <Animated.View
-            style={[
-              styles.ingredientCard,
-              {
-                opacity: anims[2].opacity,
-                transform: [
-                  ...anims[2].transform,
-                  { translateX: cardSlide },
-                ],
-              },
-            ]}
-          >
-            <View style={styles.ingredientHeader}>
-              <View style={styles.ingredientBadge}>
-                <Text style={styles.ingredientBadgeText}>INGREDIENT</Text>
-              </View>
-            </View>
-
-            <Text style={styles.ingredientName}>
-              {currentIngredient.display_name}
-            </Text>
-
-            <Text style={styles.ingredientDescription}>
-              {currentIngredient.short_description}
-            </Text>
-
-            <View style={styles.divider} />
-
-            <Text style={styles.examplesLabel}>EXAMPLE PRODUCTS</Text>
-            <ScrollView style={styles.examplesScroll} nestedScrollEnabled>
-              {currentIngredient.example_brands.map((brand, idx) => (
-                <View key={idx} style={styles.exampleRow}>
-                  <View style={styles.exampleDot} />
-                  <Text style={styles.exampleText}>{brand}</Text>
+        {/* Vertical product list */}
+        <Animated.View style={[styles.listContainer, { opacity: anims[1].opacity, transform: anims[1].transform }]}>
+          {selectedIngredients.map((ingredient) => {
+            const isChecked = checkedProducts.has(ingredient.ingredient_id);
+            const benefit = BENEFIT_LINES[ingredient.ingredient_id];
+            return (
+              <TouchableOpacity
+                key={ingredient.ingredient_id}
+                style={[styles.productCard, isChecked && styles.productCardChecked]}
+                onPress={() => toggleProduct(ingredient.ingredient_id)}
+                activeOpacity={0.8}
+              >
+                {/* Top row: checkbox + name + timing */}
+                <View style={styles.cardTopRow}>
+                  <View style={[styles.checkbox, isChecked && styles.checkboxActive]}>
+                    {isChecked && <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" />}
+                  </View>
+                  <Text style={[styles.cardName, !isChecked && styles.cardNameUnchecked]} numberOfLines={1}>
+                    {ingredient.display_name}
+                  </Text>
+                  <View style={styles.timingBadge}>
+                    <MaterialCommunityIcons name={getTimingIcon(ingredient) as any} size={12} color={colorsV2.accentPurple} />
+                    <Text style={styles.timingText}>{getTimingText(ingredient)}</Text>
+                  </View>
                 </View>
-              ))}
-            </ScrollView>
-          </Animated.View>
 
-          {/* Action Buttons */}
-          <Animated.View style={[styles.actionsContainer, { opacity: anims[3].opacity, transform: anims[3].transform }]}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleIHaveThis(currentIngredient.ingredient_id)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionButtonInner}>
-                <Text style={styles.actionButtonIcon}>✓</Text>
-                <Text style={styles.actionButtonText}>I have this</Text>
-              </View>
-            </TouchableOpacity>
+                {/* User-facing benefit */}
+                {benefit && (
+                  <Text style={styles.benefitText}>{benefit}</Text>
+                )}
 
-            <GradientButton
-              title="Will get it"
-              onPress={() => handleWillGetIt(currentIngredient.ingredient_id)}
-            />
-          </Animated.View>
-        </View>
+                {/* Scientific description */}
+                <Text style={styles.cardDescription}>
+                  {ingredient.short_description}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </Animated.View>
+
+        {/* Continue button */}
+        <Animated.View style={[styles.buttonContainer, { opacity: anims[2].opacity, transform: anims[2].transform }]}>
+          <GradientButton
+            title="Start My Protocol"
+            onPress={handleComplete}
+            disabled={loading}
+          />
+        </Animated.View>
       </V2ScreenWrapper>
-
-      {/* Product Name Modal */}
-      <Modal
-        visible={showProductNameInput}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowProductNameInput(false);
-          setCurrentIngredientId(null);
-          setProductNameInput('');
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>What product do you have?</Text>
-            <Text style={styles.modalSubtitle}>Enter the name so we can track it in your routine</Text>
-
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. CeraVe SA Cleanser"
-              placeholderTextColor={colorsV2.textMuted}
-              value={productNameInput}
-              onChangeText={setProductNameInput}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={handleProductNameSubmit}
-            />
-
-            <GradientButton
-              title="Continue"
-              onPress={handleProductNameSubmit}
-              disabled={!productNameInput.trim()}
-            />
-
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => {
-                setShowProductNameInput(false);
-                setCurrentIngredientId(null);
-                setProductNameInput('');
-              }}
-            >
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Loading overlay */}
       {loading && (
@@ -448,10 +321,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colorsV2.background,
   },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
   loadingContainer: {
     flex: 1,
     backgroundColor: colorsV2.background,
@@ -466,20 +335,14 @@ const styles = StyleSheet.create({
 
   // Header
   headerContainer: {
-    marginTop: spacingV2.xl,
+    marginTop: spacingV2.xl + spacingV2.lg,
     marginBottom: spacingV2.lg,
-  },
-  label: {
-    ...typographyV2.label,
-    color: colorsV2.accentOrange,
-    textAlign: 'center',
-    marginBottom: spacingV2.sm,
-    letterSpacing: 1.5,
+    alignItems: 'center',
   },
   headline: {
     ...typographyV2.hero,
     textAlign: 'center',
-    marginBottom: spacingV2.sm,
+    marginBottom: spacingV2.md,
   },
   subtitle: {
     ...typographyV2.body,
@@ -488,171 +351,92 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Progress
-  progressContainer: {
-    marginBottom: spacingV2.lg,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: colorsV2.surfaceLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: spacingV2.sm,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  progressText: {
-    ...typographyV2.caption,
-    color: colorsV2.textMuted,
-    textAlign: 'center',
+  // Product list
+  listContainer: {
+    gap: spacingV2.sm,
+    marginBottom: spacingV2.md,
   },
 
-  // Ingredient Card
-  ingredientCard: {
+  // Product card
+  productCard: {
     backgroundColor: colorsV2.surface,
-    borderRadius: borderRadiusV2.xl,
+    borderRadius: borderRadiusV2.lg,
     borderWidth: 1,
     borderColor: colorsV2.border,
-    padding: spacingV2.lg,
-    marginBottom: spacingV2.lg,
-    ...shadows.card,
+    padding: spacingV2.md,
   },
-  ingredientHeader: {
-    marginBottom: spacingV2.md,
+  productCardChecked: {
+    borderColor: colorsV2.accentOrange + '35',
   },
-  ingredientBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colorsV2.accentOrange + '18',
-    borderRadius: borderRadiusV2.sm,
-    paddingHorizontal: spacingV2.sm + 2,
-    paddingVertical: spacingV2.xs,
-  },
-  ingredientBadgeText: {
-    ...typographyV2.caption,
-    color: colorsV2.accentOrange,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  ingredientName: {
-    ...typographyV2.heading,
-    marginBottom: spacingV2.sm,
-  },
-  ingredientDescription: {
-    ...typographyV2.body,
-    color: colorsV2.textSecondary,
-    lineHeight: 22,
-    marginBottom: spacingV2.md,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colorsV2.border,
-    marginBottom: spacingV2.md,
-  },
-  examplesLabel: {
-    ...typographyV2.label,
-    color: colorsV2.textMuted,
-    marginBottom: spacingV2.sm,
-    letterSpacing: 1,
-  },
-  examplesScroll: {
-    maxHeight: 120,
-  },
-  exampleRow: {
+
+  // Top row
+  cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacingV2.sm,
   },
-  exampleDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colorsV2.accentPurple,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderWidth: 2,
+    borderColor: colorsV2.textMuted,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: spacingV2.sm,
   },
-  exampleText: {
-    ...typographyV2.bodySmall,
-    color: colorsV2.textSecondary,
+  checkboxActive: {
+    backgroundColor: colorsV2.accentOrange,
+    borderColor: colorsV2.accentOrange,
   },
-
-  // Actions
-  actionsContainer: {
-    gap: spacingV2.sm,
-    marginBottom: spacingV2.xl,
-  },
-  actionButton: {
-    backgroundColor: colorsV2.surface,
-    borderWidth: 1.5,
-    borderColor: colorsV2.border,
-    borderRadius: borderRadiusV2.pill,
-    paddingVertical: 16,
-    paddingHorizontal: spacingV2.xl,
-  },
-  actionButtonInner: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacingV2.sm,
-  },
-  actionButtonIcon: {
-    color: colorsV2.success,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  actionButtonText: {
+  cardName: {
     ...typographyV2.body,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colorsV2.textPrimary,
-    fontSize: 17,
+    flex: 1,
+  },
+  cardNameUnchecked: {
+    color: colorsV2.textMuted,
+    textDecorationLine: 'line-through',
+  },
+  timingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colorsV2.accentPurple + '15',
+    borderRadius: borderRadiusV2.sm,
+    paddingHorizontal: spacingV2.sm,
+    paddingVertical: spacingV2.xs - 1,
+    gap: 4,
+    marginLeft: spacingV2.sm,
+  },
+  timingText: {
+    ...typographyV2.caption,
+    color: colorsV2.accentPurple,
+    fontWeight: '600',
+    fontSize: 11,
   },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacingV2.lg,
-  },
-  modalContent: {
-    backgroundColor: colorsV2.surface,
-    borderRadius: borderRadiusV2.xl,
-    borderWidth: 1,
-    borderColor: colorsV2.border,
-    padding: spacingV2.xl,
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    ...typographyV2.heading,
-    textAlign: 'center',
+  // Benefit line
+  benefitText: {
+    ...typographyV2.body,
+    color: colorsV2.accentPurple,
+    fontWeight: '600',
+    fontSize: 14,
     marginBottom: spacingV2.xs,
   },
-  modalSubtitle: {
-    ...typographyV2.bodySmall,
-    color: colorsV2.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacingV2.lg,
-  },
-  modalInput: {
+
+  // Description
+  cardDescription: {
     ...typographyV2.body,
-    backgroundColor: colorsV2.background,
-    borderWidth: 1,
-    borderColor: colorsV2.border,
-    borderRadius: borderRadiusV2.md,
-    padding: spacingV2.md,
-    color: colorsV2.textPrimary,
+    color: colorsV2.textSecondary,
+    lineHeight: 20,
+    fontSize: 13,
+  },
+
+  // Button
+  buttonContainer: {
+    marginTop: spacingV2.lg,
     marginBottom: spacingV2.lg,
-  },
-  modalCancel: {
-    alignItems: 'center',
-    marginTop: spacingV2.md,
-    paddingVertical: spacingV2.sm,
-  },
-  modalCancelText: {
-    ...typographyV2.bodySmall,
-    color: colorsV2.textMuted,
   },
 
   // Loading overlay

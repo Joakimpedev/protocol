@@ -78,6 +78,9 @@ export const ONBOARDING_SCREENS = {
   V2_PROTOCOL_OVERVIEW: 'v2_protocol_overview',
   V2_SHOPPING: 'v2_shopping',
   V2_ABANDONED_CART_OFFER: 'v2_abandoned_cart_offer',
+  V2_VILLAGE_INTRO: 'v2_village_intro',
+  V2_VILLAGE_CHOICE: 'v2_village_choice',
+  V2_HABITS: 'v2_habits',
 } as const;
 
 /**

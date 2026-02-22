@@ -112,7 +112,7 @@ export default function PersonalizedRoutineScreen({ navigation }: any) {
 
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate('V2NotificationsAsk');
+    navigation.navigate('V2VillageIntro');
   };
 
   const progressBarHeight = insets.top + 24;

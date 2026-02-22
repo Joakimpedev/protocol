@@ -10,6 +10,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../contexts/AuthContext';
 import { useDevMode } from '../contexts/DevModeContext';
 import { useOnboarding } from '../contexts/OnboardingContext';
+import { usePremium } from '../contexts/PremiumContext';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { listenForFriendCompletions } from '../services/notificationService';
@@ -26,6 +27,7 @@ export default function RootNavigator() {
   const { user, loading } = useAuth();
   const { isDevModeEnabled, forceShowOnboarding, forceShowApp } = useDevMode();
   const { onboardingComplete, setOnboardingComplete } = useOnboarding();
+  const { isPremium, isLoading: isPremiumLoading } = usePremium();
   const [hasRoutine, setHasRoutine] = useState<boolean | null>(null);
   const [checkingRoutine, setCheckingRoutine] = useState(true);
   const navigationRef = useRef<any>(null);
@@ -34,8 +36,9 @@ export default function RootNavigator() {
   const prevShowOnboardingRef = useRef<boolean | null>(null);
 
   // Handle quick action tap (long-press app icon → "40% Off Lifetime")
+  // Skip if user already has an active subscription or if premium status is still loading
   useQuickActionCallback((action) => {
-    if (action?.params?.type === 'abandoned-cart' && navigationRef.current) {
+    if (action?.params?.type === 'abandoned-cart' && navigationRef.current && !isPremium && !isPremiumLoading) {
       navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
     }
   });
@@ -111,7 +114,7 @@ export default function RootNavigator() {
   const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
     const data = response.notification.request.content.data;
 
-    if (data?.type === 'abandoned-cart' && navigationRef.current) {
+    if (data?.type === 'abandoned-cart' && navigationRef.current && !isPremium && !isPremiumLoading) {
       navigationRef.current.navigate('OnboardingV2', { screen: 'OnboardingV2Flow', params: { screen: 'V2AbandonedCartOffer' } });
       return;
     }
